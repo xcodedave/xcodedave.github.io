@@ -3,13 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Birds experiment 1</title>
+    <title>Experiment No.1</title>
     <style>
       body {
         font-family: arial;
         margin: 0 auto;
         padding: none;
 		text-align:center;
+		background-color:#888888;
       }
       .emscripten { 
 	       padding-right: 0; 
@@ -27,7 +28,7 @@
   </head>
   <body >
  
-    <div class="emscripten" id="status">Downloading...</div>
+    <div class="emscripten" id="status"></div>
 
     <div class="emscripten">
       <progress value="0" max="100" id="progress" hidden=1></progress>
@@ -103,10 +104,10 @@
         totalDependencies: 0,
         monitorRunDependencies: function(left) {
           this.totalDependencies = Math.max(this.totalDependencies, left);
-          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+          //Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
         }
       };
-      Module.setStatus('Downloading...');
+      //Module.setStatus('Downloading...');
       window.onerror = function(event) {
         // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
         Module.setStatus('Exception thrown, see JavaScript console');
