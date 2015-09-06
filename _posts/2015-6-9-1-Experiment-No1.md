@@ -11,4 +11,4 @@ As a preliminary test of this technology, I ported an old [simplex noise](https:
 
 A few things could vastly improve this demo; namely preventing the camera from intersecting the terrain - alas, here is experiment no.1:
 
-<iframe width="100%" height="450" src="https://rawgit.com/xcodedave/xcodedave.github.io/master/experiments/birds/birds.html" frameborder="0"> </iframe>
+<iframe width="100%" height="450" src="https://rawgit.com/xcodedave/xcodedave.github.io/master/experiments/birds/birds.html" frameborder="0" scrolling="no"> </iframe>
