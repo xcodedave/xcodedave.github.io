@@ -4,12 +4,8 @@ title: About
 permalink: /about/
 ---
 
-Some information about you!
-
-### More Information
-
-A place to include any other types of information that you'd like to include about yourself.
+I'm an iOS and graphics developer interested in real-time rendering algorithms, human-computer interaction, and tools which expose underlying truths rather than hiding them. 
 
 ### Contact me
 
-[email@domain.com](mailto:email@domain.com)
+[@xcodedave](http://twitter.com/xcodedave)
