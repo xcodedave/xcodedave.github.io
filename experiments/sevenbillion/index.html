@@ -39,6 +39,7 @@
     var buffers = {};
     var rawData = {};
     var musicSource = null;
+    var silentAudio = null;
     var dbgEl = null;
     var dbgLines = [];
 
@@ -97,6 +98,21 @@
             s.connect(ctx.destination);
             s.start(0);
         } catch(e2) { dbg('silent buf err: ' + e2); }
+        // Play a looping silent HTML5 Audio element to force WebAudio onto
+        // the "media" channel. This bypasses the iOS mute switch, which
+        // silences Web Audio API but not HTML5 Audio.
+        if (!silentAudio) {
+            try {
+                silentAudio = new Audio('data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==');
+                silentAudio.loop = true;
+                silentAudio.volume = 0.001;
+                silentAudio.play().then(function() {
+                    dbg('html5 silent audio playing (mute bypass)');
+                }).catch(function(err) {
+                    dbg('html5 silent audio fail: ' + err);
+                });
+            } catch(e3) { dbg('html5 audio err: ' + e3); }
+        }
         // Re-decode any buffers that may have failed
         for (var n in rawData) {
             if (!buffers[n]) doDecode(n);
