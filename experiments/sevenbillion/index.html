@@ -31,6 +31,84 @@
 </head>
 <body>
 <div id="error"></div>
+<script>
+// Audio manager — runs before WASM, sets up Web Audio with Safari unlock.
+// Functions are called from WASM via window globals.
+(function() {
+    var ctx = null;
+    var buffers = {};
+    var rawData = {};
+    var musicSource = null;
+
+    function createCtx() {
+        if (ctx) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function doDecode(name) {
+        if (!ctx || !rawData[name] || buffers[name]) return;
+        var ab = rawData[name].buffer.slice(0);
+        ctx.decodeAudioData(ab,
+            function(decoded) { buffers[name] = decoded; },
+            function(err) { console.error('Audio decode error: ' + name, err); }
+        );
+    }
+
+    function unlockAudio() {
+        createCtx();
+        if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+            ctx.resume();
+        }
+        // Play silent buffer to warm up audio hardware (howler.js technique)
+        try {
+            var b = ctx.createBuffer(1, 1, 22050);
+            var s = ctx.createBufferSource();
+            s.buffer = b;
+            s.connect(ctx.destination);
+            s.start(0);
+        } catch(e) {}
+        // Re-decode any buffers that may have failed while ctx was suspended
+        for (var n in rawData) {
+            if (!buffers[n]) doDecode(n);
+        }
+    }
+
+    ['touchstart','touchend','mousedown','click','keydown'].forEach(function(e) {
+        document.addEventListener(e, unlockAudio, {passive: true});
+    });
+
+    window.sbAudioRegister = function(name, data) {
+        rawData[name] = new Uint8Array(data);
+        createCtx();
+        doDecode(name);
+    };
+
+    window.sbAudioPlay = function(name, volume, pitch, looping) {
+        if (!ctx || ctx.state !== 'running' || !buffers[name]) return false;
+        var src = ctx.createBufferSource();
+        src.buffer = buffers[name];
+        src.loop = looping;
+        src.playbackRate.value = pitch;
+        var gain = ctx.createGain();
+        gain.gain.value = volume;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        src.start(0);
+        if (looping) {
+            if (musicSource) try { musicSource.stop(); } catch(e) {}
+            musicSource = src;
+        }
+        return true;
+    };
+
+    window.sbAudioStopMusic = function() {
+        if (musicSource) {
+            try { musicSource.stop(); } catch(e) {}
+            musicSource = null;
+        }
+    };
+})();
+</script>
 <script type="module">
     import init from './pkg/sevenbillion.js';
 

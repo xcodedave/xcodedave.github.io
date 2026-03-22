@@ -1,10 +1,8 @@
 /* @ts-self-types="./sevenbillion.d.ts" */
-import { audio_play, audio_register } from './snippets/sevenbillion-e5411ff7ddb3e930/inline0.js';
 
 export function start() {
     wasm.start();
 }
-import * as import1 from "./snippets/sevenbillion-e5411ff7ddb3e930/inline0.js"
 
 function __wbg_get_imports() {
     const import0 = {
@@ -105,13 +103,6 @@ function __wbg_get_imports() {
         },
         __wbg_attachShader_e557f37438249ff7: function(arg0, arg1, arg2) {
             arg0.attachShader(arg1, arg2);
-        },
-        __wbg_audio_play_19db0c8c446f7fd6: function(arg0, arg1, arg2, arg3, arg4) {
-            const ret = audio_play(getStringFromWasm0(arg0, arg1), arg2, arg3, arg4 !== 0);
-            return ret;
-        },
-        __wbg_audio_register_b3bf65e30d209202: function(arg0, arg1, arg2, arg3) {
-            audio_register(getStringFromWasm0(arg0, arg1), getArrayU8FromWasm0(arg2, arg3));
         },
         __wbg_beginQuery_ac2ef47e00ec594a: function(arg0, arg1, arg2) {
             arg0.beginQuery(arg1 >>> 0, arg2);
@@ -1385,6 +1376,16 @@ function __wbg_get_imports() {
         __wbg_samplerParameteri_7dde222b01588620: function(arg0, arg1, arg2, arg3) {
             arg0.samplerParameteri(arg1, arg2 >>> 0, arg3);
         },
+        __wbg_sbAudioPlay_682c7471368a2543: function(arg0, arg1, arg2, arg3, arg4) {
+            const ret = window.sbAudioPlay(getStringFromWasm0(arg0, arg1), arg2, arg3, arg4 !== 0);
+            return ret;
+        },
+        __wbg_sbAudioRegister_47cd04df50a74ea7: function(arg0, arg1, arg2, arg3) {
+            window.sbAudioRegister(getStringFromWasm0(arg0, arg1), getArrayU8FromWasm0(arg2, arg3));
+        },
+        __wbg_sbAudioStopMusic_12c061af0329231e: function() {
+            window.sbAudioStopMusic();
+        },
         __wbg_scheduler_a17d41c9c822fc26: function(arg0) {
             const ret = arg0.scheduler;
             return ret;
@@ -2311,7 +2312,6 @@ function __wbg_get_imports() {
     return {
         __proto__: null,
         "./sevenbillion_bg.js": import0,
-        "./snippets/sevenbillion-e5411ff7ddb3e930/inline0.js": import1,
     };
 }
 
