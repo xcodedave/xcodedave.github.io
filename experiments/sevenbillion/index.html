@@ -39,35 +39,65 @@
     var buffers = {};
     var rawData = {};
     var musicSource = null;
+    var dbgEl = null;
+    var dbgLines = [];
+
+    function dbg(msg) {
+        dbgLines.push(msg);
+        if (dbgLines.length > 8) dbgLines.shift();
+        if (!dbgEl) {
+            dbgEl = document.createElement('div');
+            dbgEl.style.cssText = 'position:fixed;bottom:0;left:0;right:0;color:#0f0;background:rgba(0,0,0,0.8);font:11px monospace;padding:6px;z-index:9999;pointer-events:none;white-space:pre;';
+            document.body.appendChild(dbgEl);
+        }
+        dbgEl.textContent = dbgLines.join('\n');
+    }
 
     function createCtx() {
         if (ctx) return;
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        try {
+            ctx = new (window.AudioContext || window.webkitAudioContext)();
+            dbg('ctx created, state=' + ctx.state + ', sr=' + ctx.sampleRate);
+            ctx.onstatechange = function() { dbg('ctx state -> ' + ctx.state); };
+        } catch(e) {
+            dbg('ctx create FAILED: ' + e);
+        }
     }
 
     function doDecode(name) {
         if (!ctx || !rawData[name] || buffers[name]) return;
         var ab = rawData[name].buffer.slice(0);
+        dbg('decoding ' + name + ' (' + ab.byteLength + ' bytes)...');
         ctx.decodeAudioData(ab,
-            function(decoded) { buffers[name] = decoded; },
-            function(err) { console.error('Audio decode error: ' + name, err); }
+            function(decoded) {
+                buffers[name] = decoded;
+                dbg('decoded ' + name + ': ' + decoded.duration.toFixed(1) + 's, ' + decoded.numberOfChannels + 'ch');
+            },
+            function(err) {
+                dbg('DECODE FAIL ' + name + ': ' + err);
+            }
         );
     }
 
-    function unlockAudio() {
+    function unlockAudio(e) {
         createCtx();
+        dbg('unlock from ' + e.type + ', state=' + ctx.state);
         if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
-            ctx.resume();
+            ctx.resume().then(function() {
+                dbg('resume ok, state=' + ctx.state);
+            }).catch(function(err) {
+                dbg('resume FAIL: ' + err);
+            });
         }
-        // Play silent buffer to warm up audio hardware (howler.js technique)
+        // Play silent buffer to warm up audio hardware
         try {
             var b = ctx.createBuffer(1, 1, 22050);
             var s = ctx.createBufferSource();
             s.buffer = b;
             s.connect(ctx.destination);
             s.start(0);
-        } catch(e) {}
-        // Re-decode any buffers that may have failed while ctx was suspended
+        } catch(e2) { dbg('silent buf err: ' + e2); }
+        // Re-decode any buffers that may have failed
         for (var n in rawData) {
             if (!buffers[n]) doDecode(n);
         }
@@ -78,35 +108,47 @@
     });
 
     window.sbAudioRegister = function(name, data) {
+        dbg('register ' + name + ' (' + data.length + ' bytes)');
         rawData[name] = new Uint8Array(data);
         createCtx();
         doDecode(name);
     };
 
     window.sbAudioPlay = function(name, volume, pitch, looping) {
-        if (!ctx || ctx.state !== 'running' || !buffers[name]) return false;
-        var src = ctx.createBufferSource();
-        src.buffer = buffers[name];
-        src.loop = looping;
-        src.playbackRate.value = pitch;
-        var gain = ctx.createGain();
-        gain.gain.value = volume;
-        src.connect(gain);
-        gain.connect(ctx.destination);
-        src.start(0);
-        if (looping) {
-            if (musicSource) try { musicSource.stop(); } catch(e) {}
-            musicSource = src;
+        if (!ctx) { return false; }
+        if (ctx.state !== 'running') { return false; }
+        if (!buffers[name]) { return false; }
+        try {
+            var src = ctx.createBufferSource();
+            src.buffer = buffers[name];
+            src.loop = looping;
+            src.playbackRate.value = pitch;
+            var gain = ctx.createGain();
+            gain.gain.value = volume;
+            src.connect(gain);
+            gain.connect(ctx.destination);
+            src.start(0);
+            if (looping) {
+                if (musicSource) try { musicSource.stop(); } catch(e) {}
+                musicSource = src;
+            }
+            dbg('play ' + name + ' vol=' + volume + ' loop=' + looping + ' OK');
+            return true;
+        } catch(err) {
+            dbg('play ' + name + ' ERROR: ' + err);
+            return false;
         }
-        return true;
     };
 
     window.sbAudioStopMusic = function() {
         if (musicSource) {
             try { musicSource.stop(); } catch(e) {}
             musicSource = null;
+            dbg('music stopped');
         }
     };
+
+    dbg('audio manager loaded');
 })();
 </script>
 <script type="module">
