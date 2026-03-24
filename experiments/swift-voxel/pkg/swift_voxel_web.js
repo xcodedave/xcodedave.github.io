@@ -84,6 +84,15 @@ export function js_import_vox(data) {
 }
 
 /**
+ * Returns true once the renderer (WebGPU) is fully initialised.
+ * @returns {boolean}
+ */
+export function js_is_ready() {
+    const ret = wasm.js_is_ready();
+    return ret !== 0;
+}
+
+/**
  * Load a scene from .svox bytes. Returns true on success.
  * @param {Uint8Array} data
  * @returns {boolean}
@@ -289,6 +298,14 @@ function __wbg_get_imports() {
         },
         __wbg_clearTimeout_fdfb5a1468af1a97: function(arg0, arg1) {
             arg0.clearTimeout(arg1);
+        },
+        __wbg_clientHeight_3d6e452054fdbc3b: function(arg0) {
+            const ret = arg0.clientHeight;
+            return ret;
+        },
+        __wbg_clientWidth_33c7e9c1bcdf4a7e: function(arg0) {
+            const ret = arg0.clientWidth;
+            return ret;
         },
         __wbg_close_ab55423854e61546: function(arg0) {
             arg0.close();
@@ -813,6 +830,10 @@ function __wbg_get_imports() {
         __wbg_offsetY_10e5433a1bbd4c01: function(arg0) {
             const ret = arg0.offsetY;
             return ret;
+        },
+        __wbg_parentElement_6ea1a9ddfe78f22d: function(arg0) {
+            const ret = arg0.parentElement;
+            return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
         __wbg_performance_3fcf6e32a7e1ed0a: function(arg0) {
             const ret = arg0.performance;

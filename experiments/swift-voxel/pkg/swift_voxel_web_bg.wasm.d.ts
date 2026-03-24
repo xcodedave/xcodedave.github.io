@@ -9,6 +9,7 @@ export const js_export_vox: () => [number, number];
 export const js_get_editor_state_json: () => [number, number];
 export const js_get_palette_json: () => [number, number];
 export const js_import_vox: (a: number, b: number) => number;
+export const js_is_ready: () => number;
 export const js_load_svox: (a: number, b: number) => number;
 export const js_pointer_down: (a: number, b: number, c: number) => void;
 export const js_pointer_move: (a: number, b: number, c: number, d: number) => void;

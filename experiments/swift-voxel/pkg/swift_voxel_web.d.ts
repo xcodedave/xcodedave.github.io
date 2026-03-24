@@ -37,6 +37,11 @@ export function js_get_palette_json(): string;
 export function js_import_vox(data: Uint8Array): boolean;
 
 /**
+ * Returns true once the renderer (WebGPU) is fully initialised.
+ */
+export function js_is_ready(): boolean;
+
+/**
  * Load a scene from .svox bytes. Returns true on success.
  */
 export function js_load_svox(data: Uint8Array): boolean;
@@ -91,6 +96,7 @@ export interface InitOutput {
     readonly js_get_editor_state_json: () => [number, number];
     readonly js_get_palette_json: () => [number, number];
     readonly js_import_vox: (a: number, b: number) => number;
+    readonly js_is_ready: () => number;
     readonly js_load_svox: (a: number, b: number) => number;
     readonly js_pointer_down: (a: number, b: number, c: number) => void;
     readonly js_pointer_move: (a: number, b: number, c: number, d: number) => void;

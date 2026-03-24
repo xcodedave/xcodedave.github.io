@@ -165,33 +165,63 @@ let activeColorIndex = 1;
 let activeTool = 'sculpt';
 let lightingOn = true;
 
+// ─── Canvas geometry helper ────────────────────────────────────────────────
+// Returns canvas-relative {x, y} from a clientX/clientY coordinate.
+function canvasCoords(clientX, clientY) {
+  const rect = document.getElementById('canvas').getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+// ─── Readiness polling ─────────────────────────────────────────────────────
+// init_wasm() returns as soon as the wasm module is parsed and wasm_main()
+// fires run_app (which schedules winit via rAF and returns immediately).
+// The GPU device and renderer are created asynchronously AFTER that, so we
+// must wait for js_is_ready() before calling any bridge functions.
+async function waitForReady(timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => requestAnimationFrame(r));
+    if (wasm.js_is_ready()) return true;
+  }
+  return false;
+}
+
 async function init() {
   const overlay = document.getElementById('status-overlay');
+
   if (!navigator.gpu) {
     overlay.textContent = 'WebGPU not supported.\nUse Chrome 113+ or Edge 113+ on desktop.';
     return;
   }
+
+  overlay.textContent = 'Loading WASM…';
   try {
     await init_wasm();
   } catch (e) {
-    if (e && e.message && e.message.includes('Using exceptions for control flow')) {
-      // wasm-bindgen internal — not a real error
-    } else {
-      overlay.textContent = 'Failed: ' + (e && e.message ? e.message : String(e));
+    // wasm-bindgen uses exceptions for control-flow internally — ignore them
+    if (!e?.message?.includes('Using exceptions for control flow')) {
+      overlay.textContent = 'Failed: ' + (e?.message ?? String(e));
       console.error(e);
       return;
     }
   }
+
+  overlay.textContent = 'Initialising WebGPU…';
+  const ready = await waitForReady();
+  if (!ready) {
+    overlay.textContent = 'WebGPU initialisation timed out.\nCheck browser console for errors.';
+    return;
+  }
+
   wasmReady = true;
   overlay.style.display = 'none';
-  // Give winit one rAF to run resumed() before we poll state
-  requestAnimationFrame(() => {
-    buildPalette();
-    syncUIState();
-    setInterval(syncUIState, 2000);
-  });
+
+  buildPalette();
+  syncUIState();
+  setInterval(syncUIState, 2000);
 }
 
+// ─── Palette ───────────────────────────────────────────────────────────────
 function buildPalette() {
   const grid = document.getElementById('palette-grid');
   grid.innerHTML = '';
@@ -213,7 +243,7 @@ function buildPalette() {
 function pickColor(idx, hex) {
   if (idx === 0) return;
   activeColorIndex = idx;
-  if (wasmReady) wasm.js_set_color_index(idx);
+  wasm.js_set_color_index(idx);
   document.querySelectorAll('.swatch.selected').forEach(el => el.classList.remove('selected'));
   const el = document.querySelector(`.swatch[data-idx="${idx}"]`);
   if (el) el.classList.add('selected');
@@ -225,6 +255,7 @@ function updateActiveColorUI(hex) {
   document.getElementById('active-color-label').textContent = `IDX ${activeColorIndex}`;
 }
 
+// ─── Tool / render controls ────────────────────────────────────────────────
 window.setTool = function(tool) {
   activeTool = tool;
   if (wasmReady) wasm.js_set_tool(tool);
@@ -240,32 +271,21 @@ window.toggleLighting = function() {
   btn.classList.toggle('active', lightingOn);
 };
 
-window.saveFile = function() {
-  if (!wasmReady) return;
-  const bytes = wasm.js_save_svox();
-  if (!bytes || !bytes.length) { alert('Nothing to save.'); return; }
-  triggerDownload(bytes, 'scene.svox', 'application/octet-stream');
-};
-window.loadFile = function() { document.getElementById('file-input').click(); };
-window.exportVox = function() {
-  if (!wasmReady) return;
-  const bytes = wasm.js_export_vox();
-  if (!bytes || !bytes.length) { alert('Nothing to export.'); return; }
-  triggerDownload(bytes, 'scene.vox', 'application/octet-stream');
-};
-window.importVox = function() { document.getElementById('vox-input').click(); };
+// ─── File I/O ──────────────────────────────────────────────────────────────
+window.saveFile   = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),   'scene.svox', 'application/octet-stream'); };
+window.loadFile   = () => document.getElementById('file-input').click();
+window.exportVox  = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(),  'scene.vox',  'application/octet-stream'); };
+window.importVox  = () => document.getElementById('vox-input').click();
 
 document.getElementById('file-input').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file || !wasmReady) return;
+  const file = e.target.files[0]; if (!file || !wasmReady) return;
   const ok = wasm.js_load_svox(new Uint8Array(await file.arrayBuffer()));
   if (!ok) alert('Failed to load .svox file.');
   else { buildPalette(); syncUIState(); }
   e.target.value = '';
 });
 document.getElementById('vox-input').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file || !wasmReady) return;
+  const file = e.target.files[0]; if (!file || !wasmReady) return;
   const ok = wasm.js_import_vox(new Uint8Array(await file.arrayBuffer()));
   if (!ok) alert('Failed to import .vox file.');
   else { buildPalette(); syncUIState(); }
@@ -273,6 +293,7 @@ document.getElementById('vox-input').addEventListener('change', async (e) => {
 });
 
 function triggerDownload(bytes, name, mime) {
+  if (!bytes || !bytes.length) { alert('Nothing to save.'); return; }
   const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
   const a = document.createElement('a');
   a.href = url; a.download = name; a.click();
@@ -288,27 +309,28 @@ function syncUIState() {
   } catch {}
 }
 
-// ── Canvas pointer input (winit handles mouse, we bridge touch) ──────────────
-const canvas = document.getElementById('canvas');
-
-// Forward wheel to winit through the wasm bridge
-canvas.addEventListener('wheel', (e) => {
-  if (!wasmReady) return;
+// ─── Canvas scroll (zoom) ──────────────────────────────────────────────────
+// Winit already processes MouseWheel → handle_scroll → camera.zoom.
+// We only need preventDefault so the page doesn't scroll underneath.
+// We do NOT call js_camera_zoom here to avoid double-zooming.
+document.getElementById('canvas').addEventListener('wheel', (e) => {
   e.preventDefault();
-  wasm.js_camera_zoom(e.deltaY * 0.005);
 }, { passive: false });
 
-// ── Touch gesture system ─────────────────────────────────────────────────────
+// ─── Touch gesture system ──────────────────────────────────────────────────
+// Winit handles pointer events; we handle touch events separately.
+// preventDefault on touchstart prevents the browser from also synthesising
+// pointer events, avoiding double-action.
+const canvas = document.getElementById('canvas');
 let touches = {};
 let pinchDist = null;
 let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
 const LONG_MS = 480, TAP_THRESH = 10;
-
 function touchPos(t) { return { x: t.clientX, y: t.clientY }; }
 
 canvas.addEventListener('touchstart', (e) => {
   if (!wasmReady) return;
-  e.preventDefault();
+  e.preventDefault(); // also prevents synthesised pointerdown
   for (const t of e.changedTouches) touches[t.identifier] = touchPos(t);
   const n = Object.keys(touches).length;
   if (n === 1) {
@@ -316,13 +338,18 @@ canvas.addEventListener('touchstart', (e) => {
     tapX = t.clientX; tapY = t.clientY; tapMoved = false;
     tapTimer = setTimeout(() => {
       tapTimer = null;
-      if (!tapMoved) { wasm.js_pointer_down(tapX, tapY, 1); wasm.js_pointer_up(); }
+      if (!tapMoved) {
+        const p = canvasCoords(tapX, tapY);
+        wasm.js_pointer_down(p.x, p.y, 1); // long-press = remove
+        wasm.js_pointer_up();
+      }
     }, LONG_MS);
   }
   if (n === 2) {
     clearTapTimer();
     const ids = Object.keys(touches);
-    pinchDist = Math.hypot(touches[ids[1]].x-touches[ids[0]].x, touches[ids[1]].y-touches[ids[0]].y);
+    pinchDist = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
+                           touches[ids[1]].y - touches[ids[0]].y);
   }
 }, { passive: false });
 
@@ -332,18 +359,19 @@ canvas.addEventListener('touchmove', (e) => {
   const n = Object.keys(touches).length;
   if (n === 1) {
     const t = e.changedTouches[0];
-    const prev = touches[t.identifier];
-    if (!prev) return;
+    const prev = touches[t.identifier]; if (!prev) return;
     const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
     touches[t.identifier] = touchPos(t);
-    if (!tapMoved && Math.hypot(t.clientX-tapX, t.clientY-tapY) > TAP_THRESH) {
+    if (!tapMoved && Math.hypot(t.clientX - tapX, t.clientY - tapY) > TAP_THRESH) {
       tapMoved = true; clearTapTimer();
     }
     if (tapMoved) wasm.js_camera_orbit(dx * 0.4, dy * 0.4);
   } else if (n === 2) {
     for (const t of e.changedTouches) if (t.identifier in touches) touches[t.identifier] = touchPos(t);
     const ids = Object.keys(touches);
-    const nd = Math.hypot(touches[ids[1]].x-touches[ids[0]].x, touches[ids[1]].y-touches[ids[0]].y);
+    if (ids.length < 2) return;
+    const nd = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
+                          touches[ids[1]].y - touches[ids[0]].y);
     if (pinchDist !== null) wasm.js_camera_zoom((pinchDist - nd) * 0.015);
     pinchDist = nd;
   }
@@ -353,12 +381,12 @@ canvas.addEventListener('touchend', (e) => {
   if (!wasmReady) return;
   e.preventDefault();
   for (const t of e.changedTouches) delete touches[t.identifier];
-  const n = Object.keys(touches).length;
-  if (n === 0) {
+  if (Object.keys(touches).length === 0) {
     pinchDist = null;
     if (!tapMoved && tapTimer !== null) {
       clearTapTimer();
-      wasm.js_pointer_down(tapX, tapY, 0);
+      const p = canvasCoords(tapX, tapY);
+      wasm.js_pointer_down(p.x, p.y, 0); // tap = add voxel
       wasm.js_pointer_up();
     }
     tapMoved = false;
@@ -366,13 +394,15 @@ canvas.addEventListener('touchend', (e) => {
 }, { passive: false });
 
 canvas.addEventListener('touchcancel', () => { touches = {}; pinchDist = null; clearTapTimer(); });
-
 function clearTapTimer() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
 
-// ── Viewport resize ───────────────────────────────────────────────────────────
+// ─── Viewport resize ───────────────────────────────────────────────────────
+// Winit uses a ResizeObserver on the canvas, so changing canvas.width/height
+// notifies it automatically. We mirror the viewport div's size.
 function onResize() {
-  const c = document.getElementById('canvas');
-  if (c) { c.width = c.clientWidth; c.height = c.clientHeight; }
+  const vp = document.getElementById('viewport');
+  const c  = document.getElementById('canvas');
+  if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
 }
 window.addEventListener('resize', onResize);
 screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
