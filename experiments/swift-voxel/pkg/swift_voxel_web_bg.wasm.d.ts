@@ -2,6 +2,21 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const wasm_main: () => void;
+export const js_camera_orbit: (a: number, b: number) => void;
+export const js_camera_pan: (a: number, b: number) => void;
+export const js_camera_zoom: (a: number) => void;
+export const js_export_vox: () => [number, number];
+export const js_get_editor_state_json: () => [number, number];
+export const js_get_palette_json: () => [number, number];
+export const js_import_vox: (a: number, b: number) => number;
+export const js_load_svox: (a: number, b: number) => number;
+export const js_pointer_down: (a: number, b: number, c: number) => void;
+export const js_pointer_move: (a: number, b: number, c: number, d: number) => void;
+export const js_pointer_up: () => void;
+export const js_save_svox: () => [number, number];
+export const js_set_color_index: (a: number) => void;
+export const js_set_tool: (a: number, b: number) => void;
+export const js_toggle_lighting: () => void;
 export const wasm_bindgen__closure__destroy__h0f224a482f54dc30: (a: number, b: number) => void;
 export const wasm_bindgen__closure__destroy__h33b70e22126fc759: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__hae2313f37fa2cae4: (a: number, b: number, c: any, d: any) => void;
