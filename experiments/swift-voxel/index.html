@@ -281,7 +281,7 @@ function setupCanvasListeners() {
       if (ids.length < 2) return;
       const nd = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
                             activeTouches[ids[1]].y - activeTouches[ids[0]].y);
-      if (pinchDist !== null) wasm.js_camera_zoom((pinchDist - nd) * 0.02);
+      if (pinchDist !== null) wasm.js_camera_zoom((nd - pinchDist) * 0.02);
       pinchDist = nd;
     }
   }, { passive: false });
