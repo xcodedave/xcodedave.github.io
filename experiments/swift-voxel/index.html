@@ -347,6 +347,9 @@ async function init() {
   setupCanvasListeners();
 
   wasmReady = true;
+  // Push the JS-side defaults into WASM (renderer initialises with Paint, not Sculpt).
+  wasm.js_set_tool(activeTool);
+
   overlay.style.display = 'none';
 
   buildPalette();
