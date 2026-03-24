@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftVoxel — WebGPU Voxel Editor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a24; overflow: hidden; }
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #status {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #aaa;
+            font-family: monospace;
+            font-size: 16px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="status">Loading WebGPU...</div>
+    <script type="module">
+        async function init() {
+            const status = document.getElementById('status');
+
+            if (!navigator.gpu) {
+                status.textContent = 'WebGPU is not supported in this browser.';
+                return;
+            }
+
+            try {
+                const { default: init_wasm } = await import('./pkg/swift_voxel_web.js');
+                await init_wasm();
+                status.style.display = 'none';
+            } catch (e) {
+                status.textContent = 'Failed to initialize: ' + e.message;
+                console.error(e);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
