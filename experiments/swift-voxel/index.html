@@ -1,52 +1,450 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SwiftVoxel — WebGPU Voxel Editor</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #1a1a24; overflow: hidden; }
-        canvas {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-        }
-        #status {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #aaa;
-            font-family: monospace;
-            font-size: 16px;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SwiftVoxel — WebGPU Editor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a24; }
+    :root {
+      --bg: #1a1a24; --panel: #2a2a38; --panel-hi: #3a3a4e;
+      --border-lt: #5a5a7a; --border-dk: #0d0d14;
+      --text: #ccccdd; --text-dim: #7777aa;
+      --accent: #6688cc; --sidebar-w: 220px;
+    }
+    body { font-family: "Courier New", Courier, monospace; color: var(--text); }
+    #layout { display: flex; width: 100%; height: 100%; }
+    #viewport { flex: 1 1 auto; position: relative; overflow: hidden; min-width: 0; }
+    /* Placeholder canvas — winit replaces this element but preserves id="canvas" */
+    #canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      display: block; touch-action: none; cursor: crosshair;
+    }
+    #sidebar {
+      flex: 0 0 var(--sidebar-w); width: var(--sidebar-w);
+      background: var(--panel);
+      border-left: 2px solid var(--border-lt);
+      display: flex; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden;
+      scrollbar-width: thin; scrollbar-color: var(--panel-hi) var(--panel);
+    }
+    .section { padding: 6px; border-bottom: 1px solid var(--border-dk); }
+    .section-title {
+      font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--text-dim); margin-bottom: 5px;
+      padding-bottom: 3px; border-bottom: 1px solid var(--border-dk);
+    }
+    button {
+      font-family: inherit; font-size: 11px; color: var(--text);
+      background: var(--panel-hi); cursor: pointer; user-select: none;
+      border: none; outline: none;
+    }
+    .btn {
+      display: block; width: 100%; padding: 5px 6px; text-align: left;
+      border-top: 2px solid var(--border-lt); border-left: 2px solid var(--border-lt);
+      border-bottom: 2px solid var(--border-dk); border-right: 2px solid var(--border-dk);
+      background: var(--panel-hi); margin-bottom: 3px;
+    }
+    .btn:active {
+      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
+      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
+      padding: 6px 5px 4px 7px;
+    }
+    .btn.active {
+      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
+      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
+      color: #fff; background: var(--accent);
+    }
+    .btn-row { display: flex; gap: 3px; }
+    .btn-row .btn { flex: 1; margin-bottom: 3px; font-size: 10px; }
+    #active-color-wrap { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    #active-color-swatch {
+      width: 28px; height: 28px; flex-shrink: 0;
+      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
+      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
+    }
+    #active-color-label { font-size: 10px; color: var(--text-dim); }
+    #palette-grid {
+      display: grid; grid-template-columns: repeat(16, 1fr);
+      gap: 1px; background: var(--border-dk);
+      border: 1px solid var(--border-dk); margin-bottom: 4px;
+    }
+    .swatch { aspect-ratio: 1; cursor: pointer; position: relative; }
+    .swatch:hover::after { content:''; position:absolute; inset:0; background:rgba(255,255,255,.3); }
+    .swatch.selected::after { content:''; position:absolute; inset:0; box-shadow:inset 0 0 0 2px #fff; }
+    .swatch-transparent { background: repeating-conic-gradient(#555 0% 25%, #888 0% 50%) 0 0/6px 6px; }
+    #status-overlay {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center;
+      background: rgba(26,26,36,.93); font-size: 14px;
+      color: var(--text-dim); text-align: center; padding: 20px;
+      z-index: 100; pointer-events: none; white-space: pre-line;
+    }
+    #help-hint {
+      position: absolute; bottom: 10px; left: 10px;
+      font-size: 9px; color: rgba(120,120,160,.65);
+      line-height: 1.6; pointer-events: none;
+    }
+    @media (max-width: 680px) {
+      #layout { flex-direction: column; }
+      #sidebar {
+        flex: 0 0 auto; width: 100%; max-height: 44vh;
+        flex-direction: row; flex-wrap: wrap;
+        border-left: none; border-top: 2px solid var(--border-lt);
+        overflow-x: auto;
+      }
+      .section { flex: 0 0 auto; min-width: 110px; }
+      #section-palette { flex: 0 0 100%; order: 10; }
+      #palette-grid { grid-template-columns: repeat(32, 1fr); }
+      #help-hint { display: none; }
+    }
+  </style>
 </head>
 <body>
+<div id="layout">
+  <div id="viewport">
     <canvas id="canvas"></canvas>
-    <div id="status">Loading WebGPU...</div>
-    <script type="module">
-        async function init() {
-            const status = document.getElementById('status');
+    <div id="status-overlay">Loading WebGPU…</div>
+    <div id="help-hint">
+      DRAG — orbit  |  SCROLL — zoom  |  OPT+DRAG — pan<br>
+      LMB — add voxel  |  RMB — remove voxel
+    </div>
+  </div>
+  <div id="sidebar">
+    <div class="section">
+      <div class="section-title">TOOL</div>
+      <div class="btn-row">
+        <button class="btn active" id="btn-sculpt" onclick="setTool('sculpt')">SCULPT</button>
+        <button class="btn"        id="btn-paint"  onclick="setTool('paint')">PAINT</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">RENDER</div>
+      <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
+    </div>
+    <div class="section" id="section-color">
+      <div class="section-title">ACTIVE COLOR</div>
+      <div id="active-color-wrap">
+        <div id="active-color-swatch"></div>
+        <span id="active-color-label">IDX 1</span>
+      </div>
+    </div>
+    <div class="section" id="section-palette">
+      <div class="section-title">PALETTE</div>
+      <div id="palette-grid"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">FILE</div>
+      <button class="btn" onclick="saveFile()">SAVE .SVOX</button>
+      <button class="btn" onclick="loadFile()">OPEN .SVOX</button>
+      <button class="btn" onclick="exportVox()">EXPORT .VOX</button>
+      <button class="btn" onclick="importVox()">IMPORT .VOX</button>
+    </div>
+    <div class="section">
+      <div class="section-title">SCENE</div>
+      <div id="scene-info" style="font-size:10px;color:var(--text-dim);line-height:1.8"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">MOBILE CONTROLS</div>
+      <div style="font-size:9px;color:var(--text-dim);line-height:1.8">
+        TAP — add voxel<br>
+        LONG PRESS — remove<br>
+        DRAG — orbit camera<br>
+        PINCH — zoom
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="file-input" accept=".svox" style="display:none">
+<input type="file" id="vox-input"  accept=".vox"  style="display:none">
+<script type="module">
+import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
 
-            if (!navigator.gpu) {
-                status.textContent = 'WebGPU is not supported in this browser.';
-                return;
-            }
+let wasmReady = false;
+let activeColorIndex = 1;
+let activeTool = 'sculpt';
+let lightingOn = true;
 
-            try {
-                const { default: init_wasm } = await import('./pkg/swift_voxel_web.js');
-                await init_wasm();
-                status.style.display = 'none';
-            } catch (e) {
-                status.textContent = 'Failed to initialize: ' + e.message;
-                console.error(e);
-            }
+// ─── Readiness polling ─────────────────────────────────────────────────────
+// init_wasm() → wasm_main() → run_app() returns immediately (WASM), then
+// winit fires resumed() via rAF which spawns async GPU init.
+// We must not touch the bridge until js_is_ready() returns true.
+async function waitForReady(timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => requestAnimationFrame(r));
+    if (wasm.js_is_ready()) return true;
+  }
+  return false;
+}
+
+// ─── Canvas helpers ────────────────────────────────────────────────────────
+// Always resolve through getElementById so we get winit's canvas (which
+// replaced the placeholder after resumed() ran).
+function getCanvas() { return document.getElementById('canvas'); }
+
+function canvasCoords(clientX, clientY) {
+  const rect = getCanvas().getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+// ─── Viewport resize ───────────────────────────────────────────────────────
+function onResize() {
+  const vp = document.getElementById('viewport');
+  const c  = getCanvas();
+  if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
+}
+
+// ─── Touch + wheel event setup ─────────────────────────────────────────────
+// Called AFTER waitForReady() so that getCanvas() returns winit's canvas.
+// Touch listeners are placed on WINDOW (not the canvas) so that winit's
+// canvas-level touchstart.preventDefault() / setPointerCapture() calls
+// cannot interfere with our handlers receiving touchmove/touchend events.
+function setupCanvasListeners() {
+  const c = getCanvas();
+  if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
+
+  // Wheel: preventDefault stops page scroll; winit handles zoom via MouseWheel.
+  c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
+
+  // ── Touch gesture system ─────────────────────────────────────────────────
+  // All touch listeners are on `window` so they receive events regardless of
+  // what winit does to the canvas element's own event chain.
+  let activeTouches = {};     // identifier -> {x, y}
+  let pinchDist = null;
+  let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
+  let trackingCanvas = false; // true only when the active touch started on the canvas
+  const LONG_MS = 500, TAP_THRESH = 12;
+
+  function tp(t) { return { x: t.clientX, y: t.clientY }; }
+  function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
+
+  // Check whether a touch point lies within the canvas bounding rect.
+  function isTouchOnCanvas(t) {
+    const rect = getCanvas().getBoundingClientRect();
+    return t.clientX >= rect.left && t.clientX <= rect.right &&
+           t.clientY >= rect.top  && t.clientY <= rect.bottom;
+  }
+
+  window.addEventListener('touchstart', (e) => {
+    const first = e.changedTouches[0];
+    // If we're not yet tracking any canvas touch, only start tracking if the
+    // first finger landed on the canvas.
+    if (!trackingCanvas) {
+      if (!isTouchOnCanvas(first)) return;
+      trackingCanvas = true;
+    }
+
+    for (const t of e.changedTouches) activeTouches[t.identifier] = tp(t);
+    const n = Object.keys(activeTouches).length;
+
+    if (n === 1) {
+      tapX = first.clientX; tapY = first.clientY; tapMoved = false;
+      tapTimer = setTimeout(() => {
+        tapTimer = null;
+        if (!tapMoved) {
+          const p = canvasCoords(tapX, tapY);
+          wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
+          wasm.js_pointer_up();
         }
+      }, LONG_MS);
+    }
+    if (n === 2) {
+      clearTap();
+      const ids = Object.keys(activeTouches);
+      pinchDist = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
+                             activeTouches[ids[1]].y - activeTouches[ids[0]].y);
+    }
+  }, { passive: true }); // passive=true: we don't need preventDefault on touchstart
 
-        init();
-    </script>
+  window.addEventListener('touchmove', (e) => {
+    if (!trackingCanvas) return;
+    // Prevent browser scroll/zoom while we're handling a canvas gesture.
+    e.preventDefault();
+
+    const n = Object.keys(activeTouches).length;
+    if (n === 1) {
+      const t = e.changedTouches[0];
+      const prev = activeTouches[t.identifier]; if (!prev) return;
+      const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
+      activeTouches[t.identifier] = tp(t);
+      if (!tapMoved && Math.hypot(t.clientX - tapX, t.clientY - tapY) > TAP_THRESH) {
+        tapMoved = true; clearTap();
+      }
+      if (tapMoved) wasm.js_camera_orbit(dx * 0.5, dy * 0.5);
+    } else if (n >= 2) {
+      for (const t of e.changedTouches) {
+        if (t.identifier in activeTouches) activeTouches[t.identifier] = tp(t);
+      }
+      const ids = Object.keys(activeTouches);
+      if (ids.length < 2) return;
+      const nd = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
+                            activeTouches[ids[1]].y - activeTouches[ids[0]].y);
+      if (pinchDist !== null) wasm.js_camera_zoom((pinchDist - nd) * 0.02);
+      pinchDist = nd;
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', (e) => {
+    if (!trackingCanvas) return;
+    for (const t of e.changedTouches) delete activeTouches[t.identifier];
+    if (Object.keys(activeTouches).length === 0) {
+      trackingCanvas = false;
+      pinchDist = null;
+      if (!tapMoved && tapTimer !== null) {
+        clearTap();
+        const p = canvasCoords(tapX, tapY);
+        wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
+        wasm.js_pointer_up();
+      }
+      tapMoved = false;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchcancel', (e) => {
+    if (!trackingCanvas) return;
+    for (const t of e.changedTouches) delete activeTouches[t.identifier];
+    if (Object.keys(activeTouches).length === 0) {
+      trackingCanvas = false;
+      pinchDist = null;
+      clearTap();
+      tapMoved = false;
+    }
+  }, { passive: true });
+
+  // Force correct initial size
+  onResize();
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+async function init() {
+  const overlay = document.getElementById('status-overlay');
+
+  if (!navigator.gpu) {
+    overlay.textContent = 'WebGPU not supported.\nUse Chrome 113+ or Edge 113+ on desktop.';
+    return;
+  }
+
+  overlay.textContent = 'Loading WASM…';
+  try {
+    await init_wasm();
+  } catch (e) {
+    if (!e?.message?.includes('Using exceptions for control flow')) {
+      overlay.textContent = 'Failed: ' + (e?.message ?? String(e));
+      console.error(e); return;
+    }
+  }
+
+  overlay.textContent = 'Initialising WebGPU…';
+  const ready = await waitForReady();
+  if (!ready) {
+    overlay.textContent = 'WebGPU initialisation timed out.\nCheck browser console for errors.';
+    return;
+  }
+
+  // winit's canvas is now in the DOM with id="canvas" — safe to bind listeners
+  setupCanvasListeners();
+
+  wasmReady = true;
+  overlay.style.display = 'none';
+
+  buildPalette();
+  syncUIState();
+  setInterval(syncUIState, 2000);
+}
+
+// ─── Palette ───────────────────────────────────────────────────────────────
+function buildPalette() {
+  const grid = document.getElementById('palette-grid');
+  grid.innerHTML = '';
+  let colors;
+  try { colors = JSON.parse(wasm.js_get_palette_json()); } catch { return; }
+  for (let i = 0; i < 256; i++) {
+    const el = document.createElement('div');
+    el.className = 'swatch' + (i === 0 ? ' swatch-transparent' : '');
+    el.dataset.idx = i;
+    if (i > 0) el.style.background = colors[i];
+    if (i === activeColorIndex) el.classList.add('selected');
+    el.title = i === 0 ? 'Transparent (index 0)' : `Index ${i}: ${colors[i]}`;
+    el.addEventListener('click', () => pickColor(i, colors[i]));
+    grid.appendChild(el);
+  }
+  updateActiveColorUI(colors[activeColorIndex]);
+}
+
+function pickColor(idx, hex) {
+  if (idx === 0) return;
+  activeColorIndex = idx;
+  wasm.js_set_color_index(idx);
+  document.querySelectorAll('.swatch.selected').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.swatch[data-idx="${idx}"]`);
+  if (el) el.classList.add('selected');
+  updateActiveColorUI(hex);
+}
+
+function updateActiveColorUI(hex) {
+  document.getElementById('active-color-swatch').style.background = hex || '#888';
+  document.getElementById('active-color-label').textContent = `IDX ${activeColorIndex}`;
+}
+
+// ─── Tool / render controls ────────────────────────────────────────────────
+window.setTool = function(tool) {
+  activeTool = tool;
+  if (wasmReady) wasm.js_set_tool(tool);
+  document.getElementById('btn-sculpt').classList.toggle('active', tool === 'sculpt');
+  document.getElementById('btn-paint').classList.toggle('active',  tool === 'paint');
+};
+
+window.toggleLighting = function() {
+  lightingOn = !lightingOn;
+  if (wasmReady) wasm.js_toggle_lighting();
+  const btn = document.getElementById('btn-lighting');
+  btn.textContent = lightingOn ? 'LIGHTING ON' : 'LIGHTING OFF';
+  btn.classList.toggle('active', lightingOn);
+};
+
+// ─── File I/O ──────────────────────────────────────────────────────────────
+window.saveFile  = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),  'scene.svox', 'application/octet-stream'); };
+window.loadFile  = () => document.getElementById('file-input').click();
+window.exportVox = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(), 'scene.vox',  'application/octet-stream'); };
+window.importVox = () => document.getElementById('vox-input').click();
+
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file || !wasmReady) return;
+  const ok = wasm.js_load_svox(new Uint8Array(await file.arrayBuffer()));
+  if (!ok) alert('Failed to load .svox file.');
+  else { buildPalette(); syncUIState(); }
+  e.target.value = '';
+});
+document.getElementById('vox-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file || !wasmReady) return;
+  const ok = wasm.js_import_vox(new Uint8Array(await file.arrayBuffer()));
+  if (!ok) alert('Failed to import .vox file.');
+  else { buildPalette(); syncUIState(); }
+  e.target.value = '';
+});
+
+function triggerDownload(bytes, name, mime) {
+  if (!bytes || !bytes.length) { alert('Nothing to save.'); return; }
+  const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function syncUIState() {
+  if (!wasmReady) return;
+  try {
+    const s = JSON.parse(wasm.js_get_editor_state_json());
+    document.getElementById('scene-info').innerHTML = `Tiles: ${s.tileCount}<br>Tool: ${s.tool}`;
+  } catch {}
+}
+
+// ─── Resize ────────────────────────────────────────────────────────────────
+window.addEventListener('resize', onResize);
+screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
+
+init();
+</script>
 </body>
 </html>
