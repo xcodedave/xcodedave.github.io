@@ -16,6 +16,7 @@
     body { font-family: "Courier New", Courier, monospace; color: var(--text); }
     #layout { display: flex; width: 100%; height: 100%; }
     #viewport { flex: 1 1 auto; position: relative; overflow: hidden; min-width: 0; }
+    /* Placeholder canvas — winit replaces this element but preserves id="canvas" */
     #canvas {
       position: absolute; inset: 0; width: 100%; height: 100%;
       display: block; touch-action: none; cursor: crosshair;
@@ -165,18 +166,10 @@ let activeColorIndex = 1;
 let activeTool = 'sculpt';
 let lightingOn = true;
 
-// ─── Canvas geometry helper ────────────────────────────────────────────────
-// Returns canvas-relative {x, y} from a clientX/clientY coordinate.
-function canvasCoords(clientX, clientY) {
-  const rect = document.getElementById('canvas').getBoundingClientRect();
-  return { x: clientX - rect.left, y: clientY - rect.top };
-}
-
 // ─── Readiness polling ─────────────────────────────────────────────────────
-// init_wasm() returns as soon as the wasm module is parsed and wasm_main()
-// fires run_app (which schedules winit via rAF and returns immediately).
-// The GPU device and renderer are created asynchronously AFTER that, so we
-// must wait for js_is_ready() before calling any bridge functions.
+// init_wasm() → wasm_main() → run_app() returns immediately (WASM), then
+// winit fires resumed() via rAF which spawns async GPU init.
+// We must not touch the bridge until js_is_ready() returns true.
 async function waitForReady(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -186,6 +179,110 @@ async function waitForReady(timeoutMs = 20000) {
   return false;
 }
 
+// ─── Canvas helpers ────────────────────────────────────────────────────────
+// Always resolve through getElementById so we get winit's canvas (which
+// replaced the placeholder after resumed() ran).
+function getCanvas() { return document.getElementById('canvas'); }
+
+function canvasCoords(clientX, clientY) {
+  const rect = getCanvas().getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+// ─── Viewport resize ───────────────────────────────────────────────────────
+function onResize() {
+  const vp = document.getElementById('viewport');
+  const c  = getCanvas();
+  if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
+}
+
+// ─── Touch + wheel event setup ─────────────────────────────────────────────
+// Called AFTER waitForReady() so that listeners bind to winit's canvas
+// (the one that replaced our placeholder HTML element).
+function setupCanvasListeners() {
+  const c = getCanvas();
+  if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
+
+  // Scroll: preventDefault stops page scroll; winit handles zoom via MouseWheel.
+  c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
+
+  // ── Touch gesture system ─────────────────────────────────────────────────
+  let touches = {};
+  let pinchDist = null;
+  let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
+  const LONG_MS = 480, TAP_THRESH = 10;
+  function tp(t) { return { x: t.clientX, y: t.clientY }; }
+
+  c.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // prevents synthesised mouse/pointer events
+    for (const t of e.changedTouches) touches[t.identifier] = tp(t);
+    const n = Object.keys(touches).length;
+    if (n === 1) {
+      const t = e.changedTouches[0];
+      tapX = t.clientX; tapY = t.clientY; tapMoved = false;
+      tapTimer = setTimeout(() => {
+        tapTimer = null;
+        if (!tapMoved) {
+          const p = canvasCoords(tapX, tapY);
+          wasm.js_pointer_down(p.x, p.y, 1); // long-press = remove
+          wasm.js_pointer_up();
+        }
+      }, LONG_MS);
+    }
+    if (n === 2) {
+      clearTap();
+      const ids = Object.keys(touches);
+      pinchDist = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
+                             touches[ids[1]].y - touches[ids[0]].y);
+    }
+  }, { passive: false });
+
+  c.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const n = Object.keys(touches).length;
+    if (n === 1) {
+      const t = e.changedTouches[0];
+      const prev = touches[t.identifier]; if (!prev) return;
+      const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
+      touches[t.identifier] = tp(t);
+      if (!tapMoved && Math.hypot(t.clientX - tapX, t.clientY - tapY) > TAP_THRESH) {
+        tapMoved = true; clearTap();
+      }
+      if (tapMoved) wasm.js_camera_orbit(dx * 0.4, dy * 0.4);
+    } else if (n >= 2) {
+      for (const t of e.changedTouches) if (t.identifier in touches) touches[t.identifier] = tp(t);
+      const ids = Object.keys(touches);
+      if (ids.length < 2) return;
+      const nd = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
+                            touches[ids[1]].y - touches[ids[0]].y);
+      if (pinchDist !== null) wasm.js_camera_zoom((pinchDist - nd) * 0.015);
+      pinchDist = nd;
+    }
+  }, { passive: false });
+
+  c.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) delete touches[t.identifier];
+    if (Object.keys(touches).length === 0) {
+      pinchDist = null;
+      if (!tapMoved && tapTimer !== null) {
+        clearTap();
+        const p = canvasCoords(tapX, tapY);
+        wasm.js_pointer_down(p.x, p.y, 0); // tap = add voxel
+        wasm.js_pointer_up();
+      }
+      tapMoved = false;
+    }
+  }, { passive: false });
+
+  c.addEventListener('touchcancel', () => { touches = {}; pinchDist = null; clearTap(); });
+  function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
+
+  // Force correct initial size
+  onResize();
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
 async function init() {
   const overlay = document.getElementById('status-overlay');
 
@@ -198,11 +295,9 @@ async function init() {
   try {
     await init_wasm();
   } catch (e) {
-    // wasm-bindgen uses exceptions for control-flow internally — ignore them
     if (!e?.message?.includes('Using exceptions for control flow')) {
       overlay.textContent = 'Failed: ' + (e?.message ?? String(e));
-      console.error(e);
-      return;
+      console.error(e); return;
     }
   }
 
@@ -212,6 +307,9 @@ async function init() {
     overlay.textContent = 'WebGPU initialisation timed out.\nCheck browser console for errors.';
     return;
   }
+
+  // winit's canvas is now in the DOM with id="canvas" — safe to bind listeners
+  setupCanvasListeners();
 
   wasmReady = true;
   overlay.style.display = 'none';
@@ -272,10 +370,10 @@ window.toggleLighting = function() {
 };
 
 // ─── File I/O ──────────────────────────────────────────────────────────────
-window.saveFile   = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),   'scene.svox', 'application/octet-stream'); };
-window.loadFile   = () => document.getElementById('file-input').click();
-window.exportVox  = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(),  'scene.vox',  'application/octet-stream'); };
-window.importVox  = () => document.getElementById('vox-input').click();
+window.saveFile  = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),  'scene.svox', 'application/octet-stream'); };
+window.loadFile  = () => document.getElementById('file-input').click();
+window.exportVox = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(), 'scene.vox',  'application/octet-stream'); };
+window.importVox = () => document.getElementById('vox-input').click();
 
 document.getElementById('file-input').addEventListener('change', async (e) => {
   const file = e.target.files[0]; if (!file || !wasmReady) return;
@@ -295,8 +393,7 @@ document.getElementById('vox-input').addEventListener('change', async (e) => {
 function triggerDownload(bytes, name, mime) {
   if (!bytes || !bytes.length) { alert('Nothing to save.'); return; }
   const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
-  const a = document.createElement('a');
-  a.href = url; a.download = name; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
@@ -304,106 +401,11 @@ function syncUIState() {
   if (!wasmReady) return;
   try {
     const s = JSON.parse(wasm.js_get_editor_state_json());
-    document.getElementById('scene-info').innerHTML =
-      `Tiles: ${s.tileCount}<br>Tool: ${s.tool}`;
+    document.getElementById('scene-info').innerHTML = `Tiles: ${s.tileCount}<br>Tool: ${s.tool}`;
   } catch {}
 }
 
-// ─── Canvas scroll (zoom) ──────────────────────────────────────────────────
-// Winit already processes MouseWheel → handle_scroll → camera.zoom.
-// We only need preventDefault so the page doesn't scroll underneath.
-// We do NOT call js_camera_zoom here to avoid double-zooming.
-document.getElementById('canvas').addEventListener('wheel', (e) => {
-  e.preventDefault();
-}, { passive: false });
-
-// ─── Touch gesture system ──────────────────────────────────────────────────
-// Winit handles pointer events; we handle touch events separately.
-// preventDefault on touchstart prevents the browser from also synthesising
-// pointer events, avoiding double-action.
-const canvas = document.getElementById('canvas');
-let touches = {};
-let pinchDist = null;
-let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
-const LONG_MS = 480, TAP_THRESH = 10;
-function touchPos(t) { return { x: t.clientX, y: t.clientY }; }
-
-canvas.addEventListener('touchstart', (e) => {
-  if (!wasmReady) return;
-  e.preventDefault(); // also prevents synthesised pointerdown
-  for (const t of e.changedTouches) touches[t.identifier] = touchPos(t);
-  const n = Object.keys(touches).length;
-  if (n === 1) {
-    const t = e.changedTouches[0];
-    tapX = t.clientX; tapY = t.clientY; tapMoved = false;
-    tapTimer = setTimeout(() => {
-      tapTimer = null;
-      if (!tapMoved) {
-        const p = canvasCoords(tapX, tapY);
-        wasm.js_pointer_down(p.x, p.y, 1); // long-press = remove
-        wasm.js_pointer_up();
-      }
-    }, LONG_MS);
-  }
-  if (n === 2) {
-    clearTapTimer();
-    const ids = Object.keys(touches);
-    pinchDist = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
-                           touches[ids[1]].y - touches[ids[0]].y);
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchmove', (e) => {
-  if (!wasmReady) return;
-  e.preventDefault();
-  const n = Object.keys(touches).length;
-  if (n === 1) {
-    const t = e.changedTouches[0];
-    const prev = touches[t.identifier]; if (!prev) return;
-    const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
-    touches[t.identifier] = touchPos(t);
-    if (!tapMoved && Math.hypot(t.clientX - tapX, t.clientY - tapY) > TAP_THRESH) {
-      tapMoved = true; clearTapTimer();
-    }
-    if (tapMoved) wasm.js_camera_orbit(dx * 0.4, dy * 0.4);
-  } else if (n === 2) {
-    for (const t of e.changedTouches) if (t.identifier in touches) touches[t.identifier] = touchPos(t);
-    const ids = Object.keys(touches);
-    if (ids.length < 2) return;
-    const nd = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
-                          touches[ids[1]].y - touches[ids[0]].y);
-    if (pinchDist !== null) wasm.js_camera_zoom((pinchDist - nd) * 0.015);
-    pinchDist = nd;
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchend', (e) => {
-  if (!wasmReady) return;
-  e.preventDefault();
-  for (const t of e.changedTouches) delete touches[t.identifier];
-  if (Object.keys(touches).length === 0) {
-    pinchDist = null;
-    if (!tapMoved && tapTimer !== null) {
-      clearTapTimer();
-      const p = canvasCoords(tapX, tapY);
-      wasm.js_pointer_down(p.x, p.y, 0); // tap = add voxel
-      wasm.js_pointer_up();
-    }
-    tapMoved = false;
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchcancel', () => { touches = {}; pinchDist = null; clearTapTimer(); });
-function clearTapTimer() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
-
-// ─── Viewport resize ───────────────────────────────────────────────────────
-// Winit uses a ResizeObserver on the canvas, so changing canvas.width/height
-// notifies it automatically. We mirror the viewport div's size.
-function onResize() {
-  const vp = document.getElementById('viewport');
-  const c  = document.getElementById('canvas');
-  if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
-}
+// ─── Resize ────────────────────────────────────────────────────────────────
 window.addEventListener('resize', onResize);
 screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
 

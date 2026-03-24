@@ -1190,6 +1190,9 @@ function __wbg_get_imports() {
         __wbg_set_height_b6548a01bdcb689a: function(arg0, arg1) {
             arg0.height = arg1 >>> 0;
         },
+        __wbg_set_id_2692cc8cc00cf4db: function(arg0, arg1, arg2) {
+            arg0.id = getStringFromWasm0(arg1, arg2);
+        },
         __wbg_set_label_0d9081f92dff44a8: function(arg0, arg1, arg2) {
             arg0.label = getStringFromWasm0(arg1, arg2);
         },
