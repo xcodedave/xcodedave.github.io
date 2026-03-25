@@ -245,6 +245,7 @@ function setupCanvasListeners() {
         tapTimer = null;
         if (!tapMoved) {
           const p = canvasCoords(tapX, tapY);
+          console.log('LONG-PRESS', p.x.toFixed(1), p.y.toFixed(1));
           wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
           wasm.js_pointer_up();
         }
@@ -295,6 +296,8 @@ function setupCanvasListeners() {
       if (!tapMoved && tapTimer !== null) {
         clearTap();
         const p = canvasCoords(tapX, tapY);
+        const c = getCanvas();
+        console.log('TAP', p.x.toFixed(1), p.y.toFixed(1), 'canvas', c.width, 'x', c.height);
         wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
         wasm.js_pointer_up();
       }
