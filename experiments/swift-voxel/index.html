@@ -154,45 +154,12 @@
         PINCH — zoom
       </div>
     </div>
-    <div class="section">
-      <div class="section-title">DEBUG</div>
-      <button class="btn" onclick="copyLogs()">COPY LOGS</button>
-    </div>
   </div>
 </div>
 <input type="file" id="file-input" accept=".svox" style="display:none">
 <input type="file" id="vox-input"  accept=".vox"  style="display:none">
 <script type="module">
 import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
-
-// ─── Log capture (for mobile debugging) ────────────────────────────────────
-const _logs = [];
-const _origLog  = console.log.bind(console);
-const _origInfo = console.info.bind(console);
-const _origWarn = console.warn.bind(console);
-const _origErr  = console.error.bind(console);
-function _capture(level, args) {
-  const ts = new Date().toISOString().slice(11,23);
-  const msg = Array.from(args).map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-  _logs.push(`[${ts}][${level}] ${msg}`);
-  if (_logs.length > 300) _logs.shift();
-}
-console.log   = (...a) => { _capture('LOG',  a); _origLog(...a);  };
-console.info  = (...a) => { _capture('INFO', a); _origInfo(...a); };
-console.warn  = (...a) => { _capture('WARN', a); _origWarn(...a); };
-console.error = (...a) => { _capture('ERR',  a); _origErr(...a);  };
-
-window.copyLogs = function() {
-  const text = _logs.join('\n');
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(
-      () => alert('Logs copied (' + _logs.length + ' lines)'),
-      () => { prompt('Copy these logs:', text); }
-    );
-  } else {
-    prompt('Copy these logs:', text);
-  }
-};
 
 let wasmReady = false;
 let activeColorIndex = 1;
@@ -282,7 +249,6 @@ function setupCanvasListeners() {
         tapTimer = null;
         if (!tapMoved) {
           const p = canvasCoords(tapX, tapY);
-          console.log('LONG-PRESS', p.x.toFixed(1), p.y.toFixed(1));
           wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
           wasm.js_pointer_up();
         }
@@ -333,12 +299,8 @@ function setupCanvasListeners() {
       if (!tapMoved && tapTimer !== null) {
         clearTap();
         const p = canvasCoords(tapX, tapY);
-        const c = getCanvas();
-        console.log('TAP phys', p.x.toFixed(0), p.y.toFixed(0), '/', c.width, 'x', c.height);
-        try {
-          wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
-          wasm.js_pointer_up();
-        } catch(e) { console.error('js_pointer_down threw:', e.message); }
+        wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
+        wasm.js_pointer_up();
       }
       tapMoved = false;
     }
@@ -372,7 +334,7 @@ async function init() {
   try {
     // ?v= busts the browser cache when the WASM binary is updated.
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260325_3');
+    wasmUrl.searchParams.set('v', '20260325_4');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
