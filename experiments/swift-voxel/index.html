@@ -219,7 +219,7 @@ function setupCanvasListeners() {
   let pinchDist = null;
   let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
   let trackingCanvas = false; // true only when the active touch started on the canvas
-  const LONG_MS = 500, TAP_THRESH = 12;
+  const LONG_MS = 500, TAP_THRESH = 12, DRAG_THRESH = 30;
 
   function tp(t) { return { x: t.clientX, y: t.clientY }; }
   function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
@@ -247,11 +247,9 @@ function setupCanvasListeners() {
       tapX = first.clientX; tapY = first.clientY; tapMoved = false;
       tapTimer = setTimeout(() => {
         tapTimer = null;
-        if (!tapMoved) {
-          const p = canvasCoords(tapX, tapY);
-          wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
-          wasm.js_pointer_up();
-        }
+        const p = canvasCoords(tapX, tapY);
+        wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
+        wasm.js_pointer_up();
       }, LONG_MS);
     }
     if (n === 2) {
@@ -273,9 +271,9 @@ function setupCanvasListeners() {
       const prev = activeTouches[t.identifier]; if (!prev) return;
       const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
       activeTouches[t.identifier] = tp(t);
-      if (!tapMoved && Math.hypot(t.clientX - tapX, t.clientY - tapY) > TAP_THRESH) {
-        tapMoved = true; clearTap();
-      }
+      const dist = Math.hypot(t.clientX - tapX, t.clientY - tapY);
+      if (!tapMoved && dist > TAP_THRESH) tapMoved = true;
+      if (dist > DRAG_THRESH) clearTap();
       if (tapMoved) wasm.js_camera_orbit(dx * 0.5, dy * 0.5);
     } else if (n >= 2) {
       for (const t of e.changedTouches) {
@@ -301,6 +299,8 @@ function setupCanvasListeners() {
         const p = canvasCoords(tapX, tapY);
         wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
         wasm.js_pointer_up();
+      } else {
+        clearTap(); // cancel any pending long-press when drag ends
       }
       tapMoved = false;
     }
