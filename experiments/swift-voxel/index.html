@@ -218,8 +218,12 @@ async function waitForReady(timeoutMs = 20000) {
 function getCanvas() { return document.getElementById('canvas'); }
 
 function canvasCoords(clientX, clientY) {
-  const rect = getCanvas().getBoundingClientRect();
-  return { x: clientX - rect.left, y: clientY - rect.top };
+  const c = getCanvas();
+  const rect = c.getBoundingClientRect();
+  // Scale from CSS pixels to physical pixels so coords match app.width/app.height
+  // (which winit sets from canvas.width, the physical resolution).
+  const dpr = c.width / (rect.width || 1);
+  return { x: (clientX - rect.left) * dpr, y: (clientY - rect.top) * dpr };
 }
 
 // ─── Viewport resize ───────────────────────────────────────────────────────
@@ -330,8 +334,7 @@ function setupCanvasListeners() {
         clearTap();
         const p = canvasCoords(tapX, tapY);
         const c = getCanvas();
-        console.log('TAP', p.x.toFixed(1), p.y.toFixed(1), 'canvas', c.width, 'x', c.height,
-                    'ptrDn=', typeof wasm.js_pointer_down);
+        console.log('TAP phys', p.x.toFixed(0), p.y.toFixed(0), '/', c.width, 'x', c.height);
         try {
           wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
           wasm.js_pointer_up();
