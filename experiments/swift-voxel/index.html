@@ -137,8 +137,8 @@
     <div class="section">
       <div class="section-title">TOOL</div>
       <div class="btn-row">
-        <button class="btn active" id="btn-sculpt" onclick="setTool('sculpt')">SCULPT</button>
-        <button class="btn"        id="btn-paint"  onclick="setTool('paint')">PAINT</button>
+        <button class="btn active" id="btn-paint"  onclick="setTool('paint')">PAINT</button>
+        <button class="btn"        id="btn-sculpt" onclick="setTool('sculpt')">SCULPT</button>
       </div>
     </div>
     <div class="section">
@@ -190,7 +190,7 @@ import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
 
 let wasmReady = false;
 let activeColorIndex = 1;
-let activeTool = 'sculpt';
+let activeTool = 'paint';
 let lightingOn = true;
 let paletteColors = [];
 
