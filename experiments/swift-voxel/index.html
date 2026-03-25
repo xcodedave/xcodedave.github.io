@@ -330,9 +330,12 @@ function setupCanvasListeners() {
         clearTap();
         const p = canvasCoords(tapX, tapY);
         const c = getCanvas();
-        console.log('TAP', p.x.toFixed(1), p.y.toFixed(1), 'canvas', c.width, 'x', c.height);
-        wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
-        wasm.js_pointer_up();
+        console.log('TAP', p.x.toFixed(1), p.y.toFixed(1), 'canvas', c.width, 'x', c.height,
+                    'ptrDn=', typeof wasm.js_pointer_down);
+        try {
+          wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
+          wasm.js_pointer_up();
+        } catch(e) { console.error('js_pointer_down threw:', e.message); }
       }
       tapMoved = false;
     }
@@ -364,7 +367,10 @@ async function init() {
 
   overlay.textContent = 'Loading WASM…';
   try {
-    await init_wasm();
+    // ?v= busts the browser cache when the WASM binary is updated.
+    const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
+    wasmUrl.searchParams.set('v', '20260325_3');
+    await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
       overlay.textContent = 'Failed: ' + (e?.message ?? String(e));
