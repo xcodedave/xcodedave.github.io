@@ -72,6 +72,23 @@ export function js_get_palette_json() {
 }
 
 /**
+ * Return tile list as a JSON array of dominant hex colors, one entry per tile.
+ * @returns {string}
+ */
+export function js_get_tiles_json() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.js_get_tiles_json();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * Import a scene from MagicaVoxel .vox bytes. Returns true on success.
  * @param {Uint8Array} data
  * @returns {boolean}
@@ -142,6 +159,14 @@ export function js_save_svox() {
     var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v1;
+}
+
+/**
+ * Select a tile by index for the next sculpt operation (-1 = create new tile).
+ * @param {number} index
+ */
+export function js_select_tile(index) {
+    wasm.js_select_tile(index);
 }
 
 /**
