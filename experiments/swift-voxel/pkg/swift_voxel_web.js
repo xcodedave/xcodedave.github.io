@@ -72,6 +72,18 @@ export function js_get_palette_json() {
 }
 
 /**
+ * Return the raw 512-byte color-index data for the given tile.
+ * @param {number} index
+ * @returns {Uint8Array}
+ */
+export function js_get_tile_data(index) {
+    const ret = wasm.js_get_tile_data(index);
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
  * Return tile list as a JSON array of dominant hex colors, one entry per tile.
  * @returns {string}
  */
