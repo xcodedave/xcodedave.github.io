@@ -154,12 +154,45 @@
         PINCH — zoom
       </div>
     </div>
+    <div class="section">
+      <div class="section-title">DEBUG</div>
+      <button class="btn" onclick="copyLogs()">COPY LOGS</button>
+    </div>
   </div>
 </div>
 <input type="file" id="file-input" accept=".svox" style="display:none">
 <input type="file" id="vox-input"  accept=".vox"  style="display:none">
 <script type="module">
 import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
+
+// ─── Log capture (for mobile debugging) ────────────────────────────────────
+const _logs = [];
+const _origLog  = console.log.bind(console);
+const _origInfo = console.info.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origErr  = console.error.bind(console);
+function _capture(level, args) {
+  const ts = new Date().toISOString().slice(11,23);
+  const msg = Array.from(args).map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+  _logs.push(`[${ts}][${level}] ${msg}`);
+  if (_logs.length > 300) _logs.shift();
+}
+console.log   = (...a) => { _capture('LOG',  a); _origLog(...a);  };
+console.info  = (...a) => { _capture('INFO', a); _origInfo(...a); };
+console.warn  = (...a) => { _capture('WARN', a); _origWarn(...a); };
+console.error = (...a) => { _capture('ERR',  a); _origErr(...a);  };
+
+window.copyLogs = function() {
+  const text = _logs.join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(
+      () => alert('Logs copied (' + _logs.length + ' lines)'),
+      () => { prompt('Copy these logs:', text); }
+    );
+  } else {
+    prompt('Copy these logs:', text);
+  }
+};
 
 let wasmReady = false;
 let activeColorIndex = 1;
