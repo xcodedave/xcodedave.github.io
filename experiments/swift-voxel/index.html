@@ -247,7 +247,7 @@ function setupCanvasListeners() {
   let pinchDist = null;
   let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
   let trackingCanvas = false; // true only when the active touch started on the canvas
-  const LONG_MS = 500, TAP_THRESH = 12, DRAG_THRESH = 30;
+  const LONG_MS = 500, TAP_THRESH = 20, DRAG_THRESH = 30;
 
   function tp(t) { return { x: t.clientX, y: t.clientY }; }
   function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
@@ -362,7 +362,7 @@ async function init() {
   try {
     // ?v= busts the browser cache when the WASM binary is updated.
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260325_7');
+    wasmUrl.searchParams.set('v', '20260325_9');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
