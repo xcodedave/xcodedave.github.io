@@ -154,12 +154,45 @@
         PINCH — zoom
       </div>
     </div>
+    <div class="section">
+      <div class="section-title">DEBUG</div>
+      <button class="btn" onclick="copyLogs()">COPY LOGS</button>
+    </div>
   </div>
 </div>
 <input type="file" id="file-input" accept=".svox" style="display:none">
 <input type="file" id="vox-input"  accept=".vox"  style="display:none">
 <script type="module">
 import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
+
+// ─── Log capture (for mobile debugging) ────────────────────────────────────
+const _logs = [];
+const _origLog  = console.log.bind(console);
+const _origInfo = console.info.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origErr  = console.error.bind(console);
+function _capture(level, args) {
+  const ts = new Date().toISOString().slice(11,23);
+  const msg = Array.from(args).map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+  _logs.push(`[${ts}][${level}] ${msg}`);
+  if (_logs.length > 300) _logs.shift();
+}
+console.log   = (...a) => { _capture('LOG',  a); _origLog(...a);  };
+console.info  = (...a) => { _capture('INFO', a); _origInfo(...a); };
+console.warn  = (...a) => { _capture('WARN', a); _origWarn(...a); };
+console.error = (...a) => { _capture('ERR',  a); _origErr(...a);  };
+
+window.copyLogs = function() {
+  const text = _logs.join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(
+      () => alert('Logs copied (' + _logs.length + ' lines)'),
+      () => { prompt('Copy these logs:', text); }
+    );
+  } else {
+    prompt('Copy these logs:', text);
+  }
+};
 
 let wasmReady = false;
 let activeColorIndex = 1;
@@ -197,86 +230,124 @@ function onResize() {
 }
 
 // ─── Touch + wheel event setup ─────────────────────────────────────────────
-// Called AFTER waitForReady() so that listeners bind to winit's canvas
-// (the one that replaced our placeholder HTML element).
+// Called AFTER waitForReady() so that getCanvas() returns winit's canvas.
+// Touch listeners are placed on WINDOW (not the canvas) so that winit's
+// canvas-level touchstart.preventDefault() / setPointerCapture() calls
+// cannot interfere with our handlers receiving touchmove/touchend events.
 function setupCanvasListeners() {
   const c = getCanvas();
   if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
 
-  // Scroll: preventDefault stops page scroll; winit handles zoom via MouseWheel.
+  // Wheel: preventDefault stops page scroll; winit handles zoom via MouseWheel.
   c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
 
   // ── Touch gesture system ─────────────────────────────────────────────────
-  let touches = {};
+  // All touch listeners are on `window` so they receive events regardless of
+  // what winit does to the canvas element's own event chain.
+  let activeTouches = {};     // identifier -> {x, y}
   let pinchDist = null;
   let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
-  const LONG_MS = 480, TAP_THRESH = 10;
-  function tp(t) { return { x: t.clientX, y: t.clientY }; }
+  let trackingCanvas = false; // true only when the active touch started on the canvas
+  const LONG_MS = 500, TAP_THRESH = 12;
 
-  c.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // prevents synthesised mouse/pointer events
-    for (const t of e.changedTouches) touches[t.identifier] = tp(t);
-    const n = Object.keys(touches).length;
+  function tp(t) { return { x: t.clientX, y: t.clientY }; }
+  function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
+
+  // Check whether a touch point lies within the canvas bounding rect.
+  function isTouchOnCanvas(t) {
+    const rect = getCanvas().getBoundingClientRect();
+    return t.clientX >= rect.left && t.clientX <= rect.right &&
+           t.clientY >= rect.top  && t.clientY <= rect.bottom;
+  }
+
+  window.addEventListener('touchstart', (e) => {
+    const first = e.changedTouches[0];
+    // If we're not yet tracking any canvas touch, only start tracking if the
+    // first finger landed on the canvas.
+    if (!trackingCanvas) {
+      if (!isTouchOnCanvas(first)) return;
+      trackingCanvas = true;
+    }
+
+    for (const t of e.changedTouches) activeTouches[t.identifier] = tp(t);
+    const n = Object.keys(activeTouches).length;
+
     if (n === 1) {
-      const t = e.changedTouches[0];
-      tapX = t.clientX; tapY = t.clientY; tapMoved = false;
+      tapX = first.clientX; tapY = first.clientY; tapMoved = false;
       tapTimer = setTimeout(() => {
         tapTimer = null;
         if (!tapMoved) {
           const p = canvasCoords(tapX, tapY);
-          wasm.js_pointer_down(p.x, p.y, 1); // long-press = remove
+          console.log('LONG-PRESS', p.x.toFixed(1), p.y.toFixed(1));
+          wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
           wasm.js_pointer_up();
         }
       }, LONG_MS);
     }
     if (n === 2) {
       clearTap();
-      const ids = Object.keys(touches);
-      pinchDist = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
-                             touches[ids[1]].y - touches[ids[0]].y);
+      const ids = Object.keys(activeTouches);
+      pinchDist = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
+                             activeTouches[ids[1]].y - activeTouches[ids[0]].y);
     }
-  }, { passive: false });
+  }, { passive: true }); // passive=true: we don't need preventDefault on touchstart
 
-  c.addEventListener('touchmove', (e) => {
+  window.addEventListener('touchmove', (e) => {
+    if (!trackingCanvas) return;
+    // Prevent browser scroll/zoom while we're handling a canvas gesture.
     e.preventDefault();
-    const n = Object.keys(touches).length;
+
+    const n = Object.keys(activeTouches).length;
     if (n === 1) {
       const t = e.changedTouches[0];
-      const prev = touches[t.identifier]; if (!prev) return;
+      const prev = activeTouches[t.identifier]; if (!prev) return;
       const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
-      touches[t.identifier] = tp(t);
+      activeTouches[t.identifier] = tp(t);
       if (!tapMoved && Math.hypot(t.clientX - tapX, t.clientY - tapY) > TAP_THRESH) {
         tapMoved = true; clearTap();
       }
-      if (tapMoved) wasm.js_camera_orbit(dx * 0.4, dy * 0.4);
+      if (tapMoved) wasm.js_camera_orbit(dx * 0.5, dy * 0.5);
     } else if (n >= 2) {
-      for (const t of e.changedTouches) if (t.identifier in touches) touches[t.identifier] = tp(t);
-      const ids = Object.keys(touches);
+      for (const t of e.changedTouches) {
+        if (t.identifier in activeTouches) activeTouches[t.identifier] = tp(t);
+      }
+      const ids = Object.keys(activeTouches);
       if (ids.length < 2) return;
-      const nd = Math.hypot(touches[ids[1]].x - touches[ids[0]].x,
-                            touches[ids[1]].y - touches[ids[0]].y);
-      if (pinchDist !== null) wasm.js_camera_zoom((pinchDist - nd) * 0.015);
+      const nd = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
+                            activeTouches[ids[1]].y - activeTouches[ids[0]].y);
+      if (pinchDist !== null) wasm.js_camera_zoom((nd - pinchDist) * 0.02);
       pinchDist = nd;
     }
   }, { passive: false });
 
-  c.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    for (const t of e.changedTouches) delete touches[t.identifier];
-    if (Object.keys(touches).length === 0) {
+  window.addEventListener('touchend', (e) => {
+    if (!trackingCanvas) return;
+    for (const t of e.changedTouches) delete activeTouches[t.identifier];
+    if (Object.keys(activeTouches).length === 0) {
+      trackingCanvas = false;
       pinchDist = null;
       if (!tapMoved && tapTimer !== null) {
         clearTap();
         const p = canvasCoords(tapX, tapY);
-        wasm.js_pointer_down(p.x, p.y, 0); // tap = add voxel
+        const c = getCanvas();
+        console.log('TAP', p.x.toFixed(1), p.y.toFixed(1), 'canvas', c.width, 'x', c.height);
+        wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
         wasm.js_pointer_up();
       }
       tapMoved = false;
     }
-  }, { passive: false });
+  }, { passive: true });
 
-  c.addEventListener('touchcancel', () => { touches = {}; pinchDist = null; clearTap(); });
-  function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
+  window.addEventListener('touchcancel', (e) => {
+    if (!trackingCanvas) return;
+    for (const t of e.changedTouches) delete activeTouches[t.identifier];
+    if (Object.keys(activeTouches).length === 0) {
+      trackingCanvas = false;
+      pinchDist = null;
+      clearTap();
+      tapMoved = false;
+    }
+  }, { passive: true });
 
   // Force correct initial size
   onResize();
@@ -312,6 +383,9 @@ async function init() {
   setupCanvasListeners();
 
   wasmReady = true;
+  // Push the JS-side defaults into WASM (renderer initialises with Paint, not Sculpt).
+  wasm.js_set_tool(activeTool);
+
   overlay.style.display = 'none';
 
   buildPalette();
