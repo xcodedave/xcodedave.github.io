@@ -122,7 +122,7 @@
         display: contents;
       }
       .section { flex: 0 0 auto; min-width: 110px; }
-      #section-palette { flex: 0 0 100%; order: 10; }
+      #section-palette { flex: 0 0 100%; }
       #section-tiles { min-width: 185px; }
       #palette-grid { grid-template-columns: repeat(32, 1fr); }
       #help-hint { display: none; }
@@ -159,14 +159,14 @@
           <span id="active-color-label">IDX 1</span>
         </div>
       </div>
-      <div class="section" id="section-palette">
-        <div class="section-title">PALETTE</div>
-        <div id="palette-grid"></div>
-      </div>
       <div class="section" id="section-tiles">
         <div class="section-title">TILES</div>
         <div id="tile-list"></div>
       </div>
+    </div>
+    <div class="section" id="section-palette">
+      <div class="section-title">PALETTE</div>
+      <div id="palette-grid"></div>
     </div>
     <div class="section">
       <div class="section-title">FILE</div>
