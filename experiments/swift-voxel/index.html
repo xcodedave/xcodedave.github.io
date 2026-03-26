@@ -25,13 +25,10 @@
       flex: 0 0 var(--sidebar-w); width: var(--sidebar-w);
       background: var(--panel);
       border-left: 2px solid var(--border-lt);
-      display: flex; flex-direction: column;
-      overflow: hidden;
-    }
-    #sidebar-scroll {
-      flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--panel-hi) var(--panel);
     }
+    #sidebar-scroll { display: contents; }
     .section { padding: 6px; border-bottom: 1px solid var(--border-dk); }
     .section-title {
       font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
@@ -166,21 +163,21 @@
         <div class="section-title">PALETTE</div>
         <div id="palette-grid"></div>
       </div>
-    </div>
-    <div class="section">
-      <div class="section-title">FILE</div>
-      <button class="btn" onclick="saveFile()">SAVE .SVOX</button>
-      <button class="btn" onclick="loadFile()">OPEN .SVOX</button>
-      <button class="btn" onclick="exportVox()">EXPORT .VOX</button>
-      <button class="btn" onclick="importVox()">IMPORT .VOX</button>
-    </div>
-    <div class="section">
-      <div class="section-title">MOBILE CONTROLS</div>
-      <div style="font-size:9px;color:var(--text-dim);line-height:1.8">
-        TAP — add voxel<br>
-        LONG PRESS — remove<br>
-        DRAG — orbit camera<br>
-        PINCH — zoom
+      <div class="section">
+        <div class="section-title">FILE</div>
+        <button class="btn" onclick="saveFile()">SAVE .SVOX</button>
+        <button class="btn" onclick="loadFile()">OPEN .SVOX</button>
+        <button class="btn" onclick="exportVox()">EXPORT .VOX</button>
+        <button class="btn" onclick="importVox()">IMPORT .VOX</button>
+      </div>
+      <div class="section">
+        <div class="section-title">MOBILE CONTROLS</div>
+        <div style="font-size:9px;color:var(--text-dim);line-height:1.8">
+          TAP — add voxel<br>
+          LONG PRESS — remove<br>
+          DRAG — orbit camera<br>
+          PINCH — zoom
+        </div>
       </div>
     </div>
   </div>
@@ -196,7 +193,6 @@ let activeTool = 'paint';
 let lightingOn = true;
 let paletteColors = [];
 
-// ─── Readiness polling ───────────────────────────────────────────────
 async function waitForReady(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -336,7 +332,7 @@ async function init() {
   overlay.textContent = 'Loading WASM…';
   try {
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_03');
+    wasmUrl.searchParams.set('v', '20260326_04');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
