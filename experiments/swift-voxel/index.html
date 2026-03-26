@@ -72,6 +72,7 @@
       display: grid; grid-template-columns: repeat(16, 1fr);
       gap: 1px; background: var(--border-dk);
       border: 1px solid var(--border-dk); margin-bottom: 4px;
+      max-height: 120px; overflow-y: auto;
     }
     .swatch { aspect-ratio: 1; cursor: pointer; position: relative; }
     .swatch:hover::after { content:''; position:absolute; inset:0; background:rgba(255,255,255,.3); }
@@ -161,10 +162,10 @@
         <div class="section-title">TILES</div>
         <div id="tile-list"></div>
       </div>
-      <div class="section" id="section-palette">
-        <div class="section-title">PALETTE</div>
-        <div id="palette-grid"></div>
-      </div>
+    </div>
+    <div class="section" id="section-palette">
+      <div class="section-title">PALETTE</div>
+      <div id="palette-grid"></div>
     </div>
     <div class="section">
       <div class="section-title">FILE</div>
