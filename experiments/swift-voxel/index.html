@@ -16,6 +16,7 @@
     body { font-family: "Courier New", Courier, monospace; color: var(--text); }
     #layout { display: flex; width: 100%; height: 100%; }
     #viewport { flex: 1 1 auto; position: relative; overflow: hidden; min-width: 0; }
+    /* Placeholder canvas — winit replaces this element but preserves id="canvas" */
     #canvas {
       position: absolute; inset: 0; width: 100%; height: 100%;
       display: block; touch-action: none; cursor: crosshair;
@@ -120,7 +121,7 @@
       }
       #sidebar-scroll { display: contents; }
       .section { flex: 0 0 auto; min-width: 110px; }
-      #section-palette { flex: 0 0 100%; order: 10; }
+      #section-palette { flex: 0 0 100%; }
       #section-tiles { min-width: 185px; }
       #palette-grid { grid-template-columns: repeat(32, 1fr); max-height: none; }
       #help-hint { display: none; }
@@ -161,10 +162,10 @@
         <div class="section-title">TILES</div>
         <div id="tile-list"></div>
       </div>
-    </div>
-    <div class="section" id="section-palette">
-      <div class="section-title">PALETTE</div>
-      <div id="palette-grid"></div>
+      <div class="section" id="section-palette">
+        <div class="section-title">PALETTE</div>
+        <div id="palette-grid"></div>
+      </div>
     </div>
     <div class="section">
       <div class="section-title">FILE</div>
@@ -195,6 +196,7 @@ let activeTool = 'paint';
 let lightingOn = true;
 let paletteColors = [];
 
+// ─── Readiness polling ───────────────────────────────────────────────
 async function waitForReady(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -222,19 +224,24 @@ function onResize() {
 function setupCanvasListeners() {
   const c = getCanvas();
   if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
+
   c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
+
   let activeTouches = {};
   let pinchDist = null;
   let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
   let trackingCanvas = false;
   const LONG_MS = 500, TAP_THRESH = 20, DRAG_THRESH = 30;
+
   function tp(t) { return { x: t.clientX, y: t.clientY }; }
   function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
+
   function isTouchOnCanvas(t) {
     const rect = getCanvas().getBoundingClientRect();
     return t.clientX >= rect.left && t.clientX <= rect.right &&
            t.clientY >= rect.top  && t.clientY <= rect.bottom;
   }
+
   window.addEventListener('touchstart', (e) => {
     const first = e.changedTouches[0];
     if (!trackingCanvas) {
@@ -259,6 +266,7 @@ function setupCanvasListeners() {
                              activeTouches[ids[1]].y - activeTouches[ids[0]].y);
     }
   }, { passive: true });
+
   window.addEventListener('touchmove', (e) => {
     if (!trackingCanvas) return;
     e.preventDefault();
@@ -284,6 +292,7 @@ function setupCanvasListeners() {
       pinchDist = nd;
     }
   }, { passive: false });
+
   window.addEventListener('touchend', (e) => {
     if (!trackingCanvas) return;
     for (const t of e.changedTouches) delete activeTouches[t.identifier];
@@ -301,6 +310,7 @@ function setupCanvasListeners() {
       tapMoved = false;
     }
   }, { passive: true });
+
   window.addEventListener('touchcancel', (e) => {
     if (!trackingCanvas) return;
     for (const t of e.changedTouches) delete activeTouches[t.identifier];
@@ -311,19 +321,22 @@ function setupCanvasListeners() {
       tapMoved = false;
     }
   }, { passive: true });
+
   onResize();
 }
 
 async function init() {
   const overlay = document.getElementById('status-overlay');
+
   if (!navigator.gpu) {
     overlay.textContent = 'WebGPU not supported.\nUse Chrome 113+ or Edge 113+ on desktop.';
     return;
   }
+
   overlay.textContent = 'Loading WASM…';
   try {
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_02');
+    wasmUrl.searchParams.set('v', '20260326_03');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
@@ -331,12 +344,14 @@ async function init() {
       console.error(e); return;
     }
   }
+
   overlay.textContent = 'Initialising WebGPU…';
   const ready = await waitForReady();
   if (!ready) {
     overlay.textContent = 'WebGPU initialisation timed out.\nCheck browser console for errors.';
     return;
   }
+
   setupCanvasListeners();
   wasmReady = true;
   wasm.js_set_tool(activeTool);
