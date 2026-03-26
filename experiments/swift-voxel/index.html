@@ -65,6 +65,15 @@
       border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
     }
     #active-color-label { font-size: 10px; color: var(--text-dim); }
+    #active-wrap { display: flex; gap: 8px; align-items: flex-start; }
+    #active-tile-canvas {
+      width: 36px; height: 36px; display: block;
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      background: var(--border-dk);
+      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
+      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
+    }
+    #active-tile-label { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
     #palette-grid {
       display: grid; grid-template-columns: repeat(16, 1fr);
       gap: 1px; background: var(--border-dk);
@@ -137,6 +146,22 @@
   </div>
   <div id="sidebar">
     <div id="sidebar-scroll">
+      <div class="section" id="section-active">
+        <div id="active-wrap">
+          <div style="flex:1">
+            <div class="section-title">COLOR</div>
+            <div id="active-color-wrap">
+              <div id="active-color-swatch"></div>
+              <span id="active-color-label">IDX 1</span>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">TILE</div>
+            <canvas id="active-tile-canvas" width="36" height="36"></canvas>
+            <div id="active-tile-label">—</div>
+          </div>
+        </div>
+      </div>
       <div class="section">
         <div class="section-title">TOOL</div>
         <div class="btn-row">
@@ -148,13 +173,7 @@
         <div class="section-title">RENDER</div>
         <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
       </div>
-      <div class="section" id="section-color">
-        <div class="section-title">ACTIVE COLOR</div>
-        <div id="active-color-wrap">
-          <div id="active-color-swatch"></div>
-          <span id="active-color-label">IDX 1</span>
-        </div>
-      </div>
+
       <div class="section" id="section-tiles">
         <div class="section-title">TILES</div>
         <div id="tile-list"></div>
@@ -361,7 +380,7 @@ async function init() {
   try {
     // ?v= busts the browser cache when the WASM binary is updated.
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_04');
+    wasmUrl.searchParams.set('v', '20260326_05');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
@@ -419,11 +438,26 @@ function pickColor(idx, hex) {
   const el = document.querySelector(`.swatch[data-idx="${idx}"]`);
   if (el) el.classList.add('selected');
   updateActiveColorUI(hex);
+  setTool('paint');
 }
 
 function updateActiveColorUI(hex) {
   document.getElementById('active-color-swatch').style.background = hex || '#888';
   document.getElementById('active-color-label').textContent = `IDX ${activeColorIndex}`;
+}
+
+function updateActiveTileUI(tileIndex) {
+  const canvas = document.getElementById('active-tile-canvas');
+  const label = document.getElementById('active-tile-label');
+  if (!canvas) return;
+  if (!wasmReady || tileIndex < 0 || !paletteColors.length) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 36, 36);
+    if (label) label.textContent = '—';
+    return;
+  }
+  renderTileIcon(canvas, wasm.js_get_tile_data(tileIndex), paletteColors);
+  if (label) label.textContent = `#${tileIndex}`;
 }
 
 // ─── Tool / render controls ────────────────────────────────────────────────
@@ -555,11 +589,14 @@ function syncTileList(state) {
       renderTileIcon(cells[i].querySelector('canvas'), wasm.js_get_tile_data(i), paletteColors);
     }
   }
+  updateActiveTileUI(sel);
 }
 
 window.selectTile = function(index) {
   if (!wasmReady) return;
   wasm.js_select_tile(index);
+  setTool('sculpt');
+  updateActiveTileUI(index);
   syncUIState();
 };
 
