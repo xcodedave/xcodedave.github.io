@@ -26,7 +26,10 @@
       background: var(--panel);
       border-left: 2px solid var(--border-lt);
       display: flex; flex-direction: column;
-      overflow-y: auto; overflow-x: hidden;
+      overflow: hidden;
+    }
+    #sidebar-scroll {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--panel-hi) var(--panel);
     }
     .section { padding: 6px; border-bottom: 1px solid var(--border-dk); }
@@ -115,6 +118,9 @@
         border-left: none; border-top: 2px solid var(--border-lt);
         overflow-x: auto;
       }
+      #sidebar-scroll {
+        display: contents;
+      }
       .section { flex: 0 0 auto; min-width: 110px; }
       #section-palette { flex: 0 0 100%; order: 10; }
       #section-tiles { min-width: 185px; }
@@ -134,33 +140,35 @@
     </div>
   </div>
   <div id="sidebar">
-    <div class="section">
-      <div class="section-title">TOOL</div>
-      <div class="btn-row">
-        <button class="btn active" id="btn-paint"  onclick="setTool('paint')">PAINT</button>
-        <button class="btn"        id="btn-sculpt" onclick="setTool('sculpt')">SCULPT</button>
+    <div id="sidebar-scroll">
+      <div class="section">
+        <div class="section-title">TOOL</div>
+        <div class="btn-row">
+          <button class="btn active" id="btn-paint"  onclick="setTool('paint')">PAINT</button>
+          <button class="btn"        id="btn-sculpt" onclick="setTool('sculpt')">SCULPT</button>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">RENDER</div>
+        <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
+      </div>
+      <div class="section" id="section-color">
+        <div class="section-title">ACTIVE COLOR</div>
+        <div id="active-color-wrap">
+          <div id="active-color-swatch"></div>
+          <span id="active-color-label">IDX 1</span>
+        </div>
+      </div>
+      <div class="section" id="section-palette">
+        <div class="section-title">PALETTE</div>
+        <div id="palette-grid"></div>
+      </div>
+      <div class="section" id="section-tiles">
+        <div class="section-title">TILES</div>
+        <div id="tile-list"></div>
       </div>
     </div>
     <div class="section">
-      <div class="section-title">RENDER</div>
-      <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
-    </div>
-    <div class="section" id="section-color">
-      <div class="section-title">ACTIVE COLOR</div>
-      <div id="active-color-wrap">
-        <div id="active-color-swatch"></div>
-        <span id="active-color-label">IDX 1</span>
-      </div>
-    </div>
-    <div class="section" id="section-palette">
-      <div class="section-title">PALETTE</div>
-      <div id="palette-grid"></div>
-    </div>
-    <div class="section" id="section-tiles">
-      <div class="section-title">TILES</div>
-      <div id="tile-list"></div>
-    </div>
-    <div class="section" style="flex:1;display:flex;flex-direction:column;">
       <div class="section-title">FILE</div>
       <button class="btn" onclick="saveFile()">SAVE .SVOX</button>
       <button class="btn" onclick="loadFile()">OPEN .SVOX</button>
