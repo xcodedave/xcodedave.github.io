@@ -121,9 +121,9 @@
       }
       #sidebar-scroll { display: contents; }
       .section { flex: 0 0 auto; min-width: 110px; }
-      #section-palette { flex: 0 0 100%; order: 10; }
+      #section-palette { flex: 0 0 100%; }
       #section-tiles { min-width: 185px; }
-      #palette-grid { grid-template-columns: repeat(32, 1fr); }
+      #palette-grid { grid-template-columns: repeat(32, 1fr); max-height: none; }
       #help-hint { display: none; }
     }
   </style>
@@ -162,10 +162,10 @@
         <div class="section-title">TILES</div>
         <div id="tile-list"></div>
       </div>
-    </div>
-    <div class="section" id="section-palette">
-      <div class="section-title">PALETTE</div>
-      <div id="palette-grid"></div>
+      <div class="section" id="section-palette">
+        <div class="section-title">PALETTE</div>
+        <div id="palette-grid"></div>
+      </div>
     </div>
     <div class="section">
       <div class="section-title">FILE</div>
@@ -364,7 +364,7 @@ async function init() {
   try {
     // ?v= busts the browser cache when the WASM binary is updated.
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_02');
+    wasmUrl.searchParams.set('v', '20260326_03');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
