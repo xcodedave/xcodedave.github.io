@@ -26,7 +26,10 @@
       background: var(--panel);
       border-left: 2px solid var(--border-lt);
       display: flex; flex-direction: column;
-      overflow-y: auto; overflow-x: hidden;
+      overflow: hidden;
+    }
+    #sidebar-scroll {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--panel-hi) var(--panel);
     }
     .section { padding: 6px; border-bottom: 1px solid var(--border-dk); }
@@ -115,6 +118,7 @@
         border-left: none; border-top: 2px solid var(--border-lt);
         overflow-x: auto;
       }
+      #sidebar-scroll { display: contents; }
       .section { flex: 0 0 auto; min-width: 110px; }
       #section-palette { flex: 0 0 100%; order: 10; }
       #section-tiles { min-width: 185px; }
@@ -134,27 +138,33 @@
     </div>
   </div>
   <div id="sidebar">
-    <div class="section">
-      <div class="section-title">TOOL</div>
-      <div class="btn-row">
-        <button class="btn active" id="btn-paint"  onclick="setTool('paint')">PAINT</button>
-        <button class="btn"        id="btn-sculpt" onclick="setTool('sculpt')">SCULPT</button>
+    <div id="sidebar-scroll">
+      <div class="section">
+        <div class="section-title">TOOL</div>
+        <div class="btn-row">
+          <button class="btn active" id="btn-paint"  onclick="setTool('paint')">PAINT</button>
+          <button class="btn"        id="btn-sculpt" onclick="setTool('sculpt')">TILE</button>
+        </div>
       </div>
-    </div>
-    <div class="section">
-      <div class="section-title">RENDER</div>
-      <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
-    </div>
-    <div class="section" id="section-color">
-      <div class="section-title">ACTIVE COLOR</div>
-      <div id="active-color-wrap">
-        <div id="active-color-swatch"></div>
-        <span id="active-color-label">IDX 1</span>
+      <div class="section">
+        <div class="section-title">RENDER</div>
+        <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
+      </div>
+      <div class="section" id="section-color">
+        <div class="section-title">ACTIVE COLOR</div>
+        <div id="active-color-wrap">
+          <div id="active-color-swatch"></div>
+          <span id="active-color-label">IDX 1</span>
+        </div>
       </div>
     </div>
     <div class="section" id="section-palette">
       <div class="section-title">PALETTE</div>
       <div id="palette-grid"></div>
+    </div>
+    <div class="section" id="section-tiles">
+      <div class="section-title">TILES</div>
+      <div id="tile-list"></div>
     </div>
     <div class="section">
       <div class="section-title">FILE</div>
@@ -162,15 +172,6 @@
       <button class="btn" onclick="loadFile()">OPEN .SVOX</button>
       <button class="btn" onclick="exportVox()">EXPORT .VOX</button>
       <button class="btn" onclick="importVox()">IMPORT .VOX</button>
-    </div>
-    <div class="section">
-      <div class="section-title">SCENE</div>
-      <div id="scene-info" style="font-size:10px;color:var(--text-dim);line-height:1.8"></div>
-    </div>
-    <div class="section" id="section-tiles">
-      <div class="section-title">TILES</div>
-      <div id="tile-list"></div>
-      <button class="btn" onclick="selectTile(-1)">+ NEW TILE</button>
     </div>
     <div class="section">
       <div class="section-title">MOBILE CONTROLS</div>
@@ -194,7 +195,7 @@ let activeTool = 'paint';
 let lightingOn = true;
 let paletteColors = [];
 
-// ─── Readiness polling ─────────────────────────────────────────────────────
+// ─── Readiness polling ───────────────────────────────────────────────
 // init_wasm() → wasm_main() → run_app() returns immediately (WASM), then
 // winit fires resumed() via rAF which spawns async GPU init.
 // We must not touch the bridge until js_is_ready() returns true.
@@ -207,7 +208,7 @@ async function waitForReady(timeoutMs = 20000) {
   return false;
 }
 
-// ─── Canvas helpers ────────────────────────────────────────────────────────
+// ─── Canvas helpers ──────────────────────────────────────────────────
 // Always resolve through getElementById so we get winit's canvas (which
 // replaced the placeholder after resumed() ran).
 function getCanvas() { return document.getElementById('canvas'); }
@@ -221,14 +222,14 @@ function canvasCoords(clientX, clientY) {
   return { x: (clientX - rect.left) * dpr, y: (clientY - rect.top) * dpr };
 }
 
-// ─── Viewport resize ───────────────────────────────────────────────────────
+// ─── Viewport resize ───────────────────────────────────────────────
 function onResize() {
   const vp = document.getElementById('viewport');
   const c  = getCanvas();
   if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
 }
 
-// ─── Touch + wheel event setup ─────────────────────────────────────────────
+// ─── Touch + wheel event setup ──────────────────────────────────────────
 // Called AFTER waitForReady() so that getCanvas() returns winit's canvas.
 // Touch listeners are placed on WINDOW (not the canvas) so that winit's
 // canvas-level touchstart.preventDefault() / setPointerCapture() calls
@@ -240,7 +241,7 @@ function setupCanvasListeners() {
   // Wheel: preventDefault stops page scroll; winit handles zoom via MouseWheel.
   c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
 
-  // ── Touch gesture system ─────────────────────────────────────────────────
+  // ── Touch gesture system ─────────────────────────────────────────
   // All touch listeners are on `window` so they receive events regardless of
   // what winit does to the canvas element's own event chain.
   let activeTouches = {};     // identifier -> {x, y}
@@ -349,7 +350,7 @@ function setupCanvasListeners() {
   onResize();
 }
 
-// ─── Init ──────────────────────────────────────────────────────────────────
+// ─── Init ───────────────────────────────────────────────────────────
 async function init() {
   const overlay = document.getElementById('status-overlay');
 
@@ -392,7 +393,7 @@ async function init() {
   setInterval(syncUIState, 2000);
 }
 
-// ─── Palette ───────────────────────────────────────────────────────────────
+// ─── Palette ─────────────────────────────────────────────────────────
 function buildPalette() {
   const grid = document.getElementById('palette-grid');
   grid.innerHTML = '';
@@ -427,7 +428,7 @@ function updateActiveColorUI(hex) {
   document.getElementById('active-color-label').textContent = `IDX ${activeColorIndex}`;
 }
 
-// ─── Tool / render controls ────────────────────────────────────────────────
+// ─── Tool / render controls ────────────────────────────────────────────
 window.setTool = function(tool) {
   activeTool = tool;
   if (wasmReady) wasm.js_set_tool(tool);
@@ -443,7 +444,7 @@ window.toggleLighting = function() {
   btn.classList.toggle('active', lightingOn);
 };
 
-// ─── File I/O ──────────────────────────────────────────────────────────────
+// ─── File I/O ────────────────────────────────────────────────────────
 window.saveFile  = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),  'scene.svox', 'application/octet-stream'); };
 window.loadFile  = () => document.getElementById('file-input').click();
 window.exportVox = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(), 'scene.vox',  'application/octet-stream'); };
@@ -475,12 +476,11 @@ function syncUIState() {
   if (!wasmReady) return;
   try {
     const s = JSON.parse(wasm.js_get_editor_state_json());
-    document.getElementById('scene-info').innerHTML = `Tiles: ${s.tileCount}<br>Tool: ${s.tool}`;
     syncTileList(s);
   } catch {}
 }
 
-// ─── Isometric tile icon renderer ─────────────────────────────────────────
+// ─── Isometric tile icon renderer ─────────────────────────────────────────────
 // Matches Swift's TileGridView / TileIconCache rendering exactly.
 // Projection: px = (x-z)*2 + iconSize/2,  py = (iconSize/2 - 1) + (x+z) - y*2
 function renderTileIcon(canvas, tileData, colors) {
@@ -565,7 +565,7 @@ window.selectTile = function(index) {
   syncUIState();
 };
 
-// ─── Resize ────────────────────────────────────────────────────────────────
+// ─── Resize ───────────────────────────────────────────────────────────
 window.addEventListener('resize', onResize);
 screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
 
