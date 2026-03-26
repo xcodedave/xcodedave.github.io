@@ -157,14 +157,14 @@
           <span id="active-color-label">IDX 1</span>
         </div>
       </div>
-    </div>
-    <div class="section" id="section-palette">
-      <div class="section-title">PALETTE</div>
-      <div id="palette-grid"></div>
-    </div>
-    <div class="section" id="section-tiles">
-      <div class="section-title">TILES</div>
-      <div id="tile-list"></div>
+      <div class="section" id="section-tiles">
+        <div class="section-title">TILES</div>
+        <div id="tile-list"></div>
+      </div>
+      <div class="section" id="section-palette">
+        <div class="section-title">PALETTE</div>
+        <div id="palette-grid"></div>
+      </div>
     </div>
     <div class="section">
       <div class="section-title">FILE</div>
@@ -196,9 +196,6 @@ let lightingOn = true;
 let paletteColors = [];
 
 // ─── Readiness polling ───────────────────────────────────────────────
-// init_wasm() → wasm_main() → run_app() returns immediately (WASM), then
-// winit fires resumed() via rAF which spawns async GPU init.
-// We must not touch the bridge until js_is_ready() returns true.
 async function waitForReady(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -208,52 +205,36 @@ async function waitForReady(timeoutMs = 20000) {
   return false;
 }
 
-// ─── Canvas helpers ──────────────────────────────────────────────────
-// Always resolve through getElementById so we get winit's canvas (which
-// replaced the placeholder after resumed() ran).
 function getCanvas() { return document.getElementById('canvas'); }
 
 function canvasCoords(clientX, clientY) {
   const c = getCanvas();
   const rect = c.getBoundingClientRect();
-  // Scale from CSS pixels to physical pixels so coords match app.width/app.height
-  // (which winit sets from canvas.width, the physical resolution).
   const dpr = c.width / (rect.width || 1);
   return { x: (clientX - rect.left) * dpr, y: (clientY - rect.top) * dpr };
 }
 
-// ─── Viewport resize ───────────────────────────────────────────────
 function onResize() {
   const vp = document.getElementById('viewport');
   const c  = getCanvas();
   if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
 }
 
-// ─── Touch + wheel event setup ──────────────────────────────────────────
-// Called AFTER waitForReady() so that getCanvas() returns winit's canvas.
-// Touch listeners are placed on WINDOW (not the canvas) so that winit's
-// canvas-level touchstart.preventDefault() / setPointerCapture() calls
-// cannot interfere with our handlers receiving touchmove/touchend events.
 function setupCanvasListeners() {
   const c = getCanvas();
   if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
 
-  // Wheel: preventDefault stops page scroll; winit handles zoom via MouseWheel.
   c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
 
-  // ── Touch gesture system ─────────────────────────────────────────
-  // All touch listeners are on `window` so they receive events regardless of
-  // what winit does to the canvas element's own event chain.
-  let activeTouches = {};     // identifier -> {x, y}
+  let activeTouches = {};
   let pinchDist = null;
   let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
-  let trackingCanvas = false; // true only when the active touch started on the canvas
+  let trackingCanvas = false;
   const LONG_MS = 500, TAP_THRESH = 20, DRAG_THRESH = 30;
 
   function tp(t) { return { x: t.clientX, y: t.clientY }; }
   function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
 
-  // Check whether a touch point lies within the canvas bounding rect.
   function isTouchOnCanvas(t) {
     const rect = getCanvas().getBoundingClientRect();
     return t.clientX >= rect.left && t.clientX <= rect.right &&
@@ -262,22 +243,18 @@ function setupCanvasListeners() {
 
   window.addEventListener('touchstart', (e) => {
     const first = e.changedTouches[0];
-    // If we're not yet tracking any canvas touch, only start tracking if the
-    // first finger landed on the canvas.
     if (!trackingCanvas) {
       if (!isTouchOnCanvas(first)) return;
       trackingCanvas = true;
     }
-
     for (const t of e.changedTouches) activeTouches[t.identifier] = tp(t);
     const n = Object.keys(activeTouches).length;
-
     if (n === 1) {
       tapX = first.clientX; tapY = first.clientY; tapMoved = false;
       tapTimer = setTimeout(() => {
         tapTimer = null;
         const p = canvasCoords(tapX, tapY);
-        wasm.js_pointer_down(p.x, p.y, 1); // long-press → remove voxel
+        wasm.js_pointer_down(p.x, p.y, 1);
         wasm.js_pointer_up();
       }, LONG_MS);
     }
@@ -287,13 +264,11 @@ function setupCanvasListeners() {
       pinchDist = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
                              activeTouches[ids[1]].y - activeTouches[ids[0]].y);
     }
-  }, { passive: true }); // passive=true: we don't need preventDefault on touchstart
+  }, { passive: true });
 
   window.addEventListener('touchmove', (e) => {
     if (!trackingCanvas) return;
-    // Prevent browser scroll/zoom while we're handling a canvas gesture.
     e.preventDefault();
-
     const n = Object.keys(activeTouches).length;
     if (n === 1) {
       const t = e.changedTouches[0];
@@ -326,10 +301,10 @@ function setupCanvasListeners() {
       if (!tapMoved && tapTimer !== null) {
         clearTap();
         const p = canvasCoords(tapX, tapY);
-        wasm.js_pointer_down(p.x, p.y, 0); // tap → add voxel
+        wasm.js_pointer_down(p.x, p.y, 0);
         wasm.js_pointer_up();
       } else {
-        clearTap(); // cancel any pending long-press when drag ends
+        clearTap();
       }
       tapMoved = false;
     }
@@ -346,11 +321,9 @@ function setupCanvasListeners() {
     }
   }, { passive: true });
 
-  // Force correct initial size
   onResize();
 }
 
-// ─── Init ───────────────────────────────────────────────────────────
 async function init() {
   const overlay = document.getElementById('status-overlay');
 
@@ -361,7 +334,6 @@ async function init() {
 
   overlay.textContent = 'Loading WASM…';
   try {
-    // ?v= busts the browser cache when the WASM binary is updated.
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
     wasmUrl.searchParams.set('v', '20260326_01');
     await init_wasm({ module_or_path: wasmUrl });
@@ -379,21 +351,15 @@ async function init() {
     return;
   }
 
-  // winit's canvas is now in the DOM with id="canvas" — safe to bind listeners
   setupCanvasListeners();
-
   wasmReady = true;
-  // Push the JS-side defaults into WASM (renderer initialises with Paint, not Sculpt).
   wasm.js_set_tool(activeTool);
-
   overlay.style.display = 'none';
-
   buildPalette();
   syncUIState();
   setInterval(syncUIState, 2000);
 }
 
-// ─── Palette ─────────────────────────────────────────────────────────
 function buildPalette() {
   const grid = document.getElementById('palette-grid');
   grid.innerHTML = '';
@@ -428,7 +394,6 @@ function updateActiveColorUI(hex) {
   document.getElementById('active-color-label').textContent = `IDX ${activeColorIndex}`;
 }
 
-// ─── Tool / render controls ────────────────────────────────────────────
 window.setTool = function(tool) {
   activeTool = tool;
   if (wasmReady) wasm.js_set_tool(tool);
@@ -444,7 +409,6 @@ window.toggleLighting = function() {
   btn.classList.toggle('active', lightingOn);
 };
 
-// ─── File I/O ────────────────────────────────────────────────────────
 window.saveFile  = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),  'scene.svox', 'application/octet-stream'); };
 window.loadFile  = () => document.getElementById('file-input').click();
 window.exportVox = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(), 'scene.vox',  'application/octet-stream'); };
@@ -480,16 +444,12 @@ function syncUIState() {
   } catch {}
 }
 
-// ─── Isometric tile icon renderer ─────────────────────────────────────────────
-// Matches Swift's TileGridView / TileIconCache rendering exactly.
-// Projection: px = (x-z)*2 + iconSize/2,  py = (iconSize/2 - 1) + (x+z) - y*2
 function renderTileIcon(canvas, tileData, colors) {
-  const S = 36; // iconSize
+  const S = 36;
   canvas.width = S; canvas.height = S;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, S, S);
   if (!tileData || !tileData.length) return;
-
   function proj(x, y, z) {
     return [(x - z) * 2 + S / 2, (S / 2 - 1) + (x + z) - y * 2];
   }
@@ -499,8 +459,6 @@ function renderTileIcon(canvas, tileData, colors) {
     ctx.lineTo(p2[0], p2[1]); ctx.lineTo(p3[0], p3[1]);
     ctx.closePath(); ctx.fill();
   }
-
-  // Back-to-front: z descending, x ascending, y ascending
   for (let z = 7; z >= 0; z--) {
     for (let x = 0; x < 8; x++) {
       for (let y = 0; y < 8; y++) {
@@ -510,13 +468,10 @@ function renderTileIcon(canvas, tileData, colors) {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
-        // Front face (z-) — 70% brightness
         ctx.fillStyle = `rgb(${r * 0.7 | 0},${g * 0.7 | 0},${b * 0.7 | 0})`;
         quad(proj(x, y+1, z), proj(x+1, y+1, z), proj(x+1, y, z), proj(x, y, z));
-        // Right face (x+) — 85% brightness
         ctx.fillStyle = `rgb(${r * 0.85 | 0},${g * 0.85 | 0},${b * 0.85 | 0})`;
         quad(proj(x+1, y+1, z), proj(x+1, y+1, z+1), proj(x+1, y, z+1), proj(x+1, y, z));
-        // Top face (y+) — full brightness
         ctx.fillStyle = `rgb(${r},${g},${b})`;
         quad(proj(x, y+1, z), proj(x+1, y+1, z), proj(x+1, y+1, z+1), proj(x, y+1, z+1));
       }
@@ -528,12 +483,10 @@ function syncTileList(state) {
   const list = document.getElementById('tile-list');
   const count = state?.tileCount ?? 0;
   const sel = state?.selectedTileIndex ?? -1;
-
   if (count === 0) {
     list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:4px">No tiles yet</div>';
     return;
   }
-
   let grid = list.querySelector('.tile-grid');
   if (!grid || grid.children.length !== count) {
     list.innerHTML = '';
@@ -549,7 +502,6 @@ function syncTileList(state) {
     }
     list.appendChild(grid);
   }
-
   const cells = grid.children;
   for (let i = 0; i < cells.length; i++) {
     cells[i].classList.toggle('selected', i === sel);
@@ -565,7 +517,6 @@ window.selectTile = function(index) {
   syncUIState();
 };
 
-// ─── Resize ───────────────────────────────────────────────────────────
 window.addEventListener('resize', onResize);
 screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
 
