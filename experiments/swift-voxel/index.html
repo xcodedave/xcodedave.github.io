@@ -16,7 +16,6 @@
     body { font-family: "Courier New", Courier, monospace; color: var(--text); }
     #layout { display: flex; width: 100%; height: 100%; }
     #viewport { flex: 1 1 auto; position: relative; overflow: hidden; min-width: 0; }
-    /* Placeholder canvas — winit replaces this element but preserves id="canvas" */
     #canvas {
       position: absolute; inset: 0; width: 100%; height: 100%;
       display: block; touch-action: none; cursor: crosshair;
@@ -29,7 +28,7 @@
       overflow: hidden;
     }
     #sidebar-scroll {
-      flex: 1; overflow-y: auto; overflow-x: hidden;
+      flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--panel-hi) var(--panel);
     }
     .section { padding: 6px; border-bottom: 1px solid var(--border-dk); }
@@ -223,24 +222,19 @@ function onResize() {
 function setupCanvasListeners() {
   const c = getCanvas();
   if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
-
   c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
-
   let activeTouches = {};
   let pinchDist = null;
   let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
   let trackingCanvas = false;
   const LONG_MS = 500, TAP_THRESH = 20, DRAG_THRESH = 30;
-
   function tp(t) { return { x: t.clientX, y: t.clientY }; }
   function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
-
   function isTouchOnCanvas(t) {
     const rect = getCanvas().getBoundingClientRect();
     return t.clientX >= rect.left && t.clientX <= rect.right &&
            t.clientY >= rect.top  && t.clientY <= rect.bottom;
   }
-
   window.addEventListener('touchstart', (e) => {
     const first = e.changedTouches[0];
     if (!trackingCanvas) {
@@ -265,7 +259,6 @@ function setupCanvasListeners() {
                              activeTouches[ids[1]].y - activeTouches[ids[0]].y);
     }
   }, { passive: true });
-
   window.addEventListener('touchmove', (e) => {
     if (!trackingCanvas) return;
     e.preventDefault();
@@ -291,7 +284,6 @@ function setupCanvasListeners() {
       pinchDist = nd;
     }
   }, { passive: false });
-
   window.addEventListener('touchend', (e) => {
     if (!trackingCanvas) return;
     for (const t of e.changedTouches) delete activeTouches[t.identifier];
@@ -309,7 +301,6 @@ function setupCanvasListeners() {
       tapMoved = false;
     }
   }, { passive: true });
-
   window.addEventListener('touchcancel', (e) => {
     if (!trackingCanvas) return;
     for (const t of e.changedTouches) delete activeTouches[t.identifier];
@@ -320,22 +311,19 @@ function setupCanvasListeners() {
       tapMoved = false;
     }
   }, { passive: true });
-
   onResize();
 }
 
 async function init() {
   const overlay = document.getElementById('status-overlay');
-
   if (!navigator.gpu) {
     overlay.textContent = 'WebGPU not supported.\nUse Chrome 113+ or Edge 113+ on desktop.';
     return;
   }
-
   overlay.textContent = 'Loading WASM…';
   try {
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_01');
+    wasmUrl.searchParams.set('v', '20260326_02');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
@@ -343,14 +331,12 @@ async function init() {
       console.error(e); return;
     }
   }
-
   overlay.textContent = 'Initialising WebGPU…';
   const ready = await waitForReady();
   if (!ready) {
     overlay.textContent = 'WebGPU initialisation timed out.\nCheck browser console for errors.';
     return;
   }
-
   setupCanvasListeners();
   wasmReady = true;
   wasm.js_set_tool(activeTool);
@@ -450,9 +436,7 @@ function renderTileIcon(canvas, tileData, colors) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, S, S);
   if (!tileData || !tileData.length) return;
-  function proj(x, y, z) {
-    return [(x - z) * 2 + S / 2, (S / 2 - 1) + (x + z) - y * 2];
-  }
+  function proj(x, y, z) { return [(x - z) * 2 + S / 2, (S / 2 - 1) + (x + z) - y * 2]; }
   function quad(p0, p1, p2, p3) {
     ctx.beginPath();
     ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
