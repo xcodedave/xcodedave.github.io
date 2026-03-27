@@ -467,8 +467,16 @@ function __wbg_get_imports() {
         __wbg_clear_5a0606f7c62ad39a: function(arg0, arg1) {
             arg0.clear(arg1 >>> 0);
         },
+        __wbg_clientHeight_3d6e452054fdbc3b: function(arg0) {
+            const ret = arg0.clientHeight;
+            return ret;
+        },
         __wbg_clientWaitSync_5402aac488fc18bb: function(arg0, arg1, arg2, arg3) {
             const ret = arg0.clientWaitSync(arg1, arg2 >>> 0, arg3 >>> 0);
+            return ret;
+        },
+        __wbg_clientWidth_33c7e9c1bcdf4a7e: function(arg0) {
+            const ret = arg0.clientWidth;
             return ret;
         },
         __wbg_close_ab55423854e61546: function(arg0) {
@@ -1813,6 +1821,9 @@ function __wbg_get_imports() {
         },
         __wbg_set_height_b6548a01bdcb689a: function(arg0, arg1) {
             arg0.height = arg1 >>> 0;
+        },
+        __wbg_set_id_2692cc8cc00cf4db: function(arg0, arg1, arg2) {
+            arg0.id = getStringFromWasm0(arg1, arg2);
         },
         __wbg_set_label_0d9081f92dff44a8: function(arg0, arg1, arg2) {
             arg0.label = getStringFromWasm0(arg1, arg2);

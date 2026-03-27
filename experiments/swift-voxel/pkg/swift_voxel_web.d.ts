@@ -22,7 +22,7 @@ export function js_camera_zoom(delta: number): void;
 export function js_export_vox(): Uint8Array;
 
 /**
- * Return current editor state as JSON: {tool, colorIndex, lightingEnabled, tileCount}
+ * Return current editor state as JSON: {tool, colorIndex, lightingEnabled, tileCount, selectedTileIndex}
  */
 export function js_get_editor_state_json(): string;
 
@@ -32,12 +32,17 @@ export function js_get_editor_state_json(): string;
 export function js_get_palette_json(): string;
 
 /**
+ * Return raw tile voxel data (512 bytes of u8 color indices).
+ */
+export function js_get_tile_data(index: number): Uint8Array;
+
+/**
  * Import a scene from MagicaVoxel .vox bytes. Returns true on success.
  */
 export function js_import_vox(data: Uint8Array): boolean;
 
 /**
- * Returns true once the renderer (WebGPU) is fully initialised.
+ * Returns true once the renderer (WebGPU / WebGL2) is fully initialised.
  */
 export function js_is_ready(): boolean;
 
@@ -68,6 +73,11 @@ export function js_pointer_up(): void;
 export function js_save_svox(): Uint8Array;
 
 /**
+ * Select a tile by index.
+ */
+export function js_select_tile(index: number): void;
+
+/**
  * Set the active palette color index (1–255).
  */
 export function js_set_color_index(index: number): void;
@@ -88,13 +98,13 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly wasm_main: () => void;
     readonly js_camera_orbit: (a: number, b: number) => void;
     readonly js_camera_pan: (a: number, b: number) => void;
     readonly js_camera_zoom: (a: number) => void;
     readonly js_export_vox: () => [number, number];
     readonly js_get_editor_state_json: () => [number, number];
     readonly js_get_palette_json: () => [number, number];
+    readonly js_get_tile_data: (a: number) => [number, number];
     readonly js_import_vox: (a: number, b: number) => number;
     readonly js_is_ready: () => number;
     readonly js_load_svox: (a: number, b: number) => number;
@@ -102,22 +112,24 @@ export interface InitOutput {
     readonly js_pointer_move: (a: number, b: number, c: number, d: number) => void;
     readonly js_pointer_up: () => void;
     readonly js_save_svox: () => [number, number];
+    readonly js_select_tile: (a: number) => void;
     readonly js_set_color_index: (a: number) => void;
     readonly js_set_tool: (a: number, b: number) => void;
     readonly js_toggle_lighting: () => void;
-    readonly wasm_bindgen__closure__destroy__h0f224a482f54dc30: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__h33b70e22126fc759: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hae2313f37fa2cae4: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h29592b5c27100957: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_2: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_3: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_4: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_5: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_6: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_7: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h003434427ccedf0f_8: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hc3f9d08f04d479c9: (a: number, b: number) => void;
+    readonly wasm_main: () => void;
+    readonly wasm_bindgen__closure__destroy__h04a1bd544ca4401b: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__hb2058f568e973bae: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h2299c8d460ebdc8a: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h86290578280cd341: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_2: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_3: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_4: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_5: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_6: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_7: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_8: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h375eda25d8028678: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __externref_table_alloc: () => number;
