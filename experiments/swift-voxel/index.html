@@ -203,7 +203,7 @@
 <input type="file" id="file-input" accept=".svox" style="display:none">
 <input type="file" id="vox-input"  accept=".vox"  style="display:none">
 <script type="module">
-import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
+import init_wasm, * as wasm from './pkg/swift_voxel_web.js?v=20260327_09';
 
 let wasmReady = false;
 let activeColorIndex = 1;
@@ -350,7 +350,7 @@ async function init() {
   overlay.textContent = 'Loading…';
   try {
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_06');
+    wasmUrl.searchParams.set('v', '20260327_09');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
