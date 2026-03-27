@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>SwiftVoxel — Voxel Editor</title>
+  <title>SwiftVoxel — WebGPU Editor</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a24; }
@@ -203,7 +203,7 @@
 <input type="file" id="file-input" accept=".svox" style="display:none">
 <input type="file" id="vox-input"  accept=".vox"  style="display:none">
 <script type="module">
-import init_wasm, * as wasm from './pkg/swift_voxel_web.js?v=20260327_08';
+import init_wasm, * as wasm from './pkg/swift_voxel_web.js';
 
 let wasmReady = false;
 let activeColorIndex = 1;
@@ -266,10 +266,8 @@ function setupCanvasListeners() {
       if (!isTouchOnCanvas(first)) return;
       trackingCanvas = true;
     }
-
     for (const t of e.changedTouches) activeTouches[t.identifier] = tp(t);
     const n = Object.keys(activeTouches).length;
-
     if (n === 1) {
       tapX = first.clientX; tapY = first.clientY; tapMoved = false;
       tapTimer = setTimeout(() => {
@@ -290,7 +288,6 @@ function setupCanvasListeners() {
   window.addEventListener('touchmove', (e) => {
     if (!trackingCanvas) return;
     e.preventDefault();
-
     const n = Object.keys(activeTouches).length;
     if (n === 1) {
       const t = e.changedTouches[0];
@@ -344,17 +341,16 @@ function setupCanvasListeners() {
   }, { passive: true });
 
   onResize();
-  window.addEventListener('resize', onResize);
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────
 async function init() {
   const overlay = document.getElementById('status-overlay');
 
-  overlay.textContent = 'Loading WASM…';
+  overlay.textContent = 'Loading…';
   try {
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260327_08');
+    wasmUrl.searchParams.set('v', '20260326_06');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
@@ -363,10 +359,10 @@ async function init() {
     }
   }
 
-  overlay.textContent = 'Initialising GPU…';
+  overlay.textContent = 'Initialising renderer…';
   const ready = await waitForReady();
   if (!ready) {
-    overlay.textContent = 'GPU initialisation timed out.\nCheck browser console for errors.';
+    overlay.textContent = 'Renderer initialisation timed out.\nCheck browser console for errors.';
     return;
   }
 
