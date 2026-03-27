@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>SwiftVoxel — WebGPU Editor</title>
+  <title>SwiftVoxel — Voxel Editor</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a24; }
@@ -138,7 +138,7 @@
 <div id="layout">
   <div id="viewport">
     <canvas id="canvas"></canvas>
-    <div id="status-overlay">Loading WebGPU…</div>
+    <div id="status-overlay">Loading…</div>
     <div id="help-hint">
       DRAG — orbit  |  SCROLL — zoom  |  OPT+DRAG — pan<br>
       LMB — add voxel  |  RMB — remove voxel
@@ -350,15 +350,10 @@ function setupCanvasListeners() {
 async function init() {
   const overlay = document.getElementById('status-overlay');
 
-  if (!navigator.gpu) {
-    overlay.textContent = 'WebGPU not supported.\nUse Chrome 113+ or Edge 113+ on desktop.';
-    return;
-  }
-
   overlay.textContent = 'Loading WASM…';
   try {
     const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260326_05');
+    wasmUrl.searchParams.set('v', '20260327_01');
     await init_wasm({ module_or_path: wasmUrl });
   } catch (e) {
     if (!e?.message?.includes('Using exceptions for control flow')) {
@@ -367,10 +362,10 @@ async function init() {
     }
   }
 
-  overlay.textContent = 'Initialising WebGPU…';
+  overlay.textContent = 'Initialising GPU…';
   const ready = await waitForReady();
   if (!ready) {
-    overlay.textContent = 'WebGPU initialisation timed out.\nCheck browser console for errors.';
+    overlay.textContent = 'GPU initialisation timed out.\nCheck browser console for errors.';
     return;
   }
 
