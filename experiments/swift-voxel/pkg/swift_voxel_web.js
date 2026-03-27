@@ -1,5 +1,194 @@
 /* @ts-self-types="./swift_voxel_web.d.ts" */
 
+/**
+ * Camera orbit — called from JS touch/pointer drag.
+ * @param {number} dx
+ * @param {number} dy
+ */
+export function js_camera_orbit(dx, dy) {
+    wasm.js_camera_orbit(dx, dy);
+}
+
+/**
+ * Camera pan — called from JS two-finger drag.
+ * @param {number} dx
+ * @param {number} dy
+ */
+export function js_camera_pan(dx, dy) {
+    wasm.js_camera_pan(dx, dy);
+}
+
+/**
+ * Camera zoom — called from JS pinch or scroll.
+ * @param {number} delta
+ */
+export function js_camera_zoom(delta) {
+    wasm.js_camera_zoom(delta);
+}
+
+/**
+ * Export the current scene as MagicaVoxel .vox bytes.
+ * @returns {Uint8Array}
+ */
+export function js_export_vox() {
+    const ret = wasm.js_export_vox();
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
+ * Return current editor state as JSON: {tool, colorIndex, lightingEnabled, tileCount, selectedTileIndex}
+ * @returns {string}
+ */
+export function js_get_editor_state_json() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.js_get_editor_state_json();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * Return the palette as a JSON array of 256 "#rrggbb" strings.
+ * @returns {string}
+ */
+export function js_get_palette_json() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.js_get_palette_json();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * Return raw tile voxel data (512 bytes of u8 color indices).
+ * @param {number} index
+ * @returns {Uint8Array}
+ */
+export function js_get_tile_data(index) {
+    const ret = wasm.js_get_tile_data(index);
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
+ * Import a scene from MagicaVoxel .vox bytes. Returns true on success.
+ * @param {Uint8Array} data
+ * @returns {boolean}
+ */
+export function js_import_vox(data) {
+    const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.js_import_vox(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * Returns true once the renderer (WebGPU / WebGL2) is fully initialised.
+ * @returns {boolean}
+ */
+export function js_is_ready() {
+    const ret = wasm.js_is_ready();
+    return ret !== 0;
+}
+
+/**
+ * Load a scene from .svox bytes. Returns true on success.
+ * @param {Uint8Array} data
+ * @returns {boolean}
+ */
+export function js_load_svox(data) {
+    const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.js_load_svox(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * Pointer/touch down on the canvas — triggers a sculpt or paint action.
+ * `button`: 0 = add/paint, 1 = remove/erase.
+ * @param {number} x
+ * @param {number} y
+ * @param {number} button
+ */
+export function js_pointer_down(x, y, button) {
+    wasm.js_pointer_down(x, y, button);
+}
+
+/**
+ * Pointer/touch move on the canvas — continues drag.
+ * @param {number} x
+ * @param {number} y
+ * @param {number} dx
+ * @param {number} dy
+ */
+export function js_pointer_move(x, y, dx, dy) {
+    wasm.js_pointer_move(x, y, dx, dy);
+}
+
+/**
+ * Pointer/touch up — ends drag.
+ */
+export function js_pointer_up() {
+    wasm.js_pointer_up();
+}
+
+/**
+ * Serialise the current scene to .svox bytes.
+ * @returns {Uint8Array}
+ */
+export function js_save_svox() {
+    const ret = wasm.js_save_svox();
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
+ * Select a tile by index.
+ * @param {number} index
+ */
+export function js_select_tile(index) {
+    wasm.js_select_tile(index);
+}
+
+/**
+ * Set the active palette color index (1–255).
+ * @param {number} index
+ */
+export function js_set_color_index(index) {
+    wasm.js_set_color_index(index);
+}
+
+/**
+ * Set the active tool: "sculpt" or "paint".
+ * @param {string} tool
+ */
+export function js_set_tool(tool) {
+    const ptr0 = passStringToWasm0(tool, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    wasm.js_set_tool(ptr0, len0);
+}
+
+/**
+ * Toggle ambient/diffuse lighting.
+ */
+export function js_toggle_lighting() {
+    wasm.js_toggle_lighting();
+}
+
 export function wasm_main() {
     wasm.wasm_main();
 }
@@ -2215,57 +2404,57 @@ function __wbg_get_imports() {
             arg0.writeTexture(arg1, arg2, arg3, arg4);
         }, arguments); },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [Externref], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [Externref], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("Array<any>"), NamedExternref("ResizeObserver")], shim_idx: 1965, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("Array<any>"), NamedExternref("ResizeObserver")], shim_idx: 1968, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h2299c8d460ebdc8a);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("Array<any>")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("Array<any>")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_2);
             return ret;
         },
         __wbindgen_cast_0000000000000004: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("Event")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("Event")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_3);
             return ret;
         },
         __wbindgen_cast_0000000000000005: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("FocusEvent")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("FocusEvent")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_4);
             return ret;
         },
         __wbindgen_cast_0000000000000006: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_5);
             return ret;
         },
         __wbindgen_cast_0000000000000007: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("PageTransitionEvent")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("PageTransitionEvent")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_6);
             return ret;
         },
         __wbindgen_cast_0000000000000008: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("PointerEvent")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("PointerEvent")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_7);
             return ret;
         },
         __wbindgen_cast_0000000000000009: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [NamedExternref("WheelEvent")], shim_idx: 1964, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [NamedExternref("WheelEvent")], shim_idx: 1967, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h0e5a31499317d5c4_8);
             return ret;
         },
         __wbindgen_cast_000000000000000a: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1804, function: Function { arguments: [], shim_idx: 1963, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1807, function: Function { arguments: [], shim_idx: 1966, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h04a1bd544ca4401b, wasm_bindgen__convert__closures_____invoke__h375eda25d8028678);
             return ret;
         },
         __wbindgen_cast_000000000000000b: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1989, function: Function { arguments: [Externref], shim_idx: 2007, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1992, function: Function { arguments: [Externref], shim_idx: 2010, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__hb2058f568e973bae, wasm_bindgen__convert__closures_____invoke__h86290578280cd341);
             return ret;
         },
@@ -2667,6 +2856,13 @@ function makeMutClosure(arg0, arg1, dtor, f) {
     };
     CLOSURE_DTORS.register(real, state, state);
     return real;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 function passStringToWasm0(arg, malloc, realloc) {
