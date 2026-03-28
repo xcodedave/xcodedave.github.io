@@ -334,7 +334,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '10';
+                const CACHE_V = '11';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
