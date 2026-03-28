@@ -1,572 +1,766 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>SwiftVoxel — WebGPU Editor</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a24; }
-    :root {
-      --bg: #1a1a24; --panel: #2a2a38; --panel-hi: #3a3a4e;
-      --border-lt: #5a5a7a; --border-dk: #0d0d14;
-      --text: #ccccdd; --text-dim: #7777aa;
-      --accent: #6688cc; --sidebar-w: 220px;
-    }
-    body { font-family: "Courier New", Courier, monospace; color: var(--text); }
-    #layout { display: flex; width: 100%; height: 100%; }
-    #viewport { flex: 1 1 auto; position: relative; overflow: hidden; min-width: 0; }
-    /* Placeholder canvas — winit replaces this element but preserves id="canvas" */
-    #canvas {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      display: block; touch-action: none; cursor: crosshair;
-    }
-    #sidebar {
-      flex: 0 0 var(--sidebar-w); width: var(--sidebar-w);
-      background: var(--panel);
-      border-left: 2px solid var(--border-lt);
-      overflow-y: auto; overflow-x: hidden;
-      scrollbar-width: thin; scrollbar-color: var(--panel-hi) var(--panel);
-    }
-    #sidebar-scroll { display: contents; }
-    .section { padding: 6px; border-bottom: 1px solid var(--border-dk); }
-    .section-title {
-      font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-      color: var(--text-dim); margin-bottom: 5px;
-      padding-bottom: 3px; border-bottom: 1px solid var(--border-dk);
-    }
-    button {
-      font-family: inherit; font-size: 11px; color: var(--text);
-      background: var(--panel-hi); cursor: pointer; user-select: none;
-      border: none; outline: none;
-    }
-    .btn {
-      display: block; width: 100%; padding: 5px 6px; text-align: left;
-      border-top: 2px solid var(--border-lt); border-left: 2px solid var(--border-lt);
-      border-bottom: 2px solid var(--border-dk); border-right: 2px solid var(--border-dk);
-      background: var(--panel-hi); margin-bottom: 3px;
-    }
-    .btn:active {
-      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
-      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
-      padding: 6px 5px 4px 7px;
-    }
-    .btn.active {
-      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
-      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
-      color: #fff; background: var(--accent);
-    }
-    .btn-row { display: flex; gap: 3px; }
-    .btn-row .btn { flex: 1; margin-bottom: 3px; font-size: 10px; }
-    #active-color-wrap { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-    #active-color-swatch {
-      width: 28px; height: 28px; flex-shrink: 0;
-      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
-      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
-    }
-    #active-color-label { font-size: 10px; color: var(--text-dim); }
-    #active-wrap { display: flex; gap: 8px; align-items: flex-start; }
-    #active-tile-canvas {
-      width: 36px; height: 36px; display: block;
-      image-rendering: pixelated; image-rendering: crisp-edges;
-      background: var(--border-dk);
-      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
-      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
-    }
-    #active-tile-label { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
-    #palette-grid {
-      display: grid; grid-template-columns: repeat(16, 1fr);
-      gap: 1px; background: var(--border-dk);
-      border: 1px solid var(--border-dk); margin-bottom: 4px;
-      max-height: 120px; overflow-y: auto;
-    }
-    .swatch { aspect-ratio: 1; cursor: pointer; position: relative; }
-    .swatch:hover::after { content:''; position:absolute; inset:0; background:rgba(255,255,255,.3); }
-    .swatch.selected::after { content:''; position:absolute; inset:0; box-shadow:inset 0 0 0 2px #fff; }
-    .swatch-transparent { background: repeating-conic-gradient(#555 0% 25%, #888 0% 50%) 0 0/6px 6px; }
-    #tile-list { margin-bottom: 3px; }
-    .tile-grid {
-      display: grid; grid-template-columns: repeat(4, 40px);
-      gap: 3px; padding: 2px; max-height: 220px; overflow-y: auto;
-    }
-    .tile-cell {
-      width: 40px; height: 40px; position: relative; cursor: pointer;
-      background: var(--border-dk);
-      border-top: 2px solid var(--border-dk); border-left: 2px solid var(--border-dk);
-      border-bottom: 2px solid var(--border-lt); border-right: 2px solid var(--border-lt);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .tile-cell canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
-    .tile-cell.selected::before {
-      content: ''; position: absolute; inset: 0;
-      border: 2px solid #000; z-index: 1; pointer-events: none;
-    }
-    .tile-cell.selected::after {
-      content: ''; position: absolute; inset: 2px;
-      border: 1px solid #fff; z-index: 1; pointer-events: none;
-    }
-    #status-overlay {
-      position: absolute; inset: 0; display: flex;
-      align-items: center; justify-content: center;
-      background: rgba(26,26,36,.93); font-size: 14px;
-      color: var(--text-dim); text-align: center; padding: 20px;
-      z-index: 100; pointer-events: none; white-space: pre-line;
-    }
-    #help-hint {
-      position: absolute; bottom: 10px; left: 10px;
-      font-size: 9px; color: rgba(120,120,160,.65);
-      line-height: 1.6; pointer-events: none;
-    }
-    @media (max-width: 680px) {
-      #layout { flex-direction: column; }
-      #sidebar {
-        flex: 0 0 auto; width: 100%; max-height: 44vh;
-        flex-direction: row; flex-wrap: wrap;
-        border-left: none; border-top: 2px solid var(--border-lt);
-        overflow-x: auto;
-      }
-      #sidebar-scroll { display: contents; }
-      .section { flex: 0 0 auto; min-width: 110px; }
-      #section-palette { flex: 0 0 100%; }
-      #section-tiles { min-width: 185px; }
-      #palette-grid { grid-template-columns: repeat(32, 1fr); max-height: none; }
-      #help-hint { display: none; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SwiftVoxel — WebGPU Voxel Editor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #1a1a24;
+            --panel: #2a2a38;
+            --btn-face: #3a3a4e;
+            --highlight: #5a5a7a;
+            --dark-shadow: #0d0d14;
+            --text: #ccccdd;
+            --text-dim: #7777aa;
+            --accent: #6688cc;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #viewport {
+            flex: 1;
+            position: relative;
+            min-width: 0;
+        }
+
+        #viewport canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+            cursor: crosshair;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #sidebar {
+            width: 220px;
+            background: var(--panel);
+            border-left: 2px solid var(--highlight);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .section {
+            padding: 8px;
+            border-bottom: 1px solid var(--dark-shadow);
+        }
+
+        .section-header {
+            color: var(--text-dim);
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        /* Beveled panel */
+        .bevel {
+            box-shadow:
+                inset 1px 1px 0 var(--highlight),
+                inset -1px -1px 0 var(--dark-shadow);
+        }
+
+        .bevel-sunken {
+            box-shadow:
+                inset 1px 1px 0 var(--dark-shadow),
+                inset -1px -1px 0 var(--highlight);
+        }
+
+        /* Buttons */
+        .btn {
+            background: var(--btn-face);
+            color: var(--text);
+            border: none;
+            padding: 5px 10px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow:
+                inset 1px 1px 0 var(--highlight),
+                inset -1px -1px 0 var(--dark-shadow);
+        }
+
+        .btn:hover {
+            background: var(--highlight);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow:
+                inset 1px 1px 0 var(--dark-shadow),
+                inset -1px -1px 0 var(--highlight);
+        }
+
+        /* Selected section */
+        #selected-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        #color-swatch {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--highlight);
+        }
+
+        #tile-preview-canvas {
+            width: 48px;
+            height: 48px;
+            background: var(--dark-shadow);
+            image-rendering: pixelated;
+        }
+
+        .tool-buttons {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .tool-buttons .btn {
+            flex: 1;
+        }
+
+        /* Palette grid */
+        #palette-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 1px;
+            padding: 2px;
+            background: var(--dark-shadow);
+        }
+
+        .palette-cell {
+            aspect-ratio: 1;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .palette-cell:hover {
+            border-color: #fff;
+        }
+
+        .palette-cell.selected {
+            border: 2px solid #fff;
+        }
+
+        /* Tile grid */
+        #tile-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+
+        .tile-cell {
+            aspect-ratio: 1;
+            background: var(--dark-shadow);
+            cursor: pointer;
+            border: 2px solid transparent;
+            overflow: hidden;
+        }
+
+        .tile-cell:hover {
+            border-color: var(--highlight);
+        }
+
+        .tile-cell.selected {
+            border-color: var(--accent);
+        }
+
+        .tile-cell canvas {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        /* File buttons */
+        .file-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .file-buttons .btn {
+            flex: 1;
+            min-width: 60px;
+            font-size: 10px;
+        }
+
+        /* Loading overlay */
+        #status {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #aaa;
+            font-family: monospace;
+            font-size: 16px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        /* Toggle button */
+        .toggle-btn {
+            width: 100%;
+        }
+
+        .toggle-btn.on {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* Responsive: stack sidebar below viewport on small screens */
+        @media (max-width: 680px) {
+            body { flex-direction: column; }
+            #sidebar {
+                flex: 0 0 auto;
+                width: 100%;
+                max-height: 44vh;
+                flex-direction: row;
+                flex-wrap: wrap;
+                border-left: none;
+                border-top: 2px solid var(--highlight);
+                overflow-x: auto;
+            }
+            .section { flex: 0 0 auto; min-width: 110px; }
+            #palette-grid { grid-template-columns: repeat(32, 1fr); max-height: none; }
+        }
+    </style>
 </head>
 <body>
-<div id="layout">
-  <div id="viewport">
-    <canvas id="canvas"></canvas>
-    <div id="status-overlay">Loading…</div>
-    <div id="help-hint">
-      DRAG — orbit  |  SCROLL — zoom  |  OPT+DRAG — pan<br>
-      LMB — add voxel  |  RMB — remove voxel
+    <div id="viewport">
+        <canvas id="canvas"></canvas>
     </div>
-  </div>
-  <div id="sidebar">
-    <div id="sidebar-scroll">
-      <div class="section" id="section-active">
-        <div id="active-wrap">
-          <div style="flex:1">
-            <div class="section-title">COLOR</div>
-            <div id="active-color-wrap">
-              <div id="active-color-swatch"></div>
-              <span id="active-color-label">IDX 1</span>
+    <div id="sidebar">
+        <!-- SELECTED -->
+        <div class="section">
+            <div class="section-header">Selected</div>
+            <div id="selected-section">
+                <div id="color-swatch" class="bevel-sunken"></div>
+                <canvas id="tile-preview-canvas" width="48" height="48"></canvas>
             </div>
-          </div>
-          <div>
-            <div class="section-title">TILE</div>
-            <canvas id="active-tile-canvas" width="36" height="36"></canvas>
-            <div id="active-tile-label">—</div>
-          </div>
+            <div class="tool-buttons">
+                <button class="btn active" id="btn-sculpt" onclick="setTool('sculpt')">Sculpt</button>
+                <button class="btn" id="btn-paint" onclick="setTool('paint')">Paint</button>
+            </div>
         </div>
-      </div>
-      <div class="section">
-        <div class="section-title">TOOL</div>
-        <div class="btn-row">
-          <button class="btn active" id="btn-paint"  onclick="setTool('paint')">PAINT</button>
-          <button class="btn"        id="btn-sculpt" onclick="setTool('sculpt')">TILE</button>
+
+        <!-- RENDER -->
+        <div class="section">
+            <div class="section-header">Render</div>
+            <button class="btn toggle-btn on" id="btn-lighting" onclick="toggleLighting()">Lighting ON</button>
         </div>
-      </div>
-      <div class="section">
-        <div class="section-title">RENDER</div>
-        <button class="btn active" id="btn-lighting" onclick="toggleLighting()">LIGHTING ON</button>
-      </div>
-      <div class="section" id="section-tiles">
-        <div class="section-title">TILES</div>
-        <div id="tile-list"></div>
-      </div>
-      <div class="section" id="section-palette">
-        <div class="section-title">PALETTE</div>
-        <div id="palette-grid"></div>
-      </div>
+
+        <!-- FILE -->
+        <div class="section">
+            <div class="section-header">File</div>
+            <div class="file-buttons">
+                <button class="btn" onclick="saveSvox()">Save</button>
+                <button class="btn" onclick="loadSvox()">Load</button>
+                <button class="btn" onclick="exportVox()">Export</button>
+                <button class="btn" onclick="importVox()">Import</button>
+            </div>
+        </div>
+
+        <!-- PALETTE -->
+        <div class="section">
+            <div class="section-header">Palette</div>
+            <div id="palette-grid" class="bevel-sunken"></div>
+        </div>
+
+        <!-- TILES -->
+        <div class="section">
+            <div class="section-header">Tiles</div>
+            <div id="tile-grid"></div>
+        </div>
     </div>
-    <div class="section">
-      <div class="section-title">FILE</div>
-      <button class="btn" onclick="saveFile()">SAVE .SVOX</button>
-      <button class="btn" onclick="loadFile()">OPEN .SVOX</button>
-      <button class="btn" onclick="exportVox()">EXPORT .VOX</button>
-      <button class="btn" onclick="importVox()">IMPORT .VOX</button>
-    </div>
-    <div class="section">
-      <div class="section-title">MOBILE CONTROLS</div>
-      <div style="font-size:9px;color:var(--text-dim);line-height:1.8">
-        TAP — add voxel<br>
-        LONG PRESS — remove<br>
-        DRAG — orbit camera<br>
-        PINCH — zoom
-      </div>
-    </div>
-  </div>
-</div>
-<input type="file" id="file-input" accept=".svox" style="display:none">
-<input type="file" id="vox-input"  accept=".vox"  style="display:none">
-<script type="module">
-import init_wasm, * as wasm from './pkg/swift_voxel_web.js?v=20260327_11';
 
-let wasmReady = false;
-let activeColorIndex = 1;
-let activeTool = 'paint';
-let lightingOn = true;
-let paletteColors = [];
+    <div id="status">Loading WebGPU...</div>
 
-// ─── Readiness polling ─────────────────────────────────────────────────────
-async function waitForReady(timeoutMs = 20000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    await new Promise(r => requestAnimationFrame(r));
-    if (wasm.js_is_ready()) return true;
-  }
-  return false;
-}
+    <script type="module">
+        let wasm;
+        let paletteColors = [];
+        let selectedColorIndex = 1;
+        let selectedTileIndex = 0;
+        let currentTool = 'sculpt';
+        let lightingEnabled = true;
+        let lastTileCount = 0;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
 
-// ─── Canvas helpers ────────────────────────────────────────────────────────
-function getCanvas() { return document.getElementById('canvas'); }
+        async function init() {
+            const status = document.getElementById('status');
 
-function canvasCoords(clientX, clientY) {
-  const c = getCanvas();
-  const rect = c.getBoundingClientRect();
-  const dpr = c.width / (rect.width || 1);
-  return { x: (clientX - rect.left) * dpr, y: (clientY - rect.top) * dpr };
-}
+            try {
+                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js');
+                await init_wasm();
+                wasm = exports;
+                status.style.display = 'none';
 
-// ─── Viewport resize ───────────────────────────────────────────────────────
-function onResize() {
-  const vp = document.getElementById('viewport');
-  const c  = getCanvas();
-  if (vp && c) { c.width = vp.clientWidth; c.height = vp.clientHeight; }
-}
+                // Wait for renderer to be ready
+                await waitForReady();
 
-// ─── Touch + wheel event setup ─────────────────────────────────────────────
-function setupCanvasListeners() {
-  const c = getCanvas();
-  if (!c) { console.error('setupCanvasListeners: #canvas not found'); return; }
+                // Build palette grid
+                buildPaletteGrid();
 
-  c.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
+                // Start UI update loop
+                requestAnimationFrame(uiLoop);
 
-  let activeTouches = {};
-  let pinchDist = null;
-  let tapX = 0, tapY = 0, tapMoved = false, tapTimer = null;
-  let trackingCanvas = false;
-  const LONG_MS = 500, TAP_THRESH = 20, DRAG_THRESH = 30;
+                // Setup canvas events
+                setupCanvasEvents();
 
-  function tp(t) { return { x: t.clientX, y: t.clientY }; }
-  function clearTap() { if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; } }
+            } catch (e) {
+                status.textContent = 'Failed to initialize: ' + e.message;
+                console.error(e);
+            }
+        }
 
-  function isTouchOnCanvas(t) {
-    const rect = getCanvas().getBoundingClientRect();
-    return t.clientX >= rect.left && t.clientX <= rect.right &&
-           t.clientY >= rect.top  && t.clientY <= rect.bottom;
-  }
+        function waitForReady() {
+            return new Promise(resolve => {
+                const check = () => {
+                    if (wasm.js_is_ready()) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 50);
+                    }
+                };
+                check();
+            });
+        }
 
-  window.addEventListener('touchstart', (e) => {
-    const first = e.changedTouches[0];
-    if (!trackingCanvas) {
-      if (!isTouchOnCanvas(first)) return;
-      trackingCanvas = true;
-    }
-    for (const t of e.changedTouches) activeTouches[t.identifier] = tp(t);
-    const n = Object.keys(activeTouches).length;
-    if (n === 1) {
-      tapX = first.clientX; tapY = first.clientY; tapMoved = false;
-      tapTimer = setTimeout(() => {
-        tapTimer = null;
-        const p = canvasCoords(tapX, tapY);
-        wasm.js_pointer_down(p.x, p.y, 1);
-        wasm.js_pointer_up();
-      }, LONG_MS);
-    }
-    if (n === 2) {
-      clearTap();
-      const ids = Object.keys(activeTouches);
-      pinchDist = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
-                             activeTouches[ids[1]].y - activeTouches[ids[0]].y);
-    }
-  }, { passive: true });
+        // ── Palette ──────────────────────────────────────
 
-  window.addEventListener('touchmove', (e) => {
-    if (!trackingCanvas) return;
-    e.preventDefault();
-    const n = Object.keys(activeTouches).length;
-    if (n === 1) {
-      const t = e.changedTouches[0];
-      const prev = activeTouches[t.identifier]; if (!prev) return;
-      const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
-      activeTouches[t.identifier] = tp(t);
-      const dist = Math.hypot(t.clientX - tapX, t.clientY - tapY);
-      if (!tapMoved && dist > TAP_THRESH) tapMoved = true;
-      if (dist > DRAG_THRESH) clearTap();
-      if (tapMoved) wasm.js_camera_orbit(dx * 0.5, dy * 0.5);
-    } else if (n >= 2) {
-      for (const t of e.changedTouches) {
-        if (t.identifier in activeTouches) activeTouches[t.identifier] = tp(t);
-      }
-      const ids = Object.keys(activeTouches);
-      if (ids.length < 2) return;
-      const nd = Math.hypot(activeTouches[ids[1]].x - activeTouches[ids[0]].x,
-                            activeTouches[ids[1]].y - activeTouches[ids[0]].y);
-      if (pinchDist !== null) wasm.js_camera_zoom((nd - pinchDist) * 0.02);
-      pinchDist = nd;
-    }
-  }, { passive: false });
+        function buildPaletteGrid() {
+            const grid = document.getElementById('palette-grid');
+            try {
+                paletteColors = JSON.parse(wasm.js_get_palette_json());
+            } catch { paletteColors = []; }
 
-  window.addEventListener('touchend', (e) => {
-    if (!trackingCanvas) return;
-    for (const t of e.changedTouches) delete activeTouches[t.identifier];
-    if (Object.keys(activeTouches).length === 0) {
-      trackingCanvas = false;
-      pinchDist = null;
-      if (!tapMoved && tapTimer !== null) {
-        clearTap();
-        const p = canvasCoords(tapX, tapY);
-        wasm.js_pointer_down(p.x, p.y, 0);
-        wasm.js_pointer_up();
-      } else {
-        clearTap();
-      }
-      tapMoved = false;
-    }
-  }, { passive: true });
+            grid.innerHTML = '';
+            for (let i = 1; i < 256; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'palette-cell' + (i === selectedColorIndex ? ' selected' : '');
+                cell.style.background = paletteColors[i] || '#000';
+                cell.dataset.index = i;
+                cell.onclick = () => selectColor(i);
+                grid.appendChild(cell);
+            }
+        }
 
-  window.addEventListener('touchcancel', (e) => {
-    if (!trackingCanvas) return;
-    for (const t of e.changedTouches) delete activeTouches[t.identifier];
-    if (Object.keys(activeTouches).length === 0) {
-      trackingCanvas = false;
-      pinchDist = null;
-      clearTap();
-      tapMoved = false;
-    }
-  }, { passive: true });
+        function selectColor(index) {
+            selectedColorIndex = index;
+            wasm.js_set_color_index(index);
+            // Update selection highlight
+            document.querySelectorAll('.palette-cell').forEach(el => {
+                el.classList.toggle('selected', parseInt(el.dataset.index) === index);
+            });
+            updateColorSwatch();
+        }
 
-  onResize();
-}
+        function updateColorSwatch() {
+            const swatch = document.getElementById('color-swatch');
+            swatch.style.background = paletteColors[selectedColorIndex] || '#000';
+        }
 
-// ─── Init ──────────────────────────────────────────────────────────────────
-async function init() {
-  const overlay = document.getElementById('status-overlay');
+        // ── Tool selection ───────────────────────────────
 
-  overlay.textContent = 'Loading…';
-  try {
-    const wasmUrl = new URL('./pkg/swift_voxel_web_bg.wasm', location.href);
-    wasmUrl.searchParams.set('v', '20260327_10');
-    await init_wasm({ module_or_path: wasmUrl });
-  } catch (e) {
-    if (!e?.message?.includes('Using exceptions for control flow')) {
-      overlay.textContent = 'Failed: ' + (e?.message ?? String(e));
-      console.error(e); return;
-    }
-  }
+        window.setTool = function(tool) {
+            currentTool = tool;
+            wasm.js_set_tool(tool);
+            document.getElementById('btn-sculpt').classList.toggle('active', tool === 'sculpt');
+            document.getElementById('btn-paint').classList.toggle('active', tool === 'paint');
+        };
 
-  overlay.textContent = 'Initialising renderer…';
-  const ready = await waitForReady();
-  if (!ready) {
-    overlay.textContent = 'Renderer initialisation timed out.\nCheck browser console for errors.';
-    return;
-  }
+        // ── Lighting toggle ──────────────────────────────
 
-  setupCanvasListeners();
+        window.toggleLighting = function() {
+            lightingEnabled = !lightingEnabled;
+            wasm.js_toggle_lighting();
+            const btn = document.getElementById('btn-lighting');
+            btn.textContent = lightingEnabled ? 'Lighting ON' : 'Lighting OFF';
+            btn.classList.toggle('on', lightingEnabled);
+        };
 
-  wasmReady = true;
-  wasm.js_set_tool(activeTool);
+        // ── File I/O ─────────────────────────────────────
 
-  overlay.style.display = 'none';
+        window.saveSvox = function() {
+            const data = wasm.js_save_svox();
+            const blob = new Blob([data], { type: 'application/octet-stream' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'scene.svox';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        };
 
-  buildPalette();
-  syncUIState();
-  setInterval(syncUIState, 2000);
-}
+        window.loadSvox = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.svox';
+            input.onchange = async () => {
+                const file = input.files[0];
+                if (!file) return;
+                const buf = new Uint8Array(await file.arrayBuffer());
+                wasm.js_load_svox(buf);
+                buildPaletteGrid();
+            };
+            input.click();
+        };
 
-// ─── Palette ───────────────────────────────────────────────────────────────
-function buildPalette() {
-  const grid = document.getElementById('palette-grid');
-  grid.innerHTML = '';
-  let colors;
-  try { colors = JSON.parse(wasm.js_get_palette_json()); } catch { return; }
-  paletteColors = colors;
-  for (let i = 0; i < 256; i++) {
-    const el = document.createElement('div');
-    el.className = 'swatch' + (i === 0 ? ' swatch-transparent' : '');
-    el.dataset.idx = i;
-    if (i > 0) el.style.background = colors[i];
-    if (i === activeColorIndex) el.classList.add('selected');
-    el.title = i === 0 ? 'Transparent (index 0)' : `Index ${i}: ${colors[i]}`;
-    el.addEventListener('click', () => pickColor(i, colors[i]));
-    grid.appendChild(el);
-  }
-  updateActiveColorUI(colors[activeColorIndex]);
-}
+        window.exportVox = function() {
+            const data = wasm.js_export_vox();
+            const blob = new Blob([data], { type: 'application/octet-stream' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'scene.vox';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        };
 
-function pickColor(idx, hex) {
-  if (idx === 0) return;
-  activeColorIndex = idx;
-  wasm.js_set_color_index(idx);
-  document.querySelectorAll('.swatch.selected').forEach(el => el.classList.remove('selected'));
-  const el = document.querySelector(`.swatch[data-idx="${idx}"]`);
-  if (el) el.classList.add('selected');
-  updateActiveColorUI(hex);
-  setTool('paint');
-}
+        window.importVox = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.vox';
+            input.onchange = async () => {
+                const file = input.files[0];
+                if (!file) return;
+                const buf = new Uint8Array(await file.arrayBuffer());
+                wasm.js_import_vox(buf);
+                buildPaletteGrid();
+            };
+            input.click();
+        };
 
-function updateActiveColorUI(hex) {
-  document.getElementById('active-color-swatch').style.background = hex || '#888';
-  document.getElementById('active-color-label').textContent = `IDX ${activeColorIndex}`;
-}
+        // ── Tile grid ────────────────────────────────────
 
-function updateActiveTileUI(tileIndex) {
-  const canvas = document.getElementById('active-tile-canvas');
-  const label = document.getElementById('active-tile-label');
-  if (!canvas) return;
-  if (!wasmReady || tileIndex < 0 || !paletteColors.length) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, 36, 36);
-    if (label) label.textContent = '—';
-    return;
-  }
-  renderTileIcon(canvas, wasm.js_get_tile_data(tileIndex), paletteColors);
-  if (label) label.textContent = `#${tileIndex}`;
-}
+        function updateTileGrid() {
+            if (!wasm || !wasm.js_is_ready()) return;
 
-// ─── Tool / render controls ────────────────────────────────────────────────
-window.setTool = function(tool) {
-  activeTool = tool;
-  if (wasmReady) wasm.js_set_tool(tool);
-  document.getElementById('btn-sculpt').classList.toggle('active', tool === 'sculpt');
-  document.getElementById('btn-paint').classList.toggle('active',  tool === 'paint');
-};
+            let state;
+            try {
+                state = JSON.parse(wasm.js_get_editor_state_json());
+            } catch { return; }
 
-window.toggleLighting = function() {
-  lightingOn = !lightingOn;
-  if (wasmReady) wasm.js_toggle_lighting();
-  const btn = document.getElementById('btn-lighting');
-  btn.textContent = lightingOn ? 'LIGHTING ON' : 'LIGHTING OFF';
-  btn.classList.toggle('active', lightingOn);
-};
+            const tileCount = state.tileCount || 0;
+            selectedTileIndex = state.selectedTileIndex;
+            currentTool = state.tool;
+            lightingEnabled = state.lightingEnabled;
 
-// ─── File I/O ──────────────────────────────────────────────────────────────
-window.saveFile  = () => { if (!wasmReady) return; triggerDownload(wasm.js_save_svox(),  'scene.svox', 'application/octet-stream'); };
-window.loadFile  = () => document.getElementById('file-input').click();
-window.exportVox = () => { if (!wasmReady) return; triggerDownload(wasm.js_export_vox(), 'scene.vox',  'application/octet-stream'); };
-window.importVox = () => document.getElementById('vox-input').click();
+            if (tileCount !== lastTileCount) {
+                lastTileCount = tileCount;
+                rebuildTileGrid(tileCount);
+            }
 
-document.getElementById('file-input').addEventListener('change', async (e) => {
-  const file = e.target.files[0]; if (!file || !wasmReady) return;
-  const ok = wasm.js_load_svox(new Uint8Array(await file.arrayBuffer()));
-  if (!ok) alert('Failed to load .svox file.');
-  else { buildPalette(); syncUIState(); }
-  e.target.value = '';
-});
-document.getElementById('vox-input').addEventListener('change', async (e) => {
-  const file = e.target.files[0]; if (!file || !wasmReady) return;
-  const ok = wasm.js_import_vox(new Uint8Array(await file.arrayBuffer()));
-  if (!ok) alert('Failed to import .vox file.');
-  else { buildPalette(); syncUIState(); }
-  e.target.value = '';
-});
+            // Update selection
+            document.querySelectorAll('.tile-cell').forEach(el => {
+                el.classList.toggle('selected', parseInt(el.dataset.index) === selectedTileIndex);
+            });
+        }
 
-function triggerDownload(bytes, name, mime) {
-  if (!bytes || !bytes.length) { alert('Nothing to save.'); return; }
-  const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
+        function rebuildTileGrid(count) {
+            const grid = document.getElementById('tile-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'tile-cell' + (i === selectedTileIndex ? ' selected' : '');
+                cell.dataset.index = i;
+                cell.onclick = () => {
+                    wasm.js_select_tile(i);
+                    selectedTileIndex = i;
+                    document.querySelectorAll('.tile-cell').forEach(el => {
+                        el.classList.toggle('selected', parseInt(el.dataset.index) === i);
+                    });
+                };
 
-function syncUIState() {
-  if (!wasmReady) return;
-  try {
-    const s = JSON.parse(wasm.js_get_editor_state_json());
-    syncTileList(s);
-  } catch {}
-}
+                const cvs = document.createElement('canvas');
+                cvs.width = 32;
+                cvs.height = 32;
+                cell.appendChild(cvs);
+                grid.appendChild(cell);
 
-// ─── Isometric tile icon renderer ─────────────────────────────────────────
-function renderTileIcon(canvas, tileData, colors) {
-  const S = 36;
-  canvas.width = S; canvas.height = S;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, S, S);
-  if (!tileData || !tileData.length) return;
+                renderTileIcon(cvs, i);
+            }
+        }
 
-  function proj(x, y, z) {
-    return [(x - z) * 2 + S / 2, (S / 2 - 1) + (x + z) - y * 2];
-  }
-  function quad(p0, p1, p2, p3) {
-    ctx.beginPath();
-    ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
-    ctx.lineTo(p2[0], p2[1]); ctx.lineTo(p3[0], p3[1]);
-    ctx.closePath(); ctx.fill();
-  }
+        // Isometric tile icon rendering
+        function renderTileIcon(canvas, tileIndex) {
+            if (!wasm || !wasm.js_is_ready()) return;
+            const data = wasm.js_get_tile_data(tileIndex);
+            if (!data || data.length < 512) return;
 
-  for (let z = 7; z >= 0; z--) {
-    for (let x = 0; x < 8; x++) {
-      for (let y = 0; y < 8; y++) {
-        const ci = tileData[x + y * 8 + z * 64];
-        if (ci === 0) continue;
-        const hex = colors[ci] || '#888';
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        ctx.fillStyle = `rgb(${r * 0.7 | 0},${g * 0.7 | 0},${b * 0.7 | 0})`;
-        quad(proj(x, y+1, z), proj(x+1, y+1, z), proj(x+1, y, z), proj(x, y, z));
-        ctx.fillStyle = `rgb(${r * 0.85 | 0},${g * 0.85 | 0},${b * 0.85 | 0})`;
-        quad(proj(x+1, y+1, z), proj(x+1, y+1, z+1), proj(x+1, y, z+1), proj(x+1, y, z));
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        quad(proj(x, y+1, z), proj(x+1, y+1, z), proj(x+1, y+1, z+1), proj(x, y+1, z+1));
-      }
-    }
-  }
-}
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
 
-function syncTileList(state) {
-  const list = document.getElementById('tile-list');
-  const count = state?.tileCount ?? 0;
-  const sel = state?.selectedTileIndex ?? -1;
+            const scale = w / 12;
+            const ox = w / 2;
+            const oy = h * 0.35;
 
-  if (count === 0) {
-    list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:4px">No tiles yet</div>';
-    return;
-  }
+            // Draw back-to-front for proper depth sorting
+            for (let z = 0; z < 8; z++) {
+                for (let y = 7; y >= 0; y--) {
+                    for (let x = 0; x < 8; x++) {
+                        const colorIdx = data[x + y * 8 + z * 64];
+                        if (colorIdx === 0) continue;
 
-  let grid = list.querySelector('.tile-grid');
-  if (!grid || grid.children.length !== count) {
-    list.innerHTML = '';
-    grid = document.createElement('div');
-    grid.className = 'tile-grid';
-    for (let i = 0; i < count; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'tile-cell';
-      cell.onclick = () => selectTile(i);
-      const canvas = document.createElement('canvas');
-      cell.appendChild(canvas);
-      grid.appendChild(cell);
-    }
-    list.appendChild(grid);
-  }
+                        const color = paletteColors[colorIdx] || '#888';
+                        const r = parseInt(color.slice(1,3), 16);
+                        const g = parseInt(color.slice(3,5), 16);
+                        const b = parseInt(color.slice(5,7), 16);
 
-  const cells = grid.children;
-  for (let i = 0; i < cells.length; i++) {
-    cells[i].classList.toggle('selected', i === sel);
-    if (paletteColors.length) {
-      renderTileIcon(cells[i].querySelector('canvas'), wasm.js_get_tile_data(i), paletteColors);
-    }
-  }
-  updateActiveTileUI(sel);
-}
+                        // Isometric projection
+                        const sx = ox + (x - z) * scale * 0.5;
+                        const sy = oy + (x + z) * scale * 0.25 - y * scale * 0.5;
+                        const s = scale * 0.5;
 
-window.selectTile = function(index) {
-  if (!wasmReady) return;
-  wasm.js_select_tile(index);
-  setTool('sculpt');
-  updateActiveTileUI(index);
-  syncUIState();
-};
+                        // Check visibility (skip if obscured)
+                        let obscured = true;
+                        // Top face visible?
+                        if (y === 7 || data[x + (y+1) * 8 + z * 64] === 0) obscured = false;
+                        // Left face visible?
+                        if (z === 7 || data[x + y * 8 + (z+1) * 64] === 0) obscured = false;
+                        // Right face visible?
+                        if (x === 7 || data[(x+1) + y * 8 + z * 64] === 0) obscured = false;
 
-// ─── Resize ────────────────────────────────────────────────────────────────
-window.addEventListener('resize', onResize);
-screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
+                        if (obscured) continue;
 
-init();
-</script>
+                        // Top face (100% brightness)
+                        if (y === 7 || data[x + (y+1) * 8 + z * 64] === 0) {
+                            ctx.fillStyle = color;
+                            ctx.beginPath();
+                            ctx.moveTo(sx, sy);
+                            ctx.lineTo(sx + s * 0.5, sy + s * 0.25);
+                            ctx.lineTo(sx, sy + s * 0.5);
+                            ctx.lineTo(sx - s * 0.5, sy + s * 0.25);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+
+                        // Left face (70% brightness)
+                        if (z === 7 || data[x + y * 8 + (z+1) * 64] === 0) {
+                            ctx.fillStyle = `rgb(${r*0.7|0},${g*0.7|0},${b*0.7|0})`;
+                            ctx.beginPath();
+                            ctx.moveTo(sx - s * 0.5, sy + s * 0.25);
+                            ctx.lineTo(sx, sy + s * 0.5);
+                            ctx.lineTo(sx, sy + s);
+                            ctx.lineTo(sx - s * 0.5, sy + s * 0.75);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+
+                        // Right face (85% brightness)
+                        if (x === 7 || data[(x+1) + y * 8 + z * 64] === 0) {
+                            ctx.fillStyle = `rgb(${r*0.85|0},${g*0.85|0},${b*0.85|0})`;
+                            ctx.beginPath();
+                            ctx.moveTo(sx + s * 0.5, sy + s * 0.25);
+                            ctx.lineTo(sx, sy + s * 0.5);
+                            ctx.lineTo(sx, sy + s);
+                            ctx.lineTo(sx + s * 0.5, sy + s * 0.75);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Canvas coordinate helper ─────────────────────
+
+        function canvasCoords(clientX, clientY) {
+            const c = document.getElementById('canvas');
+            const rect = c.getBoundingClientRect();
+            const dpr = c.width / (rect.width || 1);
+            return { x: (clientX - rect.left) * dpr, y: (clientY - rect.top) * dpr };
+        }
+
+        // ── DPR-aware resize ─────────────────────────────
+
+        function onResize() {
+            const vp = document.getElementById('viewport');
+            const c = document.getElementById('canvas');
+            if (!vp || !c) return;
+            const dpr = window.devicePixelRatio || 1;
+            c.width  = Math.round(vp.clientWidth  * dpr);
+            c.height = Math.round(vp.clientHeight * dpr);
+        }
+
+        // ── Canvas events ────────────────────────────────
+
+        function setupCanvasEvents() {
+            const canvas = document.getElementById('canvas');
+            if (!canvas) return;
+
+            // Prevent right-click context menu
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+            // ── Mouse / single-pointer events (desktop) ──
+
+            canvas.addEventListener('pointerdown', e => {
+                if (e.pointerType === 'touch') return; // handled by touch events
+                canvas.setPointerCapture(e.pointerId);
+                const p = canvasCoords(e.clientX, e.clientY);
+                const button = e.button === 2 ? 1 : 0;
+                lastPointerX = p.x;
+                lastPointerY = p.y;
+                wasm.js_pointer_down(p.x, p.y, button);
+            });
+
+            canvas.addEventListener('pointermove', e => {
+                if (e.pointerType === 'touch') return;
+                const p = canvasCoords(e.clientX, e.clientY);
+                const dx = p.x - lastPointerX;
+                const dy = p.y - lastPointerY;
+                lastPointerX = p.x;
+                lastPointerY = p.y;
+                wasm.js_pointer_move(p.x, p.y, dx, dy);
+            });
+
+            canvas.addEventListener('pointerup', e => {
+                if (e.pointerType === 'touch') return;
+                wasm.js_pointer_up();
+            });
+
+            canvas.addEventListener('wheel', e => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -1 : 1;
+                wasm.js_camera_zoom(delta);
+            }, { passive: false });
+
+            // ── Multi-touch events (mobile) ──────────────
+
+            const LONG_MS    = 500;   // long-press threshold
+            const TAP_THRESH = 8;     // px to consider "moved"
+            const DRAG_THRESH = 12;   // px to start camera orbit
+
+            let activeTouches = {};
+            let tapTimer = null;
+            let tapX = 0, tapY = 0, tapMoved = false;
+            let pinchDist = null;
+            let trackingCanvas = false;
+
+            function tp(t) { return { x: t.clientX, y: t.clientY }; }
+
+            function clearTap() {
+                if (tapTimer !== null) { clearTimeout(tapTimer); tapTimer = null; }
+            }
+
+            function isTouchOnCanvas(t) {
+                return t.target === canvas || canvas.contains(t.target);
+            }
+
+            canvas.addEventListener('touchstart', (e) => {
+                const first = e.changedTouches[0];
+                if (!trackingCanvas) {
+                    if (!isTouchOnCanvas(first)) return;
+                    trackingCanvas = true;
+                }
+                for (const t of e.changedTouches) activeTouches[t.identifier] = tp(t);
+                const n = Object.keys(activeTouches).length;
+                if (n === 1) {
+                    tapX = first.clientX; tapY = first.clientY; tapMoved = false;
+                    tapTimer = setTimeout(() => {
+                        tapTimer = null;
+                        const p = canvasCoords(tapX, tapY);
+                        wasm.js_pointer_down(p.x, p.y, 1); // long press = remove
+                        wasm.js_pointer_up();
+                    }, LONG_MS);
+                }
+                if (n === 2) {
+                    clearTap();
+                    const ids = Object.keys(activeTouches);
+                    pinchDist = Math.hypot(
+                        activeTouches[ids[1]].x - activeTouches[ids[0]].x,
+                        activeTouches[ids[1]].y - activeTouches[ids[0]].y
+                    );
+                }
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (!trackingCanvas) return;
+                e.preventDefault();
+                const n = Object.keys(activeTouches).length;
+                if (n === 1) {
+                    const t = e.changedTouches[0];
+                    const prev = activeTouches[t.identifier]; if (!prev) return;
+                    const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
+                    activeTouches[t.identifier] = tp(t);
+                    const dist = Math.hypot(t.clientX - tapX, t.clientY - tapY);
+                    if (!tapMoved && dist > TAP_THRESH) tapMoved = true;
+                    if (dist > DRAG_THRESH) clearTap();
+                    if (tapMoved) wasm.js_camera_orbit(dx * 0.5, dy * 0.5);
+                } else if (n >= 2) {
+                    for (const t of e.changedTouches) {
+                        if (t.identifier in activeTouches) activeTouches[t.identifier] = tp(t);
+                    }
+                    const ids = Object.keys(activeTouches);
+                    if (ids.length < 2) return;
+                    const nd = Math.hypot(
+                        activeTouches[ids[1]].x - activeTouches[ids[0]].x,
+                        activeTouches[ids[1]].y - activeTouches[ids[0]].y
+                    );
+                    if (pinchDist !== null) wasm.js_camera_zoom((nd - pinchDist) * 0.02);
+                    pinchDist = nd;
+                }
+            }, { passive: false });
+
+            function touchEnd(e) {
+                for (const t of e.changedTouches) delete activeTouches[t.identifier];
+                if (Object.keys(activeTouches).length === 0) {
+                    trackingCanvas = false;
+                    pinchDist = null;
+                    // Tap completed without long-press or drag
+                    if (tapTimer !== null && !tapMoved) {
+                        clearTap();
+                        const p = canvasCoords(tapX, tapY);
+                        wasm.js_pointer_down(p.x, p.y, 0); // tap = add voxel
+                        wasm.js_pointer_up();
+                    }
+                    clearTap();
+                }
+            }
+            canvas.addEventListener('touchend', touchEnd, { passive: true });
+            canvas.addEventListener('touchcancel', touchEnd, { passive: true });
+
+            // ── Resize ───────────────────────────────────
+
+            const resizeObserver = new ResizeObserver(() => onResize());
+            resizeObserver.observe(document.getElementById('viewport'));
+
+            // Screen orientation change (mobile rotation)
+            screen.orientation?.addEventListener('change', () => setTimeout(onResize, 150));
+        }
+
+        // ── UI update loop ───────────────────────────────
+
+        function uiLoop() {
+            updateTileGrid();
+            updateColorSwatch();
+            requestAnimationFrame(uiLoop);
+        }
+
+        // ── Start ────────────────────────────────────────
+
+        init();
+    </script>
 </body>
 </html>
