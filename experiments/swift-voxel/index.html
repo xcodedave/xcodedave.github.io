@@ -334,7 +334,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '11';
+                const CACHE_V = '12';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -686,8 +686,11 @@
 
             canvas.addEventListener('wheel', e => {
                 e.preventDefault();
-                const delta = e.deltaY > 0 ? -1 : 1;
-                wasm.js_camera_zoom(delta);
+                // Normalize scroll delta to roughly match NSEvent.scrollingDeltaY
+                // and apply the same 0.3 scale factor as the Swift version.
+                const raw = -e.deltaY;
+                const clamped = Math.max(-3, Math.min(3, raw / 30));
+                wasm.js_camera_zoom(clamped * 0.3);
             }, { passive: false });
 
             // ── Multi-touch events (mobile) ──────────────
