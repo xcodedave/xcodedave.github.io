@@ -354,7 +354,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '20';
+                const CACHE_V = '21';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -742,16 +742,20 @@
             }, { passive: false });
 
             // ── Multi-touch events (mobile) ──────────────
+            // Single-finger touch routes through the same js_pointer_down /
+            // js_pointer_move / js_pointer_up pipeline as mouse so Rust
+            // decides edit-vs-orbit based on ray hits.
 
             const LONG_MS    = 500;   // long-press threshold
-            const TAP_THRESH = 8;     // px to consider "moved"
-            const DRAG_THRESH = 12;   // px to start camera orbit
+            const TAP_THRESH = 8;     // px movement to cancel long-press
 
             let activeTouches = {};
             let tapTimer = null;
             let tapX = 0, tapY = 0, tapMoved = false;
+            let lastTouchX = 0, lastTouchY = 0;
             let pinchDist = null;
             let trackingCanvas = false;
+            let touchDownSent = false;
 
             function tp(t) { return { x: t.clientX, y: t.clientY }; }
 
@@ -773,15 +777,27 @@
                 const n = Object.keys(activeTouches).length;
                 if (n === 1) {
                     tapX = first.clientX; tapY = first.clientY; tapMoved = false;
+                    lastTouchX = first.clientX; lastTouchY = first.clientY;
+
+                    // Start edit/orbit — Rust decides based on ray hit
+                    const p = canvasCoords(first.clientX, first.clientY);
+                    wasm.js_pointer_down(p.x, p.y, 0);
+                    touchDownSent = true;
+
+                    // Long-press: cancel the left-click action and do a remove
                     tapTimer = setTimeout(() => {
                         tapTimer = null;
-                        const p = canvasCoords(tapX, tapY);
-                        wasm.js_pointer_down(p.x, p.y, 1); // long press = remove
                         wasm.js_pointer_up();
+                        const lp = canvasCoords(tapX, tapY);
+                        wasm.js_pointer_down(lp.x, lp.y, 1);
+                        wasm.js_pointer_up();
+                        touchDownSent = false;
                     }, LONG_MS);
                 }
                 if (n === 2) {
                     clearTap();
+                    // End single-finger action before starting pinch
+                    if (touchDownSent) { wasm.js_pointer_up(); touchDownSent = false; }
                     const ids = Object.keys(activeTouches);
                     pinchDist = Math.hypot(
                         activeTouches[ids[1]].x - activeTouches[ids[0]].x,
@@ -797,12 +813,16 @@
                 if (n === 1) {
                     const t = e.changedTouches[0];
                     const prev = activeTouches[t.identifier]; if (!prev) return;
-                    const dx = t.clientX - prev.x, dy = t.clientY - prev.y;
+                    const dx = t.clientX - lastTouchX;
+                    const dy = t.clientY - lastTouchY;
+                    lastTouchX = t.clientX; lastTouchY = t.clientY;
                     activeTouches[t.identifier] = tp(t);
+
                     const dist = Math.hypot(t.clientX - tapX, t.clientY - tapY);
-                    if (!tapMoved && dist > TAP_THRESH) tapMoved = true;
-                    if (dist > DRAG_THRESH) clearTap();
-                    if (tapMoved) wasm.js_camera_orbit(dx * 0.5, dy * 0.5);
+                    if (!tapMoved && dist > TAP_THRESH) { tapMoved = true; clearTap(); }
+
+                    const p = canvasCoords(t.clientX, t.clientY);
+                    wasm.js_pointer_move(p.x, p.y, dx, dy);
                 } else if (n >= 2) {
                     for (const t of e.changedTouches) {
                         if (t.identifier in activeTouches) activeTouches[t.identifier] = tp(t);
@@ -823,14 +843,8 @@
                 if (Object.keys(activeTouches).length === 0) {
                     trackingCanvas = false;
                     pinchDist = null;
-                    // Tap completed without long-press or drag
-                    if (tapTimer !== null && !tapMoved) {
-                        clearTap();
-                        const p = canvasCoords(tapX, tapY);
-                        wasm.js_pointer_down(p.x, p.y, 0); // tap = add voxel
-                        wasm.js_pointer_up();
-                    }
                     clearTap();
+                    if (touchDownSent) { wasm.js_pointer_up(); touchDownSent = false; }
                 }
             }
             canvas.addEventListener('touchend', touchEnd, { passive: true });
