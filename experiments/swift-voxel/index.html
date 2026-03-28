@@ -54,8 +54,7 @@
         }
 
         #sidebar {
-            width: calc(220px + env(safe-area-inset-right));
-            padding-right: env(safe-area-inset-right);
+            width: 220px;
             background: var(--panel);
             border-left: 2px solid var(--highlight);
             display: flex;
@@ -355,7 +354,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '19';
+                const CACHE_V = '20';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
