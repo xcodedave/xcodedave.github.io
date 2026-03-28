@@ -297,11 +297,6 @@
     <div id="status">Loading WebGPU...</div>
 
     <script type="module">
-        // Resolution scale factor for the ray-cast canvas.
-        // 1.0 = CSS pixel resolution, 0.5 = half res (4x faster), 0.25 = quarter.
-        // Controls canvas.width/height which determines the GPU render resolution.
-        const RENDER_SCALE = 0.25;
-
         let wasm;
         let paletteColors = [];
         let selectedColorIndex = 1;
@@ -316,7 +311,7 @@
             const status = document.getElementById('status');
 
             try {
-                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=3');
+                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=4');
                 await init_wasm();
                 wasm = exports;
                 status.style.display = 'none';
@@ -599,10 +594,10 @@
             const vp = document.getElementById('viewport');
             const c = document.getElementById('canvas');
             if (!vp || !c) return;
-            // Set canvas buffer to scaled resolution. The GPU ray-cast shader
-            // runs per pixel, so lower values = faster. CSS stretches to fill.
-            c.width  = Math.max(1, (vp.clientWidth  * RENDER_SCALE) | 0);
-            c.height = Math.max(1, (vp.clientHeight * RENDER_SCALE) | 0);
+            // Set canvas to CSS pixel dimensions. Rust's resize() handler
+            // applies RENDER_SCALE to the actual canvas buffer via winit.
+            c.width  = vp.clientWidth;
+            c.height = vp.clientHeight;
         }
 
         // ── Canvas events ────────────────────────────────
