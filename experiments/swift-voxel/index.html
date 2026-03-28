@@ -263,17 +263,18 @@
                 width: 100%;
                 max-height: 44vh;
                 max-height: 44dvh;
-                flex-direction: row;
-                flex-wrap: wrap;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
                 border-left: none;
                 border-top: 2px solid var(--highlight);
-                overflow-x: auto;
+                overflow-y: auto;
+                overflow-x: hidden;
                 padding-right: env(safe-area-inset-right);
                 padding-bottom: env(safe-area-inset-bottom);
                 padding-left: env(safe-area-inset-left);
             }
-            .section { flex: 0 0 auto; min-width: 110px; }
-            #palette-grid { grid-template-columns: repeat(32, 1fr); max-height: none; }
+            /* Palette spans full width for the color grid */
+            #sidebar .section:nth-child(3) { grid-column: 1 / -1; }
         }
     </style>
 </head>
@@ -354,7 +355,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '21';
+                const CACHE_V = '22';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
