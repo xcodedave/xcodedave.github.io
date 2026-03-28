@@ -492,8 +492,8 @@
                 };
 
                 const cvs = document.createElement('canvas');
-                cvs.width = 32;
-                cvs.height = 32;
+                cvs.width = 64;
+                cvs.height = 64;
                 cell.appendChild(cvs);
                 grid.appendChild(cell);
 
@@ -512,10 +512,12 @@
             const h = canvas.height;
             ctx.clearRect(0, 0, w, h);
 
-            // Isometric projection constants matching Swift TileIconCache
-            const stepX = 2;   // half-width of isometric diamond
-            const stepY = 1;   // half-height of isometric diamond
-            const stepH = 2;   // voxel height in pixels
+            // Isometric projection constants — doubled from Swift TileIconCache
+            // (36px→64px) so each face polygon is 4+ pixels wide and Canvas2D
+            // anti-aliasing doesn't darken the tiny polygons.
+            const stepX = 3.5;
+            const stepY = 1.75;
+            const stepH = 3.5;
             const ox = w / 2;
             const oy = h / 2;
 
@@ -608,15 +610,6 @@
 
             // ── Mouse / single-pointer events (desktop) ──
 
-            // Dead zone: suppress drag-edits until the mouse moves enough
-            // from the click origin. On native macOS, mouseDragged doesn't
-            // fire for sub-pixel jitter, but the web's pointermove does —
-            // without this guard, a simple right-click can remove 2 voxels.
-            const CLICK_DEAD_ZONE = 3; // CSS pixels
-            let pointerDownX = 0, pointerDownY = 0;
-            let pastDeadZone = false;
-            let pointerIsDown = false;
-
             canvas.addEventListener('pointerdown', e => {
                 if (e.pointerType === 'touch') return; // handled by touch events
                 canvas.setPointerCapture(e.pointerId);
@@ -624,10 +617,6 @@
                 const button = e.button === 2 ? 1 : 0;
                 lastClientX = e.clientX;
                 lastClientY = e.clientY;
-                pointerDownX = e.clientX;
-                pointerDownY = e.clientY;
-                pastDeadZone = false;
-                pointerIsDown = true;
                 wasm.js_pointer_down(p.x, p.y, button);
             });
 
@@ -640,20 +629,11 @@
                 const dy = e.clientY - lastClientY;
                 lastClientX = e.clientX;
                 lastClientY = e.clientY;
-
-                if (pointerIsDown && !pastDeadZone) {
-                    const dist = Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY);
-                    if (dist < CLICK_DEAD_ZONE) return; // suppress jitter edits
-                    pastDeadZone = true;
-                }
-
                 wasm.js_pointer_move(p.x, p.y, dx, dy);
             });
 
             canvas.addEventListener('pointerup', e => {
                 if (e.pointerType === 'touch') return;
-                pointerIsDown = false;
-                pastDeadZone = false;
                 wasm.js_pointer_up();
             });
 
