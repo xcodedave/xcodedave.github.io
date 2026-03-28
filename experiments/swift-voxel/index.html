@@ -851,9 +851,10 @@
                     // tap (touchend), long-press (timer), or drag (move threshold)
                     tapTimer = setTimeout(() => {
                         tapTimer = null;
+                        tapMoved = true; // treat as drag so moves route through
                         const lp = canvasCoords(tapX, tapY);
                         wasm.js_pointer_down(lp.x, lp.y, 1); // long press = remove
-                        wasm.js_pointer_up();
+                        touchDownSent = true;
                     }, LONG_MS);
                 }
                 if (n === 2) {
