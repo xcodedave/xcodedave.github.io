@@ -4,11 +4,13 @@
 /**
  * Camera orbit — called from JS touch/pointer drag.
  * Manual camera movement suppresses the automatic pivot animation.
+ * Clears ghost previews since the user is navigating, not editing.
  */
 export function js_camera_orbit(dx: number, dy: number): void;
 
 /**
  * Camera pan — called from JS two-finger drag.
+ * Clears ghost previews since the user is navigating, not editing.
  */
 export function js_camera_pan(dx: number, dy: number): void;
 
@@ -17,6 +19,7 @@ export function js_camera_pan(dx: number, dy: number): void;
  * Matches Swift: after zooming, immediately snap the orbit target to the
  * computed pivot goal (which depends on orbit distance) so the camera stays
  * anchored on the work area.
+ * Clears ghost previews since the user is navigating, not editing.
  */
 export function js_camera_zoom(delta: number): void;
 

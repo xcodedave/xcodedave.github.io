@@ -336,7 +336,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '15';
+                const CACHE_V = '16';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -650,21 +650,25 @@
 
         // ── Canvas coordinate helper ─────────────────────
 
+        let canvasRect = null;
         function canvasCoords(clientX, clientY) {
-            const c = document.getElementById('canvas');
-            const rect = c.getBoundingClientRect();
+            if (!canvasRect) {
+                const c = document.getElementById('canvas');
+                canvasRect = c.getBoundingClientRect();
+            }
             // Return coordinates normalised to [0, 1] — Rust multiplies by
             // its own width/height so the coordinate space always matches
             // the camera projection regardless of render scale or DPR.
             return {
-                x: (clientX - rect.left) / (rect.width || 1),
-                y: (clientY - rect.top) / (rect.height || 1),
+                x: (clientX - canvasRect.left) / (canvasRect.width || 1),
+                y: (clientY - canvasRect.top) / (canvasRect.height || 1),
             };
         }
 
         // ── DPR-aware resize ─────────────────────────────
 
         function onResize() {
+            canvasRect = null; // invalidate cached getBoundingClientRect
             const vp = document.getElementById('viewport');
             const c = document.getElementById('canvas');
             if (!vp || !c) return;
