@@ -751,7 +751,7 @@ function __wbg_get_imports() {
         __wbg_instanceof_GpuAdapter_dc7e13c1676da9bd: function(arg0) {
             let result;
             try {
-                result = (typeof GPUAdapter !== "undefined" && arg0 instanceof GPUAdapter) || (arg0 != null && arg0.constructor != null && arg0.constructor.name === "GPUAdapter");
+                result = arg0 instanceof GPUAdapter;
             } catch (_) {
                 result = false;
             }
@@ -999,6 +999,10 @@ function __wbg_get_imports() {
             const ret = new Uint8Array(arg0, arg1 >>> 0, arg2 >>> 0);
             return ret;
         },
+        __wbg_now_ebffdf7e580f210d: function(arg0) {
+            const ret = arg0.now();
+            return ret;
+        },
         __wbg_of_f915f7cd925b21a5: function(arg0) {
             const ret = Array.of(arg0);
             return ret;
@@ -1010,6 +1014,10 @@ function __wbg_get_imports() {
         __wbg_onSubmittedWorkDone_9f0181ba120b0ac1: function(arg0) {
             const ret = arg0.onSubmittedWorkDone();
             return ret;
+        },
+        __wbg_performance_06f12ba62483475d: function(arg0) {
+            const ret = arg0.performance;
+            return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
         __wbg_pixelStorei_2a65936c11b710fe: function(arg0, arg1, arg2) {
             arg0.pixelStorei(arg1 >>> 0, arg2);

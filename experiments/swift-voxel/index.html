@@ -297,6 +297,12 @@
     <div id="status">Loading WebGPU...</div>
 
     <script type="module">
+        // Resolution scale factor for the ray-cast canvas.
+        // 1.0 = CSS pixel resolution, 0.5 = half, 0.25 = quarter.
+        // Applied by intercepting canvas.width/height setters so winit's
+        // writes are transparently scaled.
+        const RENDER_SCALE = 0.25;
+
         let wasm;
         let paletteColors = [];
         let selectedColorIndex = 1;
@@ -307,17 +313,50 @@
         let lastClientX = 0;
         let lastClientY = 0;
 
+        // Install a property intercept on the render canvas so that any
+        // write to canvas.width or canvas.height (including from winit)
+        // is transparently scaled by RENDER_SCALE.
+        function installRenderScale(canvas) {
+            if (RENDER_SCALE >= 1.0) return;
+            const proto = HTMLCanvasElement.prototype;
+            const widthDesc  = Object.getOwnPropertyDescriptor(proto, 'width');
+            const heightDesc = Object.getOwnPropertyDescriptor(proto, 'height');
+            Object.defineProperty(canvas, 'width', {
+                get() { return widthDesc.get.call(this); },
+                set(v) { widthDesc.set.call(this, Math.max(1, (v * RENDER_SCALE) | 0)); },
+                configurable: true,
+            });
+            Object.defineProperty(canvas, 'height', {
+                get() { return heightDesc.get.call(this); },
+                set(v) { heightDesc.set.call(this, Math.max(1, (v * RENDER_SCALE) | 0)); },
+                configurable: true,
+            });
+        }
+
         async function init() {
             const status = document.getElementById('status');
 
             try {
-                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=4');
+                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=5');
                 await init_wasm();
                 wasm = exports;
                 status.style.display = 'none';
 
                 // Wait for renderer to be ready
                 await waitForReady();
+
+                // Install render scale on the canvas (after winit created it)
+                const renderCanvas = document.getElementById('canvas');
+                if (renderCanvas) installRenderScale(renderCanvas);
+
+                // Trigger a resize so the scale takes effect immediately
+                if (renderCanvas) {
+                    const vp = document.getElementById('viewport');
+                    if (vp) {
+                        renderCanvas.width = vp.clientWidth;
+                        renderCanvas.height = vp.clientHeight;
+                    }
+                }
 
                 // Build palette grid
                 buildPaletteGrid();
