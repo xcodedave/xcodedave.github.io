@@ -316,7 +316,7 @@
             const status = document.getElementById('status');
 
             try {
-                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js');
+                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=3');
                 await init_wasm();
                 wasm = exports;
                 status.style.display = 'none';
