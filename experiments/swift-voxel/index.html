@@ -594,9 +594,10 @@
             const vp = document.getElementById('viewport');
             const c = document.getElementById('canvas');
             if (!vp || !c) return;
-            const dpr = window.devicePixelRatio || 1;
-            c.width  = Math.round(vp.clientWidth  * dpr);
-            c.height = Math.round(vp.clientHeight * dpr);
+            // Render at CSS pixel resolution — the SVO ray-cast shader runs
+            // per pixel, so DPR scaling (2x–3x) would quadruple+ the work.
+            c.width  = vp.clientWidth;
+            c.height = vp.clientHeight;
         }
 
         // ── Canvas events ────────────────────────────────
@@ -749,9 +750,16 @@
 
         // ── UI update loop ───────────────────────────────
 
+        let lastUiUpdate = 0;
         function uiLoop() {
-            updateTileGrid();
-            updateColorSwatch();
+            const now = performance.now();
+            // Throttle WASM state polling to 5 fps — tile/tool state rarely
+            // changes and each call crosses the JS↔WASM boundary with JSON.
+            if (now - lastUiUpdate > 200) {
+                lastUiUpdate = now;
+                updateTileGrid();
+                updateColorSwatch();
+            }
             requestAnimationFrame(uiLoop);
         }
 
