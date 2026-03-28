@@ -62,12 +62,14 @@ export function js_load_svox(data: Uint8Array): boolean;
 
 /**
  * Pointer/touch down on the canvas — triggers a sculpt or paint action.
+ * `x`, `y` are normalised [0,1] coordinates from JS.
  * `button`: 0 = add/paint, 1 = remove/erase.
  */
 export function js_pointer_down(x: number, y: number, button: number): void;
 
 /**
  * Pointer/touch move on the canvas — continues drag or updates ghost preview.
+ * `x`, `y` are normalised [0,1] coordinates from JS.
  */
 export function js_pointer_move(x: number, y: number, dx: number, dy: number): void;
 
