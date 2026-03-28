@@ -3,6 +3,7 @@
 
 /**
  * Camera orbit — called from JS touch/pointer drag.
+ * Manual camera movement suppresses the automatic pivot animation.
  */
 export function js_camera_orbit(dx: number, dy: number): void;
 
@@ -13,6 +14,9 @@ export function js_camera_pan(dx: number, dy: number): void;
 
 /**
  * Camera zoom — called from JS pinch or scroll.
+ * Matches Swift: after zooming, immediately snap the orbit target to the
+ * computed pivot goal (which depends on orbit distance) so the camera stays
+ * anchored on the work area.
  */
 export function js_camera_zoom(delta: number): void;
 
@@ -103,6 +107,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly wasm_main: () => void;
     readonly js_camera_orbit: (a: number, b: number) => void;
     readonly js_camera_pan: (a: number, b: number) => void;
     readonly js_camera_zoom: (a: number) => void;
@@ -122,7 +127,6 @@ export interface InitOutput {
     readonly js_set_color_index: (a: number) => void;
     readonly js_set_tool: (a: number, b: number) => void;
     readonly js_toggle_lighting: () => void;
-    readonly wasm_main: () => void;
     readonly wasm_bindgen__closure__destroy__h0ab314a5f1c4edd9: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__hb2058f568e973bae: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hf26f6746457d37d6: (a: number, b: number, c: any, d: any) => void;

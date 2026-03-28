@@ -114,20 +114,33 @@
         #selected-section {
             display: flex;
             gap: 8px;
+        }
+
+        .selected-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             align-items: center;
+            gap: 4px;
         }
 
         #color-swatch {
-            width: 32px;
-            height: 32px;
-            border: 2px solid var(--highlight);
+            width: 100%;
+            aspect-ratio: 1;
+            border: none;
         }
 
         #tile-preview-canvas {
-            width: 48px;
-            height: 48px;
+            width: 100%;
+            aspect-ratio: 1;
             background: var(--dark-shadow);
             image-rendering: pixelated;
+        }
+
+        .selected-label {
+            color: var(--text-dim);
+            font-size: 10px;
+            letter-spacing: 1px;
         }
 
         .tool-buttons {
@@ -255,12 +268,18 @@
         <div class="section">
             <div class="section-header">Selected</div>
             <div id="selected-section">
-                <div id="color-swatch" class="bevel-sunken"></div>
-                <canvas id="tile-preview-canvas" width="48" height="48"></canvas>
+                <div class="selected-column">
+                    <div id="color-swatch" class="bevel-sunken"></div>
+                    <span class="selected-label" id="color-label">C: 1</span>
+                </div>
+                <div class="selected-column">
+                    <canvas id="tile-preview-canvas" width="64" height="64"></canvas>
+                    <span class="selected-label" id="tile-label">T: 0</span>
+                </div>
             </div>
             <div class="tool-buttons">
-                <button class="btn active" id="btn-sculpt" onclick="setTool('sculpt')">Sculpt</button>
-                <button class="btn" id="btn-paint" onclick="setTool('paint')">Paint</button>
+                <button class="btn active" id="btn-voxel" onclick="setTool('voxel')">Voxel</button>
+                <button class="btn" id="btn-tile" onclick="setTool('tile')">Tile</button>
             </div>
         </div>
 
@@ -268,17 +287,6 @@
         <div class="section">
             <div class="section-header">Render</div>
             <button class="btn toggle-btn on" id="btn-lighting" onclick="toggleLighting()">Lighting ON</button>
-        </div>
-
-        <!-- FILE -->
-        <div class="section">
-            <div class="section-header">File</div>
-            <div class="file-buttons">
-                <button class="btn" onclick="saveSvox()">Save</button>
-                <button class="btn" onclick="loadSvox()">Load</button>
-                <button class="btn" onclick="exportVox()">Export</button>
-                <button class="btn" onclick="importVox()">Import</button>
-            </div>
         </div>
 
         <!-- PALETTE -->
@@ -291,6 +299,17 @@
         <div class="section">
             <div class="section-header">Tiles</div>
             <div id="tile-grid"></div>
+        </div>
+
+        <!-- FILE -->
+        <div class="section">
+            <div class="section-header">File</div>
+            <div class="file-buttons">
+                <button class="btn" onclick="saveSvox()">Save</button>
+                <button class="btn" onclick="loadSvox()">Load</button>
+                <button class="btn" onclick="exportVox()">Export</button>
+                <button class="btn" onclick="importVox()">Import</button>
+            </div>
         </div>
     </div>
 
@@ -307,7 +326,7 @@
         let paletteColors = [];
         let selectedColorIndex = 1;
         let selectedTileIndex = 0;
-        let currentTool = 'sculpt';
+        let currentTool = 'voxel';
         let lightingEnabled = true;
         let lastTileCount = 0;
         let lastClientX = 0;
@@ -337,7 +356,7 @@
             const status = document.getElementById('status');
 
             try {
-                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=5');
+                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=6');
                 await init_wasm();
                 wasm = exports;
                 status.style.display = 'none';
@@ -413,11 +432,20 @@
                 el.classList.toggle('selected', parseInt(el.dataset.index) === index);
             });
             updateColorSwatch();
+            // Auto-select voxel tool (matches Swift behavior)
+            setTool('voxel');
         }
 
         function updateColorSwatch() {
             const swatch = document.getElementById('color-swatch');
             swatch.style.background = paletteColors[selectedColorIndex] || '#000';
+            const colorLabel = document.getElementById('color-label');
+            if (colorLabel) colorLabel.textContent = 'C: ' + selectedColorIndex;
+            const tileLabel = document.getElementById('tile-label');
+            if (tileLabel) tileLabel.textContent = 'T: ' + selectedTileIndex;
+            // Update tile preview
+            const tpCanvas = document.getElementById('tile-preview-canvas');
+            if (tpCanvas) renderTileIcon(tpCanvas, selectedTileIndex);
         }
 
         // ── Tool selection ───────────────────────────────
@@ -425,8 +453,8 @@
         window.setTool = function(tool) {
             currentTool = tool;
             wasm.js_set_tool(tool);
-            document.getElementById('btn-sculpt').classList.toggle('active', tool === 'sculpt');
-            document.getElementById('btn-paint').classList.toggle('active', tool === 'paint');
+            document.getElementById('btn-voxel').classList.toggle('active', tool === 'voxel');
+            document.getElementById('btn-tile').classList.toggle('active', tool === 'tile');
         };
 
         // ── Lighting toggle ──────────────────────────────
@@ -501,8 +529,14 @@
 
             const tileCount = state.tileCount || 0;
             selectedTileIndex = state.selectedTileIndex;
-            currentTool = state.tool;
             lightingEnabled = state.lightingEnabled;
+
+            // Sync tool button UI if state changed externally
+            if (state.tool && state.tool !== currentTool) {
+                currentTool = state.tool;
+                document.getElementById('btn-voxel').classList.toggle('active', currentTool === 'voxel');
+                document.getElementById('btn-tile').classList.toggle('active', currentTool === 'tile');
+            }
 
             if (tileCount !== lastTileCount) {
                 lastTileCount = tileCount;
@@ -528,6 +562,8 @@
                     document.querySelectorAll('.tile-cell').forEach(el => {
                         el.classList.toggle('selected', parseInt(el.dataset.index) === i);
                     });
+                    // Auto-select tile tool (matches Swift behavior)
+                    setTool('tile');
                 };
 
                 const cvs = document.createElement('canvas');
