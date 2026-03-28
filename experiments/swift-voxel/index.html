@@ -355,7 +355,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '22';
+                const CACHE_V = '23';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -758,6 +758,11 @@
             let trackingCanvas = false;
             let touchDownSent = false;
 
+            // Coalesce touch-move events per animation frame to avoid
+            // multiple JS↔WASM crossings that cause judder on iOS Safari.
+            let touchMovePending = false;
+            let tmAccDx = 0, tmAccDy = 0, tmLastX = 0, tmLastY = 0;
+
             function tp(t) { return { x: t.clientX, y: t.clientY }; }
 
             function clearTap() {
@@ -807,6 +812,13 @@
                 }
             }, { passive: true });
 
+            function flushTouchMove() {
+                touchMovePending = false;
+                const p = canvasCoords(tmLastX, tmLastY);
+                wasm.js_pointer_move(p.x, p.y, tmAccDx, tmAccDy);
+                tmAccDx = 0; tmAccDy = 0;
+            }
+
             canvas.addEventListener('touchmove', (e) => {
                 if (!trackingCanvas) return;
                 e.preventDefault();
@@ -822,8 +834,13 @@
                     const dist = Math.hypot(t.clientX - tapX, t.clientY - tapY);
                     if (!tapMoved && dist > TAP_THRESH) { tapMoved = true; clearTap(); }
 
-                    const p = canvasCoords(t.clientX, t.clientY);
-                    wasm.js_pointer_move(p.x, p.y, dx, dy);
+                    // Accumulate deltas and flush once per animation frame
+                    tmAccDx += dx; tmAccDy += dy;
+                    tmLastX = t.clientX; tmLastY = t.clientY;
+                    if (!touchMovePending) {
+                        touchMovePending = true;
+                        requestAnimationFrame(flushTouchMove);
+                    }
                 } else if (n >= 2) {
                     for (const t of e.changedTouches) {
                         if (t.identifier in activeTouches) activeTouches[t.identifier] = tp(t);
@@ -845,6 +862,8 @@
                     trackingCanvas = false;
                     pinchDist = null;
                     clearTap();
+                    // Flush any accumulated touch deltas before ending
+                    if (touchMovePending) { flushTouchMove(); }
                     if (touchDownSent) { wasm.js_pointer_up(); touchDownSent = false; }
                 }
             }
