@@ -103,7 +103,6 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly wasm_main: () => void;
     readonly js_camera_orbit: (a: number, b: number) => void;
     readonly js_camera_pan: (a: number, b: number) => void;
     readonly js_camera_zoom: (a: number) => void;
@@ -123,6 +122,7 @@ export interface InitOutput {
     readonly js_set_color_index: (a: number) => void;
     readonly js_set_tool: (a: number, b: number) => void;
     readonly js_toggle_lighting: () => void;
+    readonly wasm_main: () => void;
     readonly wasm_bindgen__closure__destroy__h0ab314a5f1c4edd9: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__hb2058f568e973bae: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hf26f6746457d37d6: (a: number, b: number, c: any, d: any) => void;
