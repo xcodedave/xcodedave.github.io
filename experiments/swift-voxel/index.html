@@ -320,7 +320,7 @@
         // 1.0 = CSS pixel resolution, 0.5 = half, 0.25 = quarter.
         // Applied by intercepting canvas.width/height setters so winit's
         // writes are transparently scaled.
-        const RENDER_SCALE = 0.25;
+        const RENDER_SCALE = 1.0;
 
         let wasm;
         let paletteColors = [];
@@ -356,8 +356,9 @@
             const status = document.getElementById('status');
 
             try {
-                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=6');
-                await init_wasm();
+                const CACHE_V = '7';
+                const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
+                await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
                 status.style.display = 'none';
 
