@@ -357,7 +357,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '24';
+                const CACHE_V = '25';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -786,25 +786,19 @@
                 if (n === 1) {
                     tapX = first.clientX; tapY = first.clientY; tapMoved = false;
                     lastTouchX = first.clientX; lastTouchY = first.clientY;
+                    touchDownSent = false;
 
-                    // Start edit/orbit — Rust decides based on ray hit
-                    const p = canvasCoords(first.clientX, first.clientY);
-                    wasm.js_pointer_down(p.x, p.y, 0);
-                    touchDownSent = true;
-
-                    // Long-press: cancel the left-click action and do a remove
+                    // Defer pointer-down until we know the gesture type:
+                    // tap (touchend), long-press (timer), or drag (move threshold)
                     tapTimer = setTimeout(() => {
                         tapTimer = null;
-                        wasm.js_pointer_up();
                         const lp = canvasCoords(tapX, tapY);
-                        wasm.js_pointer_down(lp.x, lp.y, 1);
+                        wasm.js_pointer_down(lp.x, lp.y, 1); // long press = remove
                         wasm.js_pointer_up();
-                        touchDownSent = false;
                     }, LONG_MS);
                 }
                 if (n === 2) {
                     clearTap();
-                    // End single-finger action before starting pinch
                     if (touchDownSent) { wasm.js_pointer_up(); touchDownSent = false; }
                     const ids = Object.keys(activeTouches);
                     pinchDist = Math.hypot(
@@ -834,14 +828,23 @@
                     activeTouches[t.identifier] = tp(t);
 
                     const dist = Math.hypot(t.clientX - tapX, t.clientY - tapY);
-                    if (!tapMoved && dist > TAP_THRESH) { tapMoved = true; clearTap(); }
+                    if (!tapMoved && dist > TAP_THRESH) {
+                        tapMoved = true;
+                        clearTap();
+                        // Drag started — send deferred pointer-down at start position
+                        const sp = canvasCoords(tapX, tapY);
+                        wasm.js_pointer_down(sp.x, sp.y, 0);
+                        touchDownSent = true;
+                    }
 
-                    // Accumulate deltas and flush once per animation frame
-                    tmAccDx += dx; tmAccDy += dy;
-                    tmLastX = t.clientX; tmLastY = t.clientY;
-                    if (!touchMovePending) {
-                        touchMovePending = true;
-                        requestAnimationFrame(flushTouchMove);
+                    // Only send move events once drag has started
+                    if (tapMoved) {
+                        tmAccDx += dx; tmAccDy += dy;
+                        tmLastX = t.clientX; tmLastY = t.clientY;
+                        if (!touchMovePending) {
+                            touchMovePending = true;
+                            requestAnimationFrame(flushTouchMove);
+                        }
                     }
                 } else if (n >= 2) {
                     for (const t of e.changedTouches) {
@@ -863,10 +866,18 @@
                 if (Object.keys(activeTouches).length === 0) {
                     trackingCanvas = false;
                     pinchDist = null;
-                    clearTap();
-                    // Flush any accumulated touch deltas before ending
-                    if (touchMovePending) { flushTouchMove(); }
-                    if (touchDownSent) { wasm.js_pointer_up(); touchDownSent = false; }
+                    // Tap: quick touch without drag or long-press
+                    if (tapTimer !== null && !tapMoved) {
+                        clearTap();
+                        const p = canvasCoords(tapX, tapY);
+                        wasm.js_pointer_down(p.x, p.y, 0); // tap = insert
+                        wasm.js_pointer_up();
+                        touchDownSent = false;
+                    } else {
+                        clearTap();
+                        if (touchMovePending) { flushTouchMove(); }
+                        if (touchDownSent) { wasm.js_pointer_up(); touchDownSent = false; }
+                    }
                 }
             }
             canvas.addEventListener('touchend', touchEnd, { passive: true });
