@@ -329,12 +329,14 @@
         let lastTileCount = 0;
         let lastClientX = 0;
         let lastClientY = 0;
+        // Tile icon cache: maps tileIndex -> { hash, canvas }
+        const tileIconCache = new Map();
 
         async function init() {
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '13';
+                const CACHE_V = '14';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -542,11 +544,34 @@
             }
         }
 
+        // Simple hash for tile data (FNV-1a 32-bit)
+        function hashTileData(data) {
+            let h = 0x811c9dc5;
+            for (let i = 0; i < data.length; i++) {
+                h ^= data[i];
+                h = Math.imul(h, 0x01000193);
+            }
+            return h >>> 0;
+        }
+
         // Isometric tile icon rendering — matches Swift TileIconCache
         function renderTileIcon(canvas, tileIndex) {
             if (!wasm || !wasm.js_is_ready()) return;
             const data = wasm.js_get_tile_data(tileIndex);
             if (!data || data.length < 512) return;
+
+            // Check cache — skip rendering if tile data hasn't changed
+            const hash = hashTileData(data);
+            const cached = tileIconCache.get(tileIndex);
+            if (cached && cached.hash === hash) {
+                // Blit cached image if canvas is different
+                if (cached.canvas !== canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(cached.canvas, 0, 0);
+                }
+                return;
+            }
 
             const ctx = canvas.getContext('2d');
             const w = canvas.width;
@@ -618,6 +643,9 @@
                     }
                 }
             }
+
+            // Store in cache
+            tileIconCache.set(tileIndex, { hash, canvas });
         }
 
         // ── Canvas coordinate helper ─────────────────────
