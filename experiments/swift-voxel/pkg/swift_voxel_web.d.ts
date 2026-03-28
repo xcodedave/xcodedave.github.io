@@ -24,6 +24,16 @@ export function js_camera_pan(dx: number, dy: number): void;
 export function js_camera_zoom(delta: number): void;
 
 /**
+ * Returns true if there's an edit to redo.
+ */
+export function js_can_redo(): boolean;
+
+/**
+ * Returns true if there's an edit to undo.
+ */
+export function js_can_undo(): boolean;
+
+/**
  * Export the current scene as MagicaVoxel .vox bytes.
  */
 export function js_export_vox(): Uint8Array;
@@ -82,6 +92,11 @@ export function js_pointer_move(x: number, y: number, dx: number, dy: number): v
 export function js_pointer_up(): void;
 
 /**
+ * Redo the last undone edit group.
+ */
+export function js_redo(): void;
+
+/**
  * Serialise the current scene to .svox bytes.
  */
 export function js_save_svox(): Uint8Array;
@@ -106,6 +121,11 @@ export function js_set_tool(tool: string): void;
  */
 export function js_toggle_lighting(): void;
 
+/**
+ * Undo the last edit group.
+ */
+export function js_undo(): void;
+
 export function wasm_main(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -115,6 +135,8 @@ export interface InitOutput {
     readonly js_camera_orbit: (a: number, b: number) => void;
     readonly js_camera_pan: (a: number, b: number) => void;
     readonly js_camera_zoom: (a: number) => void;
+    readonly js_can_redo: () => number;
+    readonly js_can_undo: () => number;
     readonly js_export_vox: () => [number, number];
     readonly js_get_editor_state_json: () => [number, number];
     readonly js_get_palette_json: () => [number, number];
@@ -126,11 +148,13 @@ export interface InitOutput {
     readonly js_pointer_down: (a: number, b: number, c: number) => void;
     readonly js_pointer_move: (a: number, b: number, c: number, d: number) => void;
     readonly js_pointer_up: () => void;
+    readonly js_redo: () => void;
     readonly js_save_svox: () => [number, number];
     readonly js_select_tile: (a: number) => void;
     readonly js_set_color_index: (a: number) => void;
     readonly js_set_tool: (a: number, b: number) => void;
     readonly js_toggle_lighting: () => void;
+    readonly js_undo: () => void;
     readonly wasm_main: () => void;
     readonly wasm_bindgen__closure__destroy__h0ab314a5f1c4edd9: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__hb2058f568e973bae: (a: number, b: number) => void;

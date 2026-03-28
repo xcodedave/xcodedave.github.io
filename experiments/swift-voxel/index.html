@@ -226,6 +226,26 @@
             font-size: 10px;
         }
 
+        /* Undo/redo buttons */
+        .undo-buttons {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .undo-buttons .btn {
+            flex: 1;
+        }
+
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .btn:disabled:hover {
+            background: var(--btn-face);
+        }
+
         /* Loading overlay */
         #status {
             position: fixed;
@@ -302,6 +322,10 @@
                 <button class="btn active" id="btn-voxel" onclick="setTool('voxel')">Voxel</button>
                 <button class="btn" id="btn-tile" onclick="setTool('tile')">Tile</button>
             </div>
+            <div class="undo-buttons">
+                <button class="btn" id="btn-undo" onclick="doUndo()" disabled>Undo</button>
+                <button class="btn" id="btn-redo" onclick="doRedo()" disabled>Redo</button>
+            </div>
         </div>
 
         <!-- RENDER -->
@@ -357,7 +381,7 @@
             const status = document.getElementById('status');
 
             try {
-                const CACHE_V = '25';
+                const CACHE_V = '26';
                 const { default: init_wasm, ...exports } = await import('./pkg/swift_voxel_web.js?v=' + CACHE_V);
                 await init_wasm('./pkg/swift_voxel_web_bg.wasm?v=' + CACHE_V);
                 wasm = exports;
@@ -374,6 +398,19 @@
 
                 // Setup canvas events
                 setupCanvasEvents();
+
+                // Keyboard shortcuts for undo/redo
+                document.addEventListener('keydown', (e) => {
+                    if (!wasm || !wasm.js_is_ready()) return;
+                    const mod = e.metaKey || e.ctrlKey;
+                    if (mod && e.key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        doUndo();
+                    } else if (mod && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+                        e.preventDefault();
+                        doRedo();
+                    }
+                });
 
             } catch (e) {
                 status.textContent = 'Failed to initialize: ' + e.message;
@@ -445,6 +482,28 @@
             document.getElementById('btn-voxel').classList.toggle('active', tool === 'voxel');
             document.getElementById('btn-tile').classList.toggle('active', tool === 'tile');
         };
+
+        // ── Undo/Redo ────────────────────────────────────
+
+        window.doUndo = function() {
+            if (!wasm || !wasm.js_is_ready()) return;
+            wasm.js_undo();
+            updateUndoButtons();
+        };
+
+        window.doRedo = function() {
+            if (!wasm || !wasm.js_is_ready()) return;
+            wasm.js_redo();
+            updateUndoButtons();
+        };
+
+        function updateUndoButtons() {
+            if (!wasm || !wasm.js_is_ready()) return;
+            const btnUndo = document.getElementById('btn-undo');
+            const btnRedo = document.getElementById('btn-redo');
+            if (btnUndo) btnUndo.disabled = !wasm.js_can_undo();
+            if (btnRedo) btnRedo.disabled = !wasm.js_can_redo();
+        }
 
         // ── Lighting toggle ──────────────────────────────
 
@@ -903,6 +962,7 @@
                 lastUiUpdate = now;
                 updateTileGrid();
                 updateColorSwatch();
+                updateUndoButtons();
             }
             requestAnimationFrame(uiLoop);
         }
