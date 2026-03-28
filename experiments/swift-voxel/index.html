@@ -297,10 +297,6 @@
     <div id="status">Loading WebGPU...</div>
 
     <script type="module">
-        // Resolution scale factor for the ray-cast canvas.
-        // 1.0 = CSS pixel resolution, 0.5 = half res (4x faster), 2.0 = retina.
-        const RENDER_SCALE = 0.5;
-
         let wasm;
         let paletteColors = [];
         let selectedColorIndex = 1;
@@ -598,10 +594,10 @@
             const vp = document.getElementById('viewport');
             const c = document.getElementById('canvas');
             if (!vp || !c) return;
-            // Apply RENDER_SCALE to CSS pixel dimensions.
-            // 0.5 = half resolution (4x fewer pixels to ray-cast).
-            c.width  = Math.max(1, (vp.clientWidth  * RENDER_SCALE) | 0);
-            c.height = Math.max(1, (vp.clientHeight * RENDER_SCALE) | 0);
+            // Set canvas to CSS pixel dimensions — RENDER_SCALE is applied
+            // by the Rust wgpu surface configuration, not here.
+            c.width  = vp.clientWidth;
+            c.height = vp.clientHeight;
         }
 
         // ── Canvas events ────────────────────────────────
