@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screech Chat</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      background: #0a0a0f;
+      color: #e0e0e8;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      max-height: 720px;
+      display: flex;
+      flex-direction: column;
+      background: #12121a;
+      border: 1px solid #2a2a3a;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 16px 20px;
+      background: #16161f;
+      border-bottom: 1px solid #2a2a3a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #c0c0d0;
+    }
+
+    .header-indicators {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #444;
+    }
+
+    .status-dot.connected {
+      background: #4ade80;
+      box-shadow: 0 0 6px #4ade8066;
+    }
+
+    .status-dot.scanning {
+      background: #facc15;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .modem-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #333;
+    }
+
+    .modem-dot.active {
+      background: #818cf8;
+      animation: pulse 0.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Join Screen */
+    #join-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px 20px;
+    }
+
+    #join-screen.hidden {
+      display: none;
+    }
+
+    #join-screen h2 {
+      font-size: 14px;
+      font-weight: 400;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .join-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    #username-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: #1a1a28;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      color: #e0e0e8;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+
+    #username-input:focus {
+      border-color: #818cf8;
+    }
+
+    #username-input::placeholder {
+      color: #555;
+    }
+
+    #join-btn {
+      padding: 10px 20px;
+      background: #818cf8;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #join-btn:hover {
+      background: #6366f1;
+    }
+
+    #join-btn:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+
+    #status-text {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      min-height: 18px;
+    }
+
+    .scan-spinner {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    .scan-spinner.visible {
+      display: flex;
+    }
+
+    .spinner-icon {
+      width: 48px;
+      height: 48px;
+      position: relative;
+    }
+
+    .spinner-ring {
+      width: 48px;
+      height: 48px;
+      border: 3px solid #2a2a3a;
+      border-top-color: #818cf8;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+    }
+
+    .spinner-waves {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .scan-label {
+      font-size: 11px;
+      color: #818cf8;
+      letter-spacing: 0.5px;
+    }
+
+    .scan-attempts {
+      font-size: 11px;
+      color: #555;
+    }
+
+    .cancel-btn {
+      margin-top: 4px;
+      padding: 6px 16px;
+      background: transparent;
+      border: 1px solid #3a3a4a;
+      border-radius: 6px;
+      color: #888;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .cancel-btn:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* Chat Screen */
+    #chat-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chat-screen:not(.hidden) {
+      display: flex;
+    }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #messages::-webkit-scrollbar-thumb {
+      background: #2a2a3a;
+      border-radius: 2px;
+    }
+
+    .message {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .message.system {
+      color: #666;
+      font-style: italic;
+      font-size: 12px;
+      justify-content: center;
+    }
+
+    .msg-username {
+      font-weight: 600;
+      color: #818cf8;
+      white-space: nowrap;
+    }
+
+    .msg-username::after {
+      content: ':';
+    }
+
+    .message.self .msg-username {
+      color: #4ade80;
+    }
+
+    .msg-text {
+      flex: 1;
+      word-break: break-word;
+    }
+
+    .msg-time {
+      font-size: 10px;
+      color: #444;
+      white-space: nowrap;
+    }
+
+    .chat-input-row {
+      padding: 12px 16px;
+      border-top: 1px solid #2a2a3a;
+      display: flex;
+      gap: 8px;
+      background: #16161f;
+    }
+
+    #chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: #1a1a28;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      color: #e0e0e8;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+
+    #chat-input:focus {
+      border-color: #818cf8;
+    }
+
+    #chat-input::placeholder {
+      color: #555;
+    }
+
+    #send-btn {
+      padding: 10px 16px;
+      background: #818cf8;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #send-btn:hover {
+      background: #6366f1;
+    }
+
+    .footer {
+      padding: 8px 16px;
+      border-top: 1px solid #1a1a28;
+      font-size: 10px;
+      color: #444;
+      text-align: center;
+      background: #0e0e16;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        border-radius: 0;
+        border: none;
+        max-height: 100vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Screech Chat</h1>
+      <div class="header-indicators">
+        <div class="modem-dot" id="modem-indicator" title="Modem"></div>
+        <div class="status-dot" id="connection-status" title="Status"></div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div id="join-screen">
+        <h2>Join via ultrasonic signaling</h2>
+        <div class="join-row" id="join-row">
+          <input type="text" id="username-input" placeholder="Username" maxlength="15" autocomplete="off" />
+          <button id="join-btn">Join</button>
+        </div>
+        <div id="status-text">Enter a username to start</div>
+        <div class="scan-spinner" id="scan-spinner">
+          <div class="spinner-icon">
+            <div class="spinner-ring"></div>
+            <div class="spinner-waves">))))</div>
+          </div>
+          <div class="scan-label">BROADCASTING &amp; SCANNING</div>
+          <div id="scan-attempts" class="scan-attempts"></div>
+          <button id="cancel-btn" class="cancel-btn">Cancel</button>
+        </div>
+      </div>
+
+      <div id="chat-screen" class="hidden">
+        <div id="messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
+          <button id="send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      P2P via WebRTC &middot; Signaling via ~19kHz FSK
+    </div>
+  </div>
+
+  <script>
+    // ── Constants ──
+    var CARRIER_FREQ = 19000;
+    var FREQ_ZERO = 18500;
+    var FREQ_ONE = 19000;
+    var BIT_DURATION = 1 / 50;
+    var CARRIER_DURATION = 1.0;
+    var PREAMBLE_BITS = [1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,0];
+    var SYNC_BYTE = 0xFF;
+    var FFT_SIZE = 2048;
+    var RX_POLL_INTERVAL = 5;
+    var CARRIER_DETECT_THRESHOLD = -50;
+    var CARRIER_DETECT_MS = 300;
+    var SIGNAL_THRESHOLD = -60;
+    var RX_WINDOW_MIN = 10000;
+    var RX_JITTER_MAX = 3000;
+    var MSG_TYPE_OFFER = 0x01;
+    var MSG_TYPE_ANSWER = 0x02;
+    var SETUP_ACTPASS = 0;
+    var SETUP_ACTIVE = 1;
+    var SETUP_PASSIVE = 2;
+    var ICE_SERVERS = [];
+
+    // ── CRC-16-CCITT ──
+    function crc16(bytes) {
+      var crc = 0xFFFF;
+      for (var i = 0; i < bytes.length; i++) {
+        crc ^= bytes[i] << 8;
+        for (var bit = 0; bit < 8; bit++) {
+          if (crc & 0x8000) {
+            crc = (crc << 1) ^ 0x1021;
+          } else {
+            crc = crc << 1;
+          }
+          crc &= 0xFFFF;
+        }
+      }
+      return crc;
+    }
+
+    // ── Modem Transmitter ──
+    function ModemTransmitter(audioContext) {
+      this.audioContext = audioContext;
+      this.oscillator = null;
+      this.gainNode = null;
+    }
+
+    ModemTransmitter.prototype.transmitFrame = function(payload) {
+      var self = this;
+      return new Promise(function(resolve) {
+        var ctx = self.audioContext;
+        var startTime = ctx.currentTime + 0.05;
+        var t = startTime;
+        var bits = [];
+
+        for (var p = 0; p < PREAMBLE_BITS.length; p++) bits.push(PREAMBLE_BITS[p]);
+        for (var i = 7; i >= 0; i--) bits.push((SYNC_BYTE >> i) & 1);
+        var len = payload.length;
+        for (var i = 7; i >= 0; i--) bits.push((len >> i) & 1);
+        for (var b = 0; b < payload.length; b++) {
+          for (var i = 7; i >= 0; i--) bits.push((payload[b] >> i) & 1);
+        }
+        var crcVal = crc16(payload);
+        for (var i = 7; i >= 0; i--) bits.push(((crcVal >> 8) >> i) & 1);
+        for (var i = 7; i >= 0; i--) bits.push((crcVal & 0xFF) >> i & 1);
+
+        self.oscillator = ctx.createOscillator();
+        self.oscillator.type = 'sine';
+        self.gainNode = ctx.createGain();
+        self.gainNode.gain.value = 0.5;
+        self.oscillator.connect(self.gainNode);
+        self.gainNode.connect(ctx.destination);
+
+        self.oscillator.frequency.setValueAtTime(CARRIER_FREQ, t);
+        t += CARRIER_DURATION;
+
+        for (var j = 0; j < bits.length; j++) {
+          self.oscillator.frequency.setValueAtTime(bits[j] === 1 ? FREQ_ONE : FREQ_ZERO, t);
+          t += BIT_DURATION;
+        }
+
+        self.oscillator.start(startTime);
+        self.oscillator.stop(t);
+        self.oscillator.onended = function() {
+          self.oscillator.disconnect();
+          self.gainNode.disconnect();
+          self.oscillator = null;
+          self.gainNode = null;
+          resolve();
+        };
+      });
+    };
+
+    ModemTransmitter.prototype.stop = function() {
+      if (this.oscillator) {
+        try { this.oscillator.stop(); this.oscillator.disconnect(); } catch(e) {}
+        this.oscillator = null;
+      }
+      if (this.gainNode) {
+        try { this.gainNode.disconnect(); } catch(e) {}
+        this.gainNode = null;
+      }
+    };
+
+    // ── Modem Receiver ──
+    function ModemReceiver(audioContext, micStream) {
+      this.audioContext = audioContext;
+      this.analyser = audioContext.createAnalyser();
+      this.analyser.fftSize = FFT_SIZE;
+      this.analyser.smoothingTimeConstant = 0;
+
+      var source = audioContext.createMediaStreamSource(micStream);
+      source.connect(this.analyser);
+      this.source = source;
+
+      this.freqData = new Float32Array(this.analyser.frequencyBinCount);
+      this.binResolution = audioContext.sampleRate / FFT_SIZE;
+      this.binZero = Math.round(FREQ_ZERO / this.binResolution);
+      this.binOne = Math.round(FREQ_ONE / this.binResolution);
+
+      this.state = 'IDLE';
+      this.pollTimer = null;
+      this.listening = false;
+      this.carrierCount = 0;
+      this.carrierSamplesNeeded = Math.ceil(CARRIER_DETECT_MS / RX_POLL_INTERVAL);
+      this.lastBit = -1;
+      this.transitionTimestamps = [];
+      this.preambleAlternations = 0;
+      this.bitPhaseOffset = 0;
+      this.bitSamples = [];
+      this.bitStartTime = 0;
+      this.bitsReceived = [];
+      this.expectedBits = 0;
+      this.payloadLength = 0;
+      this.syncBits = [];
+      this.onFrameReceived = null;
+      this.onStateChange = null;
+    }
+
+    ModemReceiver.prototype.getPower = function(bin) {
+      this.analyser.getFloatFrequencyData(this.freqData);
+      var maxPower = -Infinity;
+      for (var i = bin - 2; i <= bin + 2; i++) {
+        if (i >= 0 && i < this.freqData.length && this.freqData[i] > maxPower) maxPower = this.freqData[i];
+      }
+      return maxPower;
+    };
+
+    ModemReceiver.prototype.readBit = function() {
+      this.analyser.getFloatFrequencyData(this.freqData);
+      var powerZero = -Infinity, powerOne = -Infinity;
+      for (var i = -2; i <= 2; i++) {
+        var idxZ = this.binZero + i, idxO = this.binOne + i;
+        if (idxZ >= 0 && idxZ < this.freqData.length && this.freqData[idxZ] > powerZero) powerZero = this.freqData[idxZ];
+        if (idxO >= 0 && idxO < this.freqData.length && this.freqData[idxO] > powerOne) powerOne = this.freqData[idxO];
+      }
+      if (Math.max(powerZero, powerOne) < SIGNAL_THRESHOLD) return -1;
+      return powerOne > powerZero ? 1 : 0;
+    };
+
+    ModemReceiver.prototype.processAudio = function() {
+      var now = performance.now();
+      var bitDurationMs = BIT_DURATION * 1000;
+
+      if (this.state === 'IDLE') {
+        var power = this.getPower(this.binOne);
+        if (power > CARRIER_DETECT_THRESHOLD) {
+          this.carrierCount++;
+          if (this.carrierCount >= this.carrierSamplesNeeded) {
+            this._setState('CARRIER_DETECTED');
+            this.carrierCount = 0;
+            this.lastBit = -1;
+            this.transitionTimestamps = [];
+            this.preambleAlternations = 0;
+          }
+        } else {
+          this.carrierCount = 0;
+        }
+      } else if (this.state === 'CARRIER_DETECTED') {
+        var bit = this.readBit();
+        if (bit === -1) {
+          this.carrierCount++;
+          if (this.carrierCount > 100) this.reset();
+          return;
+        }
+        this.carrierCount = 0;
+        if (bit === 0 && this.lastBit !== 0) {
+          this.lastBit = 0;
+          this.transitionTimestamps.push(now);
+          this.preambleAlternations = 1;
+        } else if (bit !== this.lastBit && this.lastBit !== -1) {
+          this.lastBit = bit;
+          this.transitionTimestamps.push(now);
+          this.preambleAlternations++;
+          if (this.preambleAlternations >= 8) {
+            var last = this.transitionTimestamps[this.transitionTimestamps.length - 1];
+            this.bitPhaseOffset = last;
+            this._setState('PREAMBLE_SYNC');
+            this.syncBits = [];
+          }
+        } else {
+          this.lastBit = bit;
+        }
+      } else if (this.state === 'PREAMBLE_SYNC') {
+        var elapsed = now - this.bitPhaseOffset;
+        var posInBit = ((elapsed % bitDurationMs) + bitDurationMs) % bitDurationMs;
+        if (posInBit >= bitDurationMs * 0.4 && posInBit <= bitDurationMs * 0.6) {
+          var bit = this.readBit();
+          if (bit === -1) return;
+          this.syncBits.push(bit);
+          if (this.syncBits.length > 24) this.syncBits = this.syncBits.slice(-24);
+          if (this.syncBits.length >= 8) {
+            var last8 = this.syncBits.slice(-8);
+            var allOnes = true;
+            for (var k = 0; k < 8; k++) { if (last8[k] !== 1) { allOnes = false; break; } }
+            if (allOnes) {
+              this._setState('RECEIVING_DATA');
+              this.bitsReceived = [];
+              this.payloadLength = -1;
+              this.expectedBits = 8;
+              this.bitStartTime = now + bitDurationMs;
+              this.bitSamples = [];
+            }
+          }
+        }
+      } else if (this.state === 'RECEIVING_DATA') {
+        var elapsed = now - this.bitStartTime;
+        if (elapsed < 0) return;
+        var currentBitIndex = Math.floor(elapsed / bitDurationMs);
+        var posInBit = elapsed - (currentBitIndex * bitDurationMs);
+        if (posInBit >= bitDurationMs * 0.2 && posInBit <= bitDurationMs * 0.8) {
+          var bit = this.readBit();
+          if (bit !== -1) {
+            if (!this.bitSamples[currentBitIndex]) this.bitSamples[currentBitIndex] = [];
+            this.bitSamples[currentBitIndex].push(bit);
+          }
+        }
+        var completedBits = this.bitsReceived.length;
+        if (currentBitIndex > completedBits && this.bitSamples[completedBits]) {
+          var samples = this.bitSamples[completedBits];
+          var ones = 0;
+          for (var s = 0; s < samples.length; s++) { if (samples[s] === 1) ones++; }
+          this.bitsReceived.push(ones > samples.length / 2 ? 1 : 0);
+          if (this.bitsReceived.length === 8 && this.payloadLength === -1) {
+            this.payloadLength = 0;
+            for (var i = 0; i < 8; i++) this.payloadLength = (this.payloadLength << 1) | this.bitsReceived[i];
+            this.expectedBits = 8 + this.payloadLength * 8 + 16;
+          }
+          if (this.expectedBits > 0 && this.bitsReceived.length >= this.expectedBits) {
+            this._processFrame();
+          }
+        }
+        if (currentBitIndex > this.expectedBits + 20) this.reset();
+      }
+    };
+
+    ModemReceiver.prototype._processFrame = function() {
+      var dataBits = this.bitsReceived.slice(8);
+      var totalBytes = this.payloadLength + 2;
+      var bytes = new Uint8Array(totalBytes);
+      for (var byteIdx = 0; byteIdx < totalBytes; byteIdx++) {
+        var val = 0;
+        for (var bitIdx = 0; bitIdx < 8; bitIdx++) {
+          var i = byteIdx * 8 + bitIdx;
+          val = (val << 1) | (i < dataBits.length ? dataBits[i] : 0);
+        }
+        bytes[byteIdx] = val;
+      }
+      var payload = bytes.slice(0, this.payloadLength);
+      var receivedCrc = (bytes[this.payloadLength] << 8) | bytes[this.payloadLength + 1];
+      if (receivedCrc === crc16(payload)) {
+        if (this.onFrameReceived) this.onFrameReceived(payload);
+      } else {
+        console.warn('CRC mismatch');
+      }
+      this.reset();
+    };
+
+    ModemReceiver.prototype._setState = function(s) {
+      this.state = s;
+      if (this.onStateChange) this.onStateChange(s);
+    };
+
+    ModemReceiver.prototype.reset = function() {
+      this.state = 'IDLE';
+      this.carrierCount = 0;
+      this.lastBit = -1;
+      this.transitionTimestamps = [];
+      this.preambleAlternations = 0;
+      this.bitsReceived = [];
+      this.bitSamples = [];
+      this.syncBits = [];
+      this.payloadLength = 0;
+      this.expectedBits = 0;
+    };
+
+    ModemReceiver.prototype.startListening = function() {
+      if (this.listening) return;
+      this.listening = true;
+      this.reset();
+      var self = this;
+      this.pollTimer = setInterval(function() { self.processAudio(); }, RX_POLL_INTERVAL);
+    };
+
+    ModemReceiver.prototype.stopListening = function() {
+      this.listening = false;
+      if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+      this.reset();
+    };
+
+    ModemReceiver.prototype.destroy = function() {
+      this.stopListening();
+      if (this.source) { this.source.disconnect(); this.source = null; }
+    };
+
+    // ── SDP Codec ──
+    function ipToBytes(s) {
+      var p = s.split('.').map(Number);
+      return new Uint8Array(p.length === 4 ? p : [0,0,0,0]);
+    }
+    function bytesToIp(b) { return b[0]+'.'+b[1]+'.'+b[2]+'.'+b[3]; }
+
+    function hexFpToBytes(s) {
+      var out = new Uint8Array(32);
+      if (!s) return out;
+      var parts = s.split(':');
+      for (var i = 0; i < Math.min(parts.length, 32); i++) out[i] = parseInt(parts[i], 16) || 0;
+      return out;
+    }
+    function bytesToHexFp(b) {
+      var parts = [];
+      for (var i = 0; i < 32; i++) parts.push(('0' + b[i].toString(16).toUpperCase()).slice(-2));
+      return parts.join(':');
+    }
+    function parseSetup(s) {
+      if (s === 'active') return SETUP_ACTIVE;
+      if (s === 'passive') return SETUP_PASSIVE;
+      return SETUP_ACTPASS;
+    }
+    function setupToStr(b) {
+      if (b === SETUP_ACTIVE) return 'active';
+      if (b === SETUP_PASSIVE) return 'passive';
+      return 'actpass';
+    }
+
+    function encodeSDP(sdp, type, username) {
+      var ufrag = (sdp.match(/a=ice-ufrag:(.+)/) || ['',''])[1].trim();
+      var pwd = (sdp.match(/a=ice-pwd:(.+)/) || ['',''])[1].trim();
+      var fpHex = (sdp.match(/a=fingerprint:sha-256 (.+)/) || ['',''])[1].trim();
+      var setupStr = (sdp.match(/a=setup:(.+)/) || ['','actpass'])[1].trim();
+      var cm = sdp.match(/a=candidate:\S+ \d+ udp \d+ ([\d.]+) (\d+) typ host/);
+      var ip = cm ? cm[1] : '0.0.0.0';
+      var port = cm ? parseInt(cm[2], 10) : 0;
+
+      var buf = new Uint8Array(92);
+      buf[0] = type;
+      var ub = new TextEncoder().encode(ufrag.slice(0, 8));
+      buf[1] = ub.length; buf.set(ub, 2);
+      var pb = new TextEncoder().encode(pwd.slice(0, 24));
+      buf[10] = pb.length; buf.set(pb, 11);
+      buf.set(hexFpToBytes(fpHex), 35);
+      buf[67] = parseSetup(setupStr);
+      buf.set(ipToBytes(ip), 68);
+      buf[72] = (port >> 8) & 0xFF; buf[73] = port & 0xFF;
+      var un = new TextEncoder().encode((username || '').slice(0, 15));
+      buf[74] = un.length; buf.set(un, 75);
+      var c = crc16(buf.slice(0, 90));
+      buf[90] = (c >> 8) & 0xFF; buf[91] = c & 0xFF;
+      return buf;
+    }
+
+    function decodeSDP(bytes) {
+      if (bytes.length < 92) throw new Error('SDP frame too short');
+      var rc = (bytes[90] << 8) | bytes[91];
+      if (rc !== crc16(bytes.slice(0, 90))) throw new Error('SDP CRC mismatch');
+      var uLen = bytes[1];
+      var ufrag = new TextDecoder().decode(bytes.slice(2, 2 + uLen));
+      var pLen = bytes[10];
+      var pwd = new TextDecoder().decode(bytes.slice(11, 11 + pLen));
+      var fpHex = bytesToHexFp(bytes.slice(35, 67));
+      var setup = setupToStr(bytes[67]);
+      var ip = bytesToIp(bytes.slice(68, 72));
+      var port = (bytes[72] << 8) | bytes[73];
+      var unLen = bytes[74];
+      var username = new TextDecoder().decode(bytes.slice(75, 75 + unLen));
+
+      var sdpStr = 'v=0\r\no=- 0 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n' +
+        'a=group:BUNDLE 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n' +
+        'c=IN IP4 0.0.0.0\r\na=ice-ufrag:' + ufrag + '\r\na=ice-pwd:' + pwd +
+        '\r\na=fingerprint:sha-256 ' + fpHex + '\r\na=setup:' + setup +
+        '\r\na=mid:0\r\na=sctp-port:5000\r\na=max-message-size:262144\r\n' +
+        'a=candidate:1 1 udp 2130706431 ' + ip + ' ' + port + ' typ host\r\n';
+
+      return { type: bytes[0], sdpType: bytes[0] === MSG_TYPE_OFFER ? 'offer' : 'answer', sdpString: sdpStr, username: username };
+    }
+
+    // ── WebRTC Manager ──
+    function WebRTCManager(username) {
+      this.username = username;
+      this.peerConnection = null;
+      this.dataChannel = null;
+      this.localSDP = null;
+      this.connected = false;
+      this.onMessage = null;
+      this.onConnected = null;
+      this.onDisconnected = null;
+    }
+
+    WebRTCManager.prototype._setupDC = function(ch) {
+      var self = this;
+      ch.onopen = function() { self.connected = true; if (self.onConnected) self.onConnected(); };
+      ch.onmessage = function(e) {
+        try { var msg = JSON.parse(e.data); if (self.onMessage) self.onMessage(msg); } catch(er) {}
+      };
+      ch.onclose = function() { self.connected = false; if (self.onDisconnected) self.onDisconnected(); };
+    };
+
+    WebRTCManager.prototype._waitICE = function() {
+      var self = this;
+      return new Promise(function(resolve) {
+        var pc = self.peerConnection;
+        if (pc.iceGatheringState === 'complete') { resolve(pc.localDescription.sdp); return; }
+        var done = false;
+        var check = function() {
+          if (!done && pc.iceGatheringState === 'complete') {
+            done = true; pc.removeEventListener('icegatheringstatechange', check);
+            resolve(pc.localDescription.sdp);
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', check);
+        setTimeout(function() { if (!done) { done = true; resolve(pc.localDescription.sdp); } }, 10000);
+      });
+    };
+
+    WebRTCManager.prototype.initialize = function() {
+      var self = this;
+      this.peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      this.dataChannel = this.peerConnection.createDataChannel('chat', { ordered: true });
+      this._setupDC(this.dataChannel);
+      this.peerConnection.ondatachannel = function(e) { self.dataChannel = e.channel; self._setupDC(e.channel); };
+      this.peerConnection.onconnectionstatechange = function() {
+        var s = self.peerConnection.connectionState;
+        if (s === 'disconnected' || s === 'failed' || s === 'closed') {
+          self.connected = false; if (self.onDisconnected) self.onDisconnected();
+        }
+      };
+      return this.peerConnection.createOffer().then(function(offer) {
+        return self.peerConnection.setLocalDescription(offer);
+      }).then(function() {
+        return self._waitICE();
+      }).then(function(sdp) {
+        self.localSDP = sdp;
+        return sdp;
+      });
+    };
+
+    WebRTCManager.prototype.acceptOffer = function(remoteSDP) {
+      var self = this;
+      this.peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      this.peerConnection.ondatachannel = function(e) { self.dataChannel = e.channel; self._setupDC(e.channel); };
+      this.peerConnection.onconnectionstatechange = function() {
+        var s = self.peerConnection.connectionState;
+        if (s === 'disconnected' || s === 'failed' || s === 'closed') {
+          self.connected = false; if (self.onDisconnected) self.onDisconnected();
+        }
+      };
+      return this.peerConnection.setRemoteDescription({ type: 'offer', sdp: remoteSDP }).then(function() {
+        return self.peerConnection.createAnswer();
+      }).then(function(answer) {
+        return self.peerConnection.setLocalDescription(answer);
+      }).then(function() {
+        return self._waitICE();
+      }).then(function(sdp) {
+        self.localSDP = sdp;
+        return sdp;
+      });
+    };
+
+    WebRTCManager.prototype.acceptAnswer = function(remoteSDP) {
+      return this.peerConnection.setRemoteDescription({ type: 'answer', sdp: remoteSDP });
+    };
+
+    WebRTCManager.prototype.send = function(msg) {
+      if (this.dataChannel && this.dataChannel.readyState === 'open') {
+        this.dataChannel.send(JSON.stringify(msg));
+      }
+    };
+
+    WebRTCManager.prototype.destroy = function() {
+      if (this.dataChannel) { try { this.dataChannel.close(); } catch(e) {} this.dataChannel = null; }
+      if (this.peerConnection) { try { this.peerConnection.close(); } catch(e) {} this.peerConnection = null; }
+      this.connected = false;
+    };
+
+    // ── Signaling Protocol ──
+    function SignalingProtocol(tx, rx, webrtc, username) {
+      this.modemTx = tx;
+      this.modemRx = rx;
+      this.webrtc = webrtc;
+      this.username = username;
+      this.state = 'IDLE';
+      this.running = false;
+      this.compressedOffer = null;
+      this.compressedAnswer = null;
+      this.receivedFrame = null;
+      this.scanAttempts = 0;
+      this.onStateChange = null;
+      this.onConnected = null;
+      this.onError = null;
+      this.onModemState = null;
+      this.onScanAttempt = null;
+
+      var self = this;
+      this.modemRx.onFrameReceived = function(payload) { self.receivedFrame = payload; };
+      this.modemRx.onStateChange = function(s) { if (self.onModemState) self.onModemState(s); };
+      this.webrtc.onConnected = function() {
+        self._setState('CONNECTED');
+        self.running = false;
+        self.modemTx.stop();
+        self.modemRx.stopListening();
+        if (self.onConnected) self.onConnected();
+      };
+    }
+
+    SignalingProtocol.prototype._setState = function(s) {
+      this.state = s;
+      if (this.onStateChange) this.onStateChange(s);
+    };
+
+    SignalingProtocol.prototype._sleep = function(ms) {
+      return new Promise(function(r) { setTimeout(r, ms); });
+    };
+
+    SignalingProtocol.prototype.start = function() {
+      var self = this;
+      this.webrtc.initialize().then(function(offerSDP) {
+        self.compressedOffer = encodeSDP(offerSDP, MSG_TYPE_OFFER, self.username);
+        self.running = true;
+        self._setState('SCANNING');
+        self._scanLoop();
+      }).catch(function(err) {
+        console.error('Protocol start error:', err);
+        if (self.onError) self.onError(err);
+      });
+    };
+
+    SignalingProtocol.prototype._scanLoop = function() {
+      var self = this;
+      if (!self.running || self.state !== 'SCANNING') return;
+
+      self.scanAttempts++;
+      if (self.onScanAttempt) self.onScanAttempt(self.scanAttempts);
+
+      // TX Phase
+      self.modemRx.stopListening();
+      self.modemTx.transmitFrame(self.compressedOffer).catch(function(e) {
+        console.warn('TX error:', e);
+      }).then(function() {
+        if (!self.running || self.state !== 'SCANNING') return;
+
+        // RX Phase
+        self.receivedFrame = null;
+        self.modemRx.startListening();
+        var rxDuration = RX_WINDOW_MIN + Math.random() * RX_JITTER_MAX;
+        return self._sleep(rxDuration);
+      }).then(function() {
+        if (!self.running || self.state !== 'SCANNING') return;
+        self.modemRx.stopListening();
+
+        if (self.receivedFrame) {
+          var frame = self.receivedFrame;
+          self.receivedFrame = null;
+          return self._handleReceivedFrame(frame);
+        }
+      }).then(function() {
+        if (self.running && self.state === 'SCANNING') {
+          self._scanLoop();
+        }
+      });
+    };
+
+    SignalingProtocol.prototype._handleReceivedFrame = function(payload) {
+      var self = this;
+      try {
+        var decoded = decodeSDP(payload);
+        if (decoded.username === self.username) {
+          console.log('Discarded self-received frame');
+          return Promise.resolve();
+        }
+
+        if (decoded.type === MSG_TYPE_OFFER) {
+          if (self.username > decoded.username) {
+            console.log('Tie-break: ignoring offer from "' + decoded.username + '"');
+            return Promise.resolve();
+          }
+          self._setState('GOT_OFFER');
+          return self.webrtc.acceptOffer(decoded.sdpString).then(function(answerSDP) {
+            self.compressedAnswer = encodeSDP(answerSDP, MSG_TYPE_ANSWER, self.username);
+            self._setState('SENDING_ANSWER');
+            self._sendAnswerLoop();
+          });
+        } else if (decoded.type === MSG_TYPE_ANSWER) {
+          self._setState('GOT_ANSWER');
+          return self.webrtc.acceptAnswer(decoded.sdpString);
+        }
+      } catch(err) {
+        console.warn('Failed to process received frame:', err);
+        if (self.running) self._setState('SCANNING');
+      }
+      return Promise.resolve();
+    };
+
+    SignalingProtocol.prototype._sendAnswerLoop = function() {
+      var self = this;
+      if (!self.running || self.state !== 'SENDING_ANSWER' || self.webrtc.connected) return;
+      self.modemTx.transmitFrame(self.compressedAnswer).catch(function(e) {
+        console.warn('TX error (answer):', e);
+      }).then(function() {
+        return self._sleep(1000);
+      }).then(function() {
+        self._sendAnswerLoop();
+      });
+    };
+
+    SignalingProtocol.prototype.stop = function() {
+      this.running = false;
+      this.modemTx.stop();
+      this.modemRx.stopListening();
+      this._setState('IDLE');
+    };
+
+    // ── App ──
+    var protocol = null;
+    var webrtc = null;
+    var currentUsername = '';
+    var seenMessageIds = {};
+
+    function $(id) { return document.getElementById(id); }
+
+    function generateId() {
+      if (crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxx-xxxx-xxxx'.replace(/x/g, function() { return Math.floor(Math.random()*16).toString(16); });
+    }
+
+    function addMessage(username, text, isSelf) {
+      var div = document.createElement('div');
+      div.className = 'message' + (isSelf ? ' self' : '');
+      var n = document.createElement('span'); n.className = 'msg-username'; n.textContent = username;
+      var t = document.createElement('span'); t.className = 'msg-text'; t.textContent = text;
+      var ts = document.createElement('span'); ts.className = 'msg-time';
+      ts.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      div.appendChild(n); div.appendChild(t); div.appendChild(ts);
+      $('messages').appendChild(div);
+      $('messages').scrollTop = $('messages').scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+      var div = document.createElement('div');
+      div.className = 'message system';
+      div.textContent = text;
+      $('messages').appendChild(div);
+      $('messages').scrollTop = $('messages').scrollHeight;
+    }
+
+    function updateStatus(text) { $('status-text').textContent = text; }
+    function setSpinner(vis) { $('scan-spinner').className = 'scan-spinner' + (vis ? ' visible' : ''); }
+    function setModem(on) { $('modem-indicator').className = 'modem-dot' + (on ? ' active' : ''); }
+    function setConn(on) {
+      $('connection-status').className = 'status-dot ' + (on ? 'connected' : 'scanning');
+    }
+
+    function resetToJoin() {
+      if (protocol) { protocol.stop(); protocol = null; }
+      if (webrtc) { webrtc.destroy(); webrtc = null; }
+      $('join-btn').disabled = false;
+      $('username-input').disabled = false;
+      $('join-row').style.display = '';
+      setSpinner(false);
+      setModem(false);
+      setConn(false);
+      $('scan-attempts').textContent = '';
+      updateStatus('Enter a username to start');
+    }
+
+    function joinChat(username) {
+      currentUsername = username;
+
+      // Immediately update UI
+      $('join-btn').disabled = true;
+      $('username-input').disabled = true;
+      $('join-row').style.display = 'none';
+      updateStatus('Requesting microphone access...');
+      setSpinner(true);
+      setConn(false);
+
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(micStream) {
+        var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        var modemTx = new ModemTransmitter(audioContext);
+        var modemRx = new ModemReceiver(audioContext, micStream);
+        webrtc = new WebRTCManager(username);
+        webrtc.onMessage = function(msg) {
+          if (!msg || !msg.id || seenMessageIds[msg.id]) return;
+          seenMessageIds[msg.id] = true;
+          if (msg.type === 'chat') addMessage(msg.username, msg.text, false);
+        };
+        webrtc.onDisconnected = function() { setConn(false); addSystemMessage('Peer disconnected.'); };
+
+        protocol = new SignalingProtocol(modemTx, modemRx, webrtc, username);
+        protocol.onStateChange = function(state) {
+          if (state === 'SCANNING') { updateStatus('Scanning for nearby peers...'); setModem(true); }
+          else if (state === 'GOT_OFFER') { updateStatus('Received offer, preparing answer...'); }
+          else if (state === 'SENDING_ANSWER') { updateStatus('Sending answer via ultrasonic...'); }
+          else if (state === 'GOT_ANSWER') { updateStatus('Received answer, connecting...'); }
+          else if (state === 'CONNECTED') {
+            updateStatus('Connected!');
+            setConn(true); setModem(false); setSpinner(false);
+            $('join-screen').classList.add('hidden');
+            $('chat-screen').classList.remove('hidden');
+            addSystemMessage('Connected to peer via ultrasonic signaling!');
+            $('chat-input').focus();
+          }
+        };
+        protocol.onError = function(err) { updateStatus('Error: ' + err.message); setModem(false); setSpinner(false); };
+        protocol.onScanAttempt = function(n) { $('scan-attempts').textContent = 'Attempt ' + n; };
+        protocol.onModemState = function(s) { if (s === 'CARRIER_DETECTED') setModem(true); };
+        protocol.start();
+
+      }).catch(function(err) {
+        console.error('getUserMedia error:', err);
+        updateStatus('Microphone access denied. Cannot join.');
+        setSpinner(false);
+        $('join-btn').disabled = false;
+        $('username-input').disabled = false;
+        $('join-row').style.display = '';
+      });
+    }
+
+    function sendMessage() {
+      var text = $('chat-input').value.trim();
+      if (!text || !webrtc) return;
+      var msg = { type: 'chat', id: generateId(), username: currentUsername, text: text, timestamp: Date.now() };
+      seenMessageIds[msg.id] = true;
+      addMessage(currentUsername, text, true);
+      webrtc.send(msg);
+      $('chat-input').value = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      $('join-btn').addEventListener('click', function() {
+        var username = $('username-input').value.trim();
+        if (!username || username.length > 15) { updateStatus('Enter a username (1-15 characters).'); return; }
+        joinChat(username);
+      });
+      $('username-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('join-btn').click(); });
+      $('cancel-btn').addEventListener('click', resetToJoin);
+      $('send-btn').addEventListener('click', sendMessage);
+      $('chat-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMessage(); });
+    });
+
+    // Surface any errors to the status text
+    window.onerror = function(msg) { updateStatus('Error: ' + msg); };
+    window.onunhandledrejection = function(e) { updateStatus('Error: ' + (e.reason && e.reason.message || e.reason)); };
+  </script>
+</body>
+</html>
