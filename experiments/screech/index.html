@@ -603,7 +603,7 @@
             this.preambleAlternations = 0;
           }
         } else {
-          this.carrierCount = 0;
+          this.carrierCount = Math.max(0, this.carrierCount - 3);
         }
       } else if (this.state === 'CARRIER_DETECTED') {
         var bit = this.readBit();
@@ -1135,12 +1135,32 @@
       });
     }
 
+    function selfTestLoop(audioContext, modemRx, debugEl, attempt) {
+      if (selfTestCancelled) return Promise.resolve(null);
+      debugEl.textContent = 'Self-test attempt ' + attempt + '...';
+      debugEl.style.color = '#facc15';
+      return runSelfDiagnostic(audioContext, modemRx).then(function(result) {
+        if (selfTestCancelled) return null;
+        if (result.detected) {
+          debugEl.textContent = 'Self-test: ' + Math.round(result.power) + ' dB (need > ' + result.threshold + ' dB) PASS';
+          debugEl.style.color = '#4ade80';
+          return result;
+        }
+        debugEl.textContent = 'Self-test: ' + Math.round(result.power) + ' dB (need > ' + result.threshold + ' dB) retrying...';
+        debugEl.style.color = '#ef4444';
+        return new Promise(function(resolve) {
+          setTimeout(function() { resolve(selfTestLoop(audioContext, modemRx, debugEl, attempt + 1)); }, 500);
+        });
+      });
+    }
+
     // ── App ──
     var protocol = null;
     var webrtc = null;
     var currentUsername = '';
     var seenMessageIds = {};
     var monitorTimer = null;
+    var selfTestCancelled = false;
 
     function $(id) { return document.getElementById(id); }
 
@@ -1177,6 +1197,7 @@
     }
 
     function resetToJoin() {
+      selfTestCancelled = true;
       if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
       if (protocol) { protocol.stop(); protocol = null; }
       if (webrtc) { webrtc.destroy(); webrtc = null; }
@@ -1194,6 +1215,7 @@
 
     function joinChat(username) {
       currentUsername = username;
+      selfTestCancelled = false;
 
       // Immediately update UI
       $('join-btn').disabled = true;
@@ -1208,19 +1230,12 @@
         var modemTx = new ModemTransmitter(audioContext);
         var modemRx = new ModemReceiver(audioContext, micStream);
 
-        updateStatus('Running self-diagnostic...');
+        updateStatus('Running self-diagnostic (ensure volume is up)...');
         var debugEl = $('debug-info');
         debugEl.style.display = 'block';
-        debugEl.textContent = 'Playing carrier tone...';
 
-        return runSelfDiagnostic(audioContext, modemRx).then(function(result) {
-          if (result.detected) {
-            debugEl.textContent = 'Self-test: ' + Math.round(result.power) + ' dB (need > ' + result.threshold + ' dB) PASS';
-            debugEl.style.color = '#4ade80';
-          } else {
-            debugEl.textContent = 'Self-test: ' + Math.round(result.power) + ' dB (need > ' + result.threshold + ' dB) FAIL';
-            debugEl.style.color = '#ef4444';
-          }
+        return selfTestLoop(audioContext, modemRx, debugEl, 1).then(function(result) {
+          if (!result) return; // cancelled
 
           webrtc = new WebRTCManager(username);
           webrtc.onMessage = function(msg) {
