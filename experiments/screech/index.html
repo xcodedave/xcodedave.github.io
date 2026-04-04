@@ -413,24 +413,24 @@
     </div>
 
     <div class="footer">
-      P2P via WebRTC &middot; Signaling via ~19kHz FSK
+      P2P via WebRTC &middot; Signaling via ~17-18kHz FSK
     </div>
   </div>
 
   <script>
     // ── Constants ──
-    var CARRIER_FREQ = 19000;
-    var FREQ_ZERO = 18500;
-    var FREQ_ONE = 19000;
+    var CARRIER_FREQ = 18000;
+    var FREQ_ZERO = 17000;
+    var FREQ_ONE = 18000;
     var BIT_DURATION = 1 / 50;
     var CARRIER_DURATION = 1.0;
     var PREAMBLE_BITS = [1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,0];
     var SYNC_BYTE = 0xFF;
     var FFT_SIZE = 512;
     var RX_POLL_INTERVAL = 5;
-    var CARRIER_DETECT_THRESHOLD = -50;
+    var CARRIER_DETECT_THRESHOLD = -60;
     var CARRIER_DETECT_MS = 150;
-    var SIGNAL_THRESHOLD = -60;
+    var SIGNAL_THRESHOLD = -70;
     var RX_WINDOW_MIN = 20000;
     var RX_JITTER_MAX = 5000;
     var MSG_TYPE_OFFER = 0x01;
@@ -486,7 +486,7 @@
         self.oscillator = ctx.createOscillator();
         self.oscillator.type = 'sine';
         self.gainNode = ctx.createGain();
-        self.gainNode.gain.value = 0.5;
+        self.gainNode.gain.value = 1.0;
         self.oscillator.connect(self.gainNode);
         self.gainNode.connect(ctx.destination);
 
