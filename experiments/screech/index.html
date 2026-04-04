@@ -426,13 +426,13 @@
     var CARRIER_DURATION = 1.0;
     var PREAMBLE_BITS = [1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,0];
     var SYNC_BYTE = 0xFF;
-    var FFT_SIZE = 2048;
+    var FFT_SIZE = 512;
     var RX_POLL_INTERVAL = 5;
     var CARRIER_DETECT_THRESHOLD = -50;
-    var CARRIER_DETECT_MS = 300;
+    var CARRIER_DETECT_MS = 150;
     var SIGNAL_THRESHOLD = -60;
-    var RX_WINDOW_MIN = 10000;
-    var RX_JITTER_MAX = 3000;
+    var RX_WINDOW_MIN = 20000;
+    var RX_JITTER_MAX = 5000;
     var MSG_TYPE_OFFER = 0x01;
     var MSG_TYPE_ANSWER = 0x02;
     var SETUP_ACTPASS = 0;
@@ -623,7 +623,7 @@
       } else if (this.state === 'PREAMBLE_SYNC') {
         var elapsed = now - this.bitPhaseOffset;
         var posInBit = ((elapsed % bitDurationMs) + bitDurationMs) % bitDurationMs;
-        if (posInBit >= bitDurationMs * 0.4 && posInBit <= bitDurationMs * 0.6) {
+        if (posInBit >= bitDurationMs * 0.5 && posInBit <= bitDurationMs * 0.85) {
           var bit = this.readBit();
           if (bit === -1) return;
           this.syncBits.push(bit);
@@ -647,7 +647,7 @@
         if (elapsed < 0) return;
         var currentBitIndex = Math.floor(elapsed / bitDurationMs);
         var posInBit = elapsed - (currentBitIndex * bitDurationMs);
-        if (posInBit >= bitDurationMs * 0.2 && posInBit <= bitDurationMs * 0.8) {
+        if (posInBit >= bitDurationMs * 0.45 && posInBit <= bitDurationMs * 0.9) {
           var bit = this.readBit();
           if (bit !== -1) {
             if (!this.bitSamples[currentBitIndex]) this.bitSamples[currentBitIndex] = [];
@@ -875,6 +875,7 @@
 
     WebRTCManager.prototype.acceptOffer = function(remoteSDP) {
       var self = this;
+      if (this.peerConnection) { try { this.peerConnection.close(); } catch(e) {} }
       this.peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       this.peerConnection.ondatachannel = function(e) { self.dataChannel = e.channel; self._setupDC(e.channel); };
       this.peerConnection.onconnectionstatechange = function() {
