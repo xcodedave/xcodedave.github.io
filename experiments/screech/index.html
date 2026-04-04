@@ -225,6 +225,15 @@
       color: #555;
     }
 
+    .debug-info {
+      font-size: 10px;
+      color: #666;
+      font-family: inherit;
+      text-align: center;
+      min-height: 14px;
+      display: none;
+    }
+
     .cancel-btn {
       margin-top: 4px;
       padding: 6px 16px;
@@ -399,6 +408,7 @@
           </div>
           <div class="scan-label">BROADCASTING &amp; SCANNING</div>
           <div id="scan-attempts" class="scan-attempts"></div>
+          <div id="debug-info" class="debug-info"></div>
           <button id="cancel-btn" class="cancel-btn">Cancel</button>
         </div>
       </div>
@@ -957,7 +967,23 @@
         self.compressedOffer = encodeSDP(offerSDP, MSG_TYPE_OFFER, self.username);
         self.running = true;
         self._setState('SCANNING');
-        self._scanLoop();
+        // Listen first with random delay to desynchronize with other peers
+        self.receivedFrame = null;
+        self.modemRx.startListening();
+        var initialDelay = Math.floor(Math.random() * 20000);
+        setTimeout(function() {
+          if (!self.running || self.state !== 'SCANNING') return;
+          self.modemRx.stopListening();
+          if (self.receivedFrame) {
+            var frame = self.receivedFrame;
+            self.receivedFrame = null;
+            self._handleReceivedFrame(frame).then(function() {
+              if (self.running && self.state === 'SCANNING') self._scanLoop();
+            });
+          } else {
+            self._scanLoop();
+          }
+        }, initialDelay);
       }).catch(function(err) {
         console.error('Protocol start error:', err);
         if (self.onError) self.onError(err);
@@ -971,30 +997,55 @@
       self.scanAttempts++;
       if (self.onScanAttempt) self.onScanAttempt(self.scanAttempts);
 
+      // Randomly choose TX-first or RX-first to break phase-lock with other peers
+      if (Math.random() < 0.5) {
+        self._doTxThenRx();
+      } else {
+        self._doRxThenTx();
+      }
+    };
+
+    SignalingProtocol.prototype._doTxThenRx = function() {
+      var self = this;
       // TX Phase
       self.modemRx.stopListening();
       self.modemTx.transmitFrame(self.compressedOffer).catch(function(e) {
         console.warn('TX error:', e);
       }).then(function() {
         if (!self.running || self.state !== 'SCANNING') return;
-
-        // RX Phase
-        self.receivedFrame = null;
-        self.modemRx.startListening();
-        var rxDuration = RX_WINDOW_MIN + Math.random() * RX_JITTER_MAX;
-        return self._sleep(rxDuration);
+        return self._doRxPhase();
       }).then(function() {
+        if (self.running && self.state === 'SCANNING') self._scanLoop();
+      });
+    };
+
+    SignalingProtocol.prototype._doRxThenTx = function() {
+      var self = this;
+      // RX Phase first
+      self._doRxPhase().then(function() {
+        if (!self.running || self.state !== 'SCANNING') return;
+        // TX Phase
+        self.modemRx.stopListening();
+        return self.modemTx.transmitFrame(self.compressedOffer).catch(function(e) {
+          console.warn('TX error:', e);
+        });
+      }).then(function() {
+        if (self.running && self.state === 'SCANNING') self._scanLoop();
+      });
+    };
+
+    SignalingProtocol.prototype._doRxPhase = function() {
+      var self = this;
+      self.receivedFrame = null;
+      self.modemRx.startListening();
+      var rxDuration = RX_WINDOW_MIN + Math.random() * RX_JITTER_MAX;
+      return self._sleep(rxDuration).then(function() {
         if (!self.running || self.state !== 'SCANNING') return;
         self.modemRx.stopListening();
-
         if (self.receivedFrame) {
           var frame = self.receivedFrame;
           self.receivedFrame = null;
           return self._handleReceivedFrame(frame);
-        }
-      }).then(function() {
-        if (self.running && self.state === 'SCANNING') {
-          self._scanLoop();
         }
       });
     };
@@ -1049,11 +1100,47 @@
       this._setState('IDLE');
     };
 
+    // ── Self Diagnostic ──
+    function runSelfDiagnostic(audioContext, modemRx) {
+      return new Promise(function(resolve) {
+        var osc = audioContext.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = CARRIER_FREQ;
+        var gain = audioContext.createGain();
+        gain.gain.value = 1.0;
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        var samples = [];
+        var diagData = new Float32Array(modemRx.analyser.frequencyBinCount);
+        var measureTimer = setInterval(function() {
+          modemRx.analyser.getFloatFrequencyData(diagData);
+          var power = -Infinity;
+          for (var i = modemRx.binOne - 2; i <= modemRx.binOne + 2; i++) {
+            if (i >= 0 && i < diagData.length && diagData[i] > power) power = diagData[i];
+          }
+          samples.push(power);
+        }, 50);
+        setTimeout(function() {
+          clearInterval(measureTimer);
+          osc.stop();
+          osc.disconnect();
+          gain.disconnect();
+          var peakPower = -Infinity;
+          for (var i = 4; i < samples.length; i++) {
+            if (samples[i] > peakPower) peakPower = samples[i];
+          }
+          resolve({ power: peakPower, detected: peakPower > CARRIER_DETECT_THRESHOLD, threshold: CARRIER_DETECT_THRESHOLD });
+        }, 800);
+      });
+    }
+
     // ── App ──
     var protocol = null;
     var webrtc = null;
     var currentUsername = '';
     var seenMessageIds = {};
+    var monitorTimer = null;
 
     function $(id) { return document.getElementById(id); }
 
@@ -1090,6 +1177,7 @@
     }
 
     function resetToJoin() {
+      if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
       if (protocol) { protocol.stop(); protocol = null; }
       if (webrtc) { webrtc.destroy(); webrtc = null; }
       $('join-btn').disabled = false;
@@ -1099,6 +1187,8 @@
       setModem(false);
       setConn(false);
       $('scan-attempts').textContent = '';
+      $('debug-info').textContent = '';
+      $('debug-info').style.display = 'none';
       updateStatus('Enter a username to start');
     }
 
@@ -1113,38 +1203,72 @@
       setSpinner(true);
       setConn(false);
 
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(micStream) {
+      navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }).then(function(micStream) {
         var audioContext = new (window.AudioContext || window.webkitAudioContext)();
         var modemTx = new ModemTransmitter(audioContext);
         var modemRx = new ModemReceiver(audioContext, micStream);
-        webrtc = new WebRTCManager(username);
-        webrtc.onMessage = function(msg) {
-          if (!msg || !msg.id || seenMessageIds[msg.id]) return;
-          seenMessageIds[msg.id] = true;
-          if (msg.type === 'chat') addMessage(msg.username, msg.text, false);
-        };
-        webrtc.onDisconnected = function() { setConn(false); addSystemMessage('Peer disconnected.'); };
 
-        protocol = new SignalingProtocol(modemTx, modemRx, webrtc, username);
-        protocol.onStateChange = function(state) {
-          if (state === 'SCANNING') { updateStatus('Scanning for nearby peers...'); setModem(true); }
-          else if (state === 'GOT_OFFER') { updateStatus('Received offer, preparing answer...'); }
-          else if (state === 'SENDING_ANSWER') { updateStatus('Sending answer via ultrasonic...'); }
-          else if (state === 'GOT_ANSWER') { updateStatus('Received answer, connecting...'); }
-          else if (state === 'CONNECTED') {
-            updateStatus('Connected!');
-            setConn(true); setModem(false); setSpinner(false);
-            $('join-screen').classList.add('hidden');
-            $('chat-screen').classList.remove('hidden');
-            addSystemMessage('Connected to peer via ultrasonic signaling!');
-            $('chat-input').focus();
+        updateStatus('Running self-diagnostic...');
+        var debugEl = $('debug-info');
+        debugEl.style.display = 'block';
+        debugEl.textContent = 'Playing carrier tone...';
+
+        return runSelfDiagnostic(audioContext, modemRx).then(function(result) {
+          if (result.detected) {
+            debugEl.textContent = 'Self-test: ' + Math.round(result.power) + ' dB (need > ' + result.threshold + ' dB) PASS';
+            debugEl.style.color = '#4ade80';
+          } else {
+            debugEl.textContent = 'Self-test: ' + Math.round(result.power) + ' dB (need > ' + result.threshold + ' dB) FAIL';
+            debugEl.style.color = '#ef4444';
           }
-        };
-        protocol.onError = function(err) { updateStatus('Error: ' + err.message); setModem(false); setSpinner(false); };
-        protocol.onScanAttempt = function(n) { $('scan-attempts').textContent = 'Attempt ' + n; };
-        protocol.onModemState = function(s) { if (s === 'CARRIER_DETECTED') setModem(true); };
-        protocol.start();
 
+          webrtc = new WebRTCManager(username);
+          webrtc.onMessage = function(msg) {
+            if (!msg || !msg.id || seenMessageIds[msg.id]) return;
+            seenMessageIds[msg.id] = true;
+            if (msg.type === 'chat') addMessage(msg.username, msg.text, false);
+          };
+          webrtc.onDisconnected = function() { setConn(false); addSystemMessage('Peer disconnected.'); };
+
+          // Start continuous power monitor after 2s (let self-test result be visible)
+          setTimeout(function() {
+            var monitorData = new Float32Array(modemRx.analyser.frequencyBinCount);
+            monitorTimer = setInterval(function() {
+              if (!modemRx || !modemRx.analyser) return;
+              modemRx.analyser.getFloatFrequencyData(monitorData);
+              var pwr = -Infinity;
+              var bin = modemRx.binOne;
+              for (var i = bin - 2; i <= bin + 2; i++) {
+                if (i >= 0 && i < monitorData.length && monitorData[i] > pwr) pwr = monitorData[i];
+              }
+              var pwrStr = pwr > -Infinity ? Math.round(pwr) + ' dB' : '--';
+              debugEl.style.color = '#666';
+              debugEl.textContent = 'carrier: ' + pwrStr + ' (thr: ' + CARRIER_DETECT_THRESHOLD + ' dB) | ' + modemRx.state;
+            }, 200);
+          }, 2000);
+
+          protocol = new SignalingProtocol(modemTx, modemRx, webrtc, username);
+          protocol.onStateChange = function(state) {
+            if (state === 'SCANNING') { updateStatus('Scanning for nearby peers...'); setModem(true); }
+            else if (state === 'GOT_OFFER') { updateStatus('Received offer, preparing answer...'); }
+            else if (state === 'SENDING_ANSWER') { updateStatus('Sending answer via ultrasonic...'); }
+            else if (state === 'GOT_ANSWER') { updateStatus('Received answer, connecting...'); }
+            else if (state === 'CONNECTED') {
+              updateStatus('Connected!');
+              setConn(true); setModem(false); setSpinner(false);
+              if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+              debugEl.style.display = 'none';
+              $('join-screen').classList.add('hidden');
+              $('chat-screen').classList.remove('hidden');
+              addSystemMessage('Connected to peer via ultrasonic signaling!');
+              $('chat-input').focus();
+            }
+          };
+          protocol.onError = function(err) { updateStatus('Error: ' + err.message); setModem(false); setSpinner(false); };
+          protocol.onScanAttempt = function(n) { $('scan-attempts').textContent = 'Attempt ' + n; };
+          protocol.onModemState = function(s) { if (s === 'CARRIER_DETECTED') setModem(true); };
+          protocol.start();
+        });
       }).catch(function(err) {
         console.error('getUserMedia error:', err);
         updateStatus('Microphone access denied. Cannot join.');
