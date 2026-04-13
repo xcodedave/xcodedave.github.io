@@ -220,6 +220,16 @@
   }
   #download-btn:hover { background: #2a5a3a; }
 
+  #wasm-hash {
+    position: fixed;
+    bottom: 6px;
+    right: 10px;
+    font-size: 0.65rem;
+    color: #444;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    user-select: all;
+  }
+
   @media (max-width: 480px) {
     h1 { font-size: 1.2rem; }
     #controls { gap: 8px; }
@@ -277,6 +287,8 @@
   </div>
 </div>
 
+<div id="wasm-hash"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script type="module">
 import init, { convert_avd_to_lottie } from './pkg/avd_to_lottie.js';
@@ -289,7 +301,16 @@ let currentFileName = 'animation';
 
 async function main() {
   try {
-    await init();
+    const wasmUrl = new URL('./pkg/avd_to_lottie_bg.wasm', import.meta.url);
+    const wasmResp = await fetch(wasmUrl);
+    const wasmBytes = await wasmResp.arrayBuffer();
+
+    // Compute and display SHA-256 hash
+    const hashBuf = await crypto.subtle.digest('SHA-256', wasmBytes);
+    const hashHex = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    document.getElementById('wasm-hash').textContent = 'wasm:' + hashHex.slice(0, 12);
+
+    await init({ module_or_path: new Response(wasmBytes, { headers: { 'Content-Type': 'application/wasm' }}) });
   } catch (e) {
     document.getElementById('loading').innerHTML =
       '<div style="color:#ff6b6b">Failed to load WASM module: ' + e.message + '</div>';
