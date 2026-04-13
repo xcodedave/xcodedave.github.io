@@ -17,8 +17,15 @@
     align-items: center;
     padding-bottom: 40px;
   }
+  .logo {
+    margin-top: 20px;
+    width: 240px;
+    height: auto;
+    user-select: none;
+    pointer-events: none;
+  }
   h1 {
-    margin: 24px 0 8px;
+    margin: 8px 0 8px;
     font-size: 1.5rem;
     color: #a0c4ff;
   }
@@ -188,37 +195,6 @@
   #progress-slider { width: 200px; }
   .slider-label { font-size: 0.8rem; color: #888; }
 
-  #json-section {
-    margin-top: 16px;
-    width: 100%;
-  }
-  #json-toggle {
-    padding: 6px 16px;
-    background: #2a2a4a;
-    border: 1px solid #555;
-    border-radius: 6px;
-    color: #e0e0e0;
-    cursor: pointer;
-    font-size: 0.85rem;
-    width: 100%;
-    text-align: left;
-  }
-  #json-toggle:hover { background: #3a3a5a; }
-  #json-content {
-    display: none;
-    margin-top: 8px;
-    max-height: 400px;
-    overflow: auto;
-    background: #0d0d1a;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 0.75rem;
-    white-space: pre;
-    color: #aaa;
-  }
-
   #download-btn {
     margin-top: 12px;
     padding: 8px 20px;
@@ -250,6 +226,7 @@
 </head>
 <body>
 
+<img src="logo.png" alt="AVD to Lottie conversion" class="logo">
 <h1>AVD &lt;&gt; Lottie Converter</h1>
 <p class="subtitle">Drop an AVD XML or Lottie JSON file to convert and preview</p>
 
@@ -288,11 +265,6 @@
       <input type="range" id="speed-slider" min="0.25" max="2" step="0.25" value="1">
       <span class="slider-label" id="speed-val">1x</span>
       <input type="range" id="progress-slider" min="0" max="100" step="0.1" value="0">
-    </div>
-
-    <div id="json-section">
-      <button id="json-toggle">Show Output</button>
-      <div id="json-content"></div>
     </div>
 
     <button id="download-btn">Download</button>
@@ -442,23 +414,11 @@ function showPreview(lottieData, fileName) {
 
   previewEl.style.display = 'block';
 
-  const outputText = conversionMode === 'avd-to-lottie'
-    ? JSON.stringify(lottieData, null, 2)
-    : convertedOutput;
-  document.getElementById('json-content').textContent = outputText;
 }
 
 function updateDownloadButton() {
   const btn = document.getElementById('download-btn');
-  const toggle = document.getElementById('json-toggle');
-  if (conversionMode === 'lottie-to-avd') {
-    btn.textContent = 'Download AVD XML';
-    toggle.textContent = 'Show AVD XML';
-  } else {
-    btn.textContent = 'Download Lottie JSON';
-    toggle.textContent = 'Show Lottie JSON';
-  }
-  document.getElementById('json-content').style.display = 'none';
+  btn.textContent = conversionMode === 'lottie-to-avd' ? 'Download AVD XML' : 'Download Lottie JSON';
 }
 
 function convertAndPlay(text, fileName) {
@@ -541,18 +501,6 @@ function setupControls() {
     anim.goToAndStop(frame, true);
     isPlaying = false;
     document.getElementById('play-btn').textContent = 'Play';
-  });
-
-  document.getElementById('json-toggle').addEventListener('click', () => {
-    const content = document.getElementById('json-content');
-    const btn = document.getElementById('json-toggle');
-    if (content.style.display === 'none' || !content.style.display) {
-      content.style.display = 'block';
-      btn.textContent = conversionMode === 'lottie-to-avd' ? 'Hide AVD XML' : 'Hide Lottie JSON';
-    } else {
-      content.style.display = 'none';
-      btn.textContent = conversionMode === 'lottie-to-avd' ? 'Show AVD XML' : 'Show Lottie JSON';
-    }
   });
 
   document.getElementById('download-btn').addEventListener('click', () => {
