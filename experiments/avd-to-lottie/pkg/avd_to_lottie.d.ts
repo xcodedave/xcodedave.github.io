@@ -3,11 +3,14 @@
 
 export function convert_avd_to_lottie(xml: string): string;
 
+export function convert_lottie_to_avd(json: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly convert_avd_to_lottie: (a: number, b: number) => [number, number, number, number];
+    readonly convert_lottie_to_avd: (a: number, b: number) => [number, number, number, number];
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>AVD to Lottie Converter</title>
+<title>AVD <> Lottie Converter</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -239,8 +239,8 @@
 </head>
 <body>
 
-<h1>AVD to Lottie Converter</h1>
-<p class="subtitle">Drop an Android Animated Vector Drawable XML to preview as Lottie</p>
+<h1>AVD &lt;&gt; Lottie Converter</h1>
+<p class="subtitle">Drop an AVD XML or Lottie JSON file to convert and preview</p>
 
 <div id="loading">
   <div class="spinner"></div>
@@ -249,9 +249,9 @@
 
 <div id="app">
   <div id="drop-zone">
-    <p>Drag & drop an AVD XML file here</p>
+    <p>Drag & drop an AVD XML or Lottie JSON file here</p>
     <button class="browse" onclick="document.getElementById('file-input').click()">Browse Files</button>
-    <input type="file" id="file-input" accept=".xml">
+    <input type="file" id="file-input" accept=".xml,.json">
   </div>
 
   <div id="error"></div>
@@ -279,11 +279,11 @@
     </div>
 
     <div id="json-section">
-      <button id="json-toggle">Show Lottie JSON</button>
+      <button id="json-toggle">Show Output</button>
       <div id="json-content"></div>
     </div>
 
-    <button id="download-btn">Download Lottie JSON</button>
+    <button id="download-btn">Download</button>
   </div>
 </div>
 
@@ -291,10 +291,12 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script type="module">
-import init, { convert_avd_to_lottie } from './pkg/avd_to_lottie.js';
+import init, { convert_avd_to_lottie, convert_lottie_to_avd } from './pkg/avd_to_lottie.js';
 
 let anim = null;
 let lottieJson = null;
+let convertedOutput = null;  // The converted output (JSON string or XML string)
+let conversionMode = null;   // 'avd-to-lottie' or 'lottie-to-avd'
 let isPlaying = true;
 let isLooping = true;
 let currentFileName = 'animation';
@@ -303,7 +305,6 @@ async function main() {
   try {
     await init();
 
-    // Hash the WASM after init (fetch it again from cache for hashing)
     fetch(new URL('./pkg/avd_to_lottie_bg.wasm', import.meta.url))
       .then(r => r.arrayBuffer())
       .then(buf => crypto.subtle.digest('SHA-256', buf))
@@ -327,7 +328,6 @@ function setupDropZone() {
   const zone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
 
-  // Prevent browser default file-open on drop anywhere, handle drop globally
   document.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
@@ -337,12 +337,10 @@ function setupDropZone() {
     e.stopPropagation();
     zone.classList.remove('hover');
     const dt = e.dataTransfer;
-    // Try dataTransfer.files first (most reliable for local file drops)
     if (dt.files && dt.files.length > 0) {
       handleFile(dt.files[0]);
       return;
     }
-    // Fallback: dataTransfer.items
     if (dt.items && dt.items.length > 0) {
       for (let i = 0; i < dt.items.length; i++) {
         if (dt.items[i].kind === 'file') {
@@ -355,7 +353,6 @@ function setupDropZone() {
 
   zone.addEventListener('dragenter', (e) => { e.preventDefault(); zone.classList.add('hover'); });
   zone.addEventListener('dragleave', (e) => {
-    // Only remove hover when leaving the zone itself, not child elements
     if (e.relatedTarget && zone.contains(e.relatedTarget)) return;
     zone.classList.remove('hover');
   });
@@ -373,12 +370,12 @@ function handleFile(file) {
     console.error('handleFile: not a Blob', file);
     return;
   }
-  currentFileName = (file.name || 'animation').replace(/\.xml$/i, '');
+  currentFileName = (file.name || 'animation').replace(/\.(xml|json)$/i, '');
   const reader = new FileReader();
   reader.onload = (e) => {
     const text = e.target.result;
     console.log('Read file:', file.name, 'length:', text.length, 'start:', text.slice(0, 60));
-    convertAndPlay(text, file.name || 'file.xml');
+    convertAndPlay(text, file.name || 'file');
   };
   reader.onerror = (e) => {
     console.error('FileReader error:', e);
@@ -393,8 +390,10 @@ function showPreview(lottieData, fileName) {
   const info = document.getElementById('info-panel');
   const frames = lottieData.op - lottieData.ip;
   const duration = (frames / lottieData.fr).toFixed(2);
+  const direction = conversionMode === 'lottie-to-avd' ? 'Lottie \u2192 AVD' : 'AVD \u2192 Lottie';
   info.innerHTML =
     `<span><span class="label">File:</span> ${fileName}</span>` +
+    `<span><span class="label">Mode:</span> ${direction}</span>` +
     `<span><span class="label">Size:</span> ${lottieData.w}\u00d7${lottieData.h}</span>` +
     `<span><span class="label">Duration:</span> ${duration}s</span>` +
     `<span><span class="label">Frames:</span> ${frames} @ ${lottieData.fr}fps</span>`;
@@ -419,30 +418,54 @@ function showPreview(lottieData, fileName) {
   });
 
   previewEl.style.display = 'block';
-  document.getElementById('json-content').textContent = JSON.stringify(lottieData, null, 2);
+
+  const outputText = conversionMode === 'avd-to-lottie'
+    ? JSON.stringify(lottieData, null, 2)
+    : convertedOutput;
+  document.getElementById('json-content').textContent = outputText;
 }
 
-function convertAndPlay(xml, fileName) {
+function updateDownloadButton() {
+  const btn = document.getElementById('download-btn');
+  const toggle = document.getElementById('json-toggle');
+  if (conversionMode === 'lottie-to-avd') {
+    btn.textContent = 'Download AVD XML';
+    toggle.textContent = 'Show AVD XML';
+  } else {
+    btn.textContent = 'Download Lottie JSON';
+    toggle.textContent = 'Show Lottie JSON';
+  }
+  document.getElementById('json-content').style.display = 'none';
+}
+
+function convertAndPlay(text, fileName) {
   const errorEl = document.getElementById('error');
   const previewEl = document.getElementById('preview-section');
   errorEl.style.display = 'none';
 
   try {
-    // Detect if user dropped a JSON file instead of XML
-    const trimmed = xml.trimStart();
+    const trimmed = text.trimStart();
+
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      // Try to load it directly as Lottie JSON
-      lottieJson = JSON.parse(xml);
-      if (lottieJson.v && lottieJson.layers) {
-        // It's already a Lottie JSON file — play it directly
-        showPreview(lottieJson, fileName);
-        return;
-      }
-      throw 'This looks like a JSON file, not an AVD XML file. Please drop an Android Vector Drawable XML file.';
+      // Lottie JSON -> AVD XML
+      conversionMode = 'lottie-to-avd';
+      lottieJson = JSON.parse(text);
+
+      const avdXml = convert_lottie_to_avd(text);
+      convertedOutput = avdXml;
+
+      showPreview(lottieJson, fileName);
+      updateDownloadButton();
+    } else {
+      // AVD XML -> Lottie JSON
+      conversionMode = 'avd-to-lottie';
+      const json = convert_avd_to_lottie(text);
+      lottieJson = JSON.parse(json);
+      convertedOutput = json;
+
+      showPreview(lottieJson, fileName);
+      updateDownloadButton();
     }
-    const json = convert_avd_to_lottie(xml);
-    lottieJson = JSON.parse(json);
-    showPreview(lottieJson, fileName);
   } catch (err) {
     errorEl.textContent = 'Conversion error: ' + err;
     errorEl.style.display = 'block';
@@ -488,22 +511,32 @@ function setupControls() {
     const btn = document.getElementById('json-toggle');
     if (content.style.display === 'none' || !content.style.display) {
       content.style.display = 'block';
-      btn.textContent = 'Hide Lottie JSON';
+      btn.textContent = conversionMode === 'lottie-to-avd' ? 'Hide AVD XML' : 'Hide Lottie JSON';
     } else {
       content.style.display = 'none';
-      btn.textContent = 'Show Lottie JSON';
+      btn.textContent = conversionMode === 'lottie-to-avd' ? 'Show AVD XML' : 'Show Lottie JSON';
     }
   });
 
   document.getElementById('download-btn').addEventListener('click', () => {
-    if (!lottieJson) return;
-    const blob = new Blob([JSON.stringify(lottieJson, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = currentFileName + '.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!convertedOutput) return;
+    if (conversionMode === 'lottie-to-avd') {
+      const blob = new Blob([convertedOutput], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentFileName + '.xml';
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const blob = new Blob([JSON.stringify(lottieJson, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentFileName + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   });
 }
 
