@@ -334,15 +334,21 @@ function setupDropZone() {
   });
   document.addEventListener('drop', (e) => {
     e.preventDefault();
+    e.stopPropagation();
     zone.classList.remove('hover');
-    // Try files first, then items
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFile(e.dataTransfer.files[0]);
-    } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      const item = e.dataTransfer.items[0];
-      if (item.kind === 'file') {
-        const file = item.getAsFile();
-        if (file) handleFile(file);
+    const dt = e.dataTransfer;
+    // Try dataTransfer.files first (most reliable for local file drops)
+    if (dt.files && dt.files.length > 0) {
+      handleFile(dt.files[0]);
+      return;
+    }
+    // Fallback: dataTransfer.items
+    if (dt.items && dt.items.length > 0) {
+      for (let i = 0; i < dt.items.length; i++) {
+        if (dt.items[i].kind === 'file') {
+          const file = dt.items[i].getAsFile();
+          if (file) { handleFile(file); return; }
+        }
       }
     }
   });
@@ -382,45 +388,61 @@ function handleFile(file) {
   reader.readAsText(file);
 }
 
+function showPreview(lottieData, fileName) {
+  const previewEl = document.getElementById('preview-section');
+  const info = document.getElementById('info-panel');
+  const frames = lottieData.op - lottieData.ip;
+  const duration = (frames / lottieData.fr).toFixed(2);
+  info.innerHTML =
+    `<span><span class="label">File:</span> ${fileName}</span>` +
+    `<span><span class="label">Size:</span> ${lottieData.w}\u00d7${lottieData.h}</span>` +
+    `<span><span class="label">Duration:</span> ${duration}s</span>` +
+    `<span><span class="label">Frames:</span> ${frames} @ ${lottieData.fr}fps</span>`;
+
+  if (anim) { anim.destroy(); anim = null; }
+  const container = document.getElementById('lottie-player');
+  container.innerHTML = '';
+
+  anim = lottie.loadAnimation({
+    container,
+    renderer: 'svg',
+    loop: isLooping,
+    autoplay: true,
+    animationData: lottieData,
+  });
+  isPlaying = true;
+  document.getElementById('play-btn').textContent = 'Pause';
+
+  anim.addEventListener('enterFrame', () => {
+    const progress = (anim.currentFrame / (anim.totalFrames - 1)) * 100;
+    document.getElementById('progress-slider').value = progress;
+  });
+
+  previewEl.style.display = 'block';
+  document.getElementById('json-content').textContent = JSON.stringify(lottieData, null, 2);
+}
+
 function convertAndPlay(xml, fileName) {
   const errorEl = document.getElementById('error');
   const previewEl = document.getElementById('preview-section');
   errorEl.style.display = 'none';
 
   try {
+    // Detect if user dropped a JSON file instead of XML
+    const trimmed = xml.trimStart();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      // Try to load it directly as Lottie JSON
+      lottieJson = JSON.parse(xml);
+      if (lottieJson.v && lottieJson.layers) {
+        // It's already a Lottie JSON file — play it directly
+        showPreview(lottieJson, fileName);
+        return;
+      }
+      throw 'This looks like a JSON file, not an AVD XML file. Please drop an Android Vector Drawable XML file.';
+    }
     const json = convert_avd_to_lottie(xml);
     lottieJson = JSON.parse(json);
-
-    const info = document.getElementById('info-panel');
-    const frames = lottieJson.op - lottieJson.ip;
-    const duration = (frames / lottieJson.fr).toFixed(2);
-    info.innerHTML =
-      `<span><span class="label">File:</span> ${fileName}</span>` +
-      `<span><span class="label">Size:</span> ${lottieJson.w}\u00d7${lottieJson.h}</span>` +
-      `<span><span class="label">Duration:</span> ${duration}s</span>` +
-      `<span><span class="label">Frames:</span> ${frames} @ ${lottieJson.fr}fps</span>`;
-
-    if (anim) { anim.destroy(); anim = null; }
-    const container = document.getElementById('lottie-player');
-    container.innerHTML = '';
-
-    anim = lottie.loadAnimation({
-      container,
-      renderer: 'svg',
-      loop: isLooping,
-      autoplay: true,
-      animationData: lottieJson,
-    });
-    isPlaying = true;
-    document.getElementById('play-btn').textContent = 'Pause';
-
-    anim.addEventListener('enterFrame', () => {
-      const progress = (anim.currentFrame / (anim.totalFrames - 1)) * 100;
-      document.getElementById('progress-slider').value = progress;
-    });
-
-    previewEl.style.display = 'block';
-    document.getElementById('json-content').textContent = JSON.stringify(lottieJson, null, 2);
+    showPreview(lottieJson, fileName);
   } catch (err) {
     errorEl.textContent = 'Conversion error: ' + err;
     errorEl.style.display = 'block';
