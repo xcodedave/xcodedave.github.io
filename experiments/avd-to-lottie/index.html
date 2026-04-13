@@ -327,17 +327,24 @@ function setupDropZone() {
   const zone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
 
-  // Prevent browser default file-open on drop anywhere
-  document.addEventListener('dragover', (e) => e.preventDefault());
+  // Prevent browser default file-open on drop anywhere, handle drop globally
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
   document.addEventListener('drop', (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    zone.classList.remove('hover');
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) handleFile(files[0]);
   });
 
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('hover'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('hover'));
-  zone.addEventListener('drop', () => zone.classList.remove('hover'));
+  zone.addEventListener('dragenter', (e) => { e.preventDefault(); zone.classList.add('hover'); });
+  zone.addEventListener('dragleave', (e) => {
+    // Only remove hover when leaving the zone itself, not child elements
+    if (e.relatedTarget && zone.contains(e.relatedTarget)) return;
+    zone.classList.remove('hover');
+  });
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) handleFile(file);
