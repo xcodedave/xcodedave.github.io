@@ -301,16 +301,16 @@ let currentFileName = 'animation';
 
 async function main() {
   try {
-    const wasmUrl = new URL('./pkg/avd_to_lottie_bg.wasm', import.meta.url);
-    const wasmResp = await fetch(wasmUrl);
-    const wasmBytes = await wasmResp.arrayBuffer();
+    await init();
 
-    // Compute and display SHA-256 hash
-    const hashBuf = await crypto.subtle.digest('SHA-256', wasmBytes);
-    const hashHex = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
-    document.getElementById('wasm-hash').textContent = 'wasm:' + hashHex.slice(0, 12);
-
-    await init({ module_or_path: new Response(wasmBytes, { headers: { 'Content-Type': 'application/wasm' }}) });
+    // Hash the WASM after init (fetch it again from cache for hashing)
+    fetch(new URL('./pkg/avd_to_lottie_bg.wasm', import.meta.url))
+      .then(r => r.arrayBuffer())
+      .then(buf => crypto.subtle.digest('SHA-256', buf))
+      .then(hash => {
+        const hex = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+        document.getElementById('wasm-hash').textContent = 'wasm:' + hex.slice(0, 12);
+      });
   } catch (e) {
     document.getElementById('loading').innerHTML =
       '<div style="color:#ff6b6b">Failed to load WASM module: ' + e.message + '</div>';
@@ -327,14 +327,17 @@ function setupDropZone() {
   const zone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
 
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('hover'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('hover'));
-  zone.addEventListener('drop', (e) => {
+  // Prevent browser default file-open on drop anywhere
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => {
     e.preventDefault();
-    zone.classList.remove('hover');
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   });
+
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('hover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('hover'));
+  zone.addEventListener('drop', () => zone.classList.remove('hover'));
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) handleFile(file);
