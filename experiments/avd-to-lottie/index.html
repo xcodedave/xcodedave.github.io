@@ -335,8 +335,16 @@ function setupDropZone() {
   document.addEventListener('drop', (e) => {
     e.preventDefault();
     zone.classList.remove('hover');
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) handleFile(files[0]);
+    // Try files first, then items
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFile(e.dataTransfer.files[0]);
+    } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const item = e.dataTransfer.items[0];
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) handleFile(file);
+      }
+    }
   });
 
   zone.addEventListener('dragenter', (e) => { e.preventDefault(); zone.classList.add('hover'); });
@@ -355,9 +363,22 @@ function setupDropZone() {
 }
 
 function handleFile(file) {
-  currentFileName = file.name.replace(/\.xml$/i, '');
+  if (!(file instanceof Blob)) {
+    console.error('handleFile: not a Blob', file);
+    return;
+  }
+  currentFileName = (file.name || 'animation').replace(/\.xml$/i, '');
   const reader = new FileReader();
-  reader.onload = (e) => convertAndPlay(e.target.result, file.name);
+  reader.onload = (e) => {
+    const text = e.target.result;
+    console.log('Read file:', file.name, 'length:', text.length, 'start:', text.slice(0, 60));
+    convertAndPlay(text, file.name || 'file.xml');
+  };
+  reader.onerror = (e) => {
+    console.error('FileReader error:', e);
+    document.getElementById('error').textContent = 'Error reading file: ' + reader.error;
+    document.getElementById('error').style.display = 'block';
+  };
   reader.readAsText(file);
 }
 
