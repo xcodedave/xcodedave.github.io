@@ -172,6 +172,17 @@
   .ctrl-btn:hover { background: #3a3a5a; }
   .ctrl-btn.active { border-color: #a0c4ff; color: #a0c4ff; }
 
+  .ctrl-check {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    color: #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ctrl-check input { accent-color: #a0c4ff; cursor: pointer; }
+
   #speed-slider, #progress-slider { accent-color: #a0c4ff; }
   #speed-slider { width: 100px; }
   #progress-slider { width: 200px; }
@@ -271,7 +282,8 @@
 
     <div id="controls">
       <button class="ctrl-btn" id="play-btn">Pause</button>
-      <button class="ctrl-btn active" id="loop-btn">Loop</button>
+      <label class="ctrl-check"><input type="checkbox" id="loop-check" checked><span>Repeat</span></label>
+      <label class="ctrl-check"><input type="checkbox" id="bounce-check"><span>Bounce</span></label>
       <label class="slider-label">Speed</label>
       <input type="range" id="speed-slider" min="0.25" max="2" step="0.25" value="1">
       <span class="slider-label" id="speed-val">1x</span>
@@ -299,6 +311,8 @@ let convertedOutput = null;  // The converted output (JSON string or XML string)
 let conversionMode = null;   // 'avd-to-lottie' or 'lottie-to-avd'
 let isPlaying = true;
 let isLooping = true;
+let isBouncing = false;
+let bounceDirection = 1;
 let currentFileName = 'animation';
 
 async function main() {
@@ -402,10 +416,11 @@ function showPreview(lottieData, fileName) {
   const container = document.getElementById('lottie-player');
   container.innerHTML = '';
 
+  bounceDirection = 1;
   anim = lottie.loadAnimation({
     container,
     renderer: 'svg',
-    loop: isLooping,
+    loop: isLooping && !isBouncing,
     autoplay: true,
     animationData: lottieData,
   });
@@ -415,6 +430,14 @@ function showPreview(lottieData, fileName) {
   anim.addEventListener('enterFrame', () => {
     const progress = (anim.currentFrame / (anim.totalFrames - 1)) * 100;
     document.getElementById('progress-slider').value = progress;
+  });
+
+  // Bounce mode: reverse direction at each end
+  anim.addEventListener('complete', () => {
+    if (!isBouncing) return;
+    bounceDirection *= -1;
+    anim.setDirection(bounceDirection);
+    anim.play();
   });
 
   previewEl.style.display = 'block';
@@ -486,10 +509,24 @@ function setupControls() {
     isPlaying = !isPlaying;
   });
 
-  document.getElementById('loop-btn').addEventListener('click', () => {
-    isLooping = !isLooping;
-    document.getElementById('loop-btn').classList.toggle('active', isLooping);
-    if (anim) anim.loop = isLooping;
+  document.getElementById('loop-check').addEventListener('change', (e) => {
+    isLooping = e.target.checked;
+    if (anim) {
+      anim.loop = isLooping && !isBouncing;
+    }
+  });
+
+  document.getElementById('bounce-check').addEventListener('change', (e) => {
+    isBouncing = e.target.checked;
+    if (anim) {
+      // Bounce mode uses complete event to reverse; disable native loop
+      anim.loop = isLooping && !isBouncing;
+      if (!isBouncing) {
+        // Reset direction when turning bounce off
+        bounceDirection = 1;
+        anim.setDirection(1);
+      }
+    }
   });
 
   document.getElementById('speed-slider').addEventListener('input', (e) => {
