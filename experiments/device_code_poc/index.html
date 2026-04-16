@@ -432,8 +432,10 @@
 var CLIENT_ID = 'd3590ed6-52b3-4102-aeff-aad2292ab01c';
 var TENANT = 'organizations';
 var SCOPE = 'https://graph.microsoft.com/.default offline_access';
-var DEVICE_CODE_URL = 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/devicecode';
-var TOKEN_URL = 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/token';
+// Use local proxy to avoid CORS, fall back to direct Microsoft URLs
+var IS_LOCALHOST = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+var DEVICE_CODE_URL = IS_LOCALHOST ? '/api/devicecode' : 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/devicecode';
+var TOKEN_URL = IS_LOCALHOST ? '/api/token' : 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/token';
 
 var deviceCode = null;
 var pollTimer = null;
@@ -462,6 +464,7 @@ function startFlow() {
   .then(function(data) {
     deviceCode = data.device_code;
     document.getElementById('userCode').textContent = data.user_code;
+    navigator.clipboard.writeText(data.user_code).catch(function() {});
     pollForToken();
   })
   .catch(function(e) {
