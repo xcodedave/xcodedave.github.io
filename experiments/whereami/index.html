@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ASCII 3D Terrain</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,39 +23,94 @@
 <body>
 <pre id="display"></pre>
 
-<!-- Audio manager: Web Audio API wrapper called from WASM -->
+<!-- Audio manager: Web Audio API wrapper with Mobile Safari / iPhone support -->
 <script>
 (function() {
-  let ctx = null;
-  const buffers = {};
-  const active = {};
-  const pending = []; // loads queued before AudioContext exists
+  var ctx = null;
+  var silentAudio = null;
+  var buffers = {};
+  var active = {};
+  var pending = []; // {id, url} queued before AudioContext exists
 
-  // AudioContext requires a user gesture — create on first keydown
-  function ensureCtx() {
-    if (ctx) return true;
-    try {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Process any sounds queued before context was ready
-      for (const { id, url } of pending) { doLoad(id, url); }
-      pending.length = 0;
-      return true;
-    } catch (e) {
-      console.warn('AudioContext not available:', e);
-      return false;
-    }
+  // iOS 17+ / Safari 16.4+: ignore mute switch
+  if ('audioSession' in navigator) {
+    navigator.audioSession.type = 'playback';
   }
 
-  document.addEventListener('keydown', () => ensureCtx(), { once: false });
+  // Silent MP3 data URL — forces WebAudio onto the media channel on iOS,
+  // bypassing the mute switch on older devices
+  var SILENCE_MP3 = 'data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//////////////////////////////////////////////////////////////////8AAABhTEFNRTMuMTAwA8MAAAAAAAAAABQgJAUHQQAB9AAAAnGMHkkIAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADgnABGiAAQBCqgCRMAAgEAH///////////////7+n/9FTuQsQH//////2NG0jWUGlio5gLQTOtIoeR2WX////X4s9Atb/JRVCbBUpeRUq//////////////////9RUi0f2jn/+xDECgPCjAEQAABN4AAANIAAAAQVTEFNRTMuMTAw';
+
+  function createCtx() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Auto-resume if context gets interrupted (e.g. phone call, tab switch)
+    ctx.onstatechange = function() {
+      if (ctx.state === 'interrupted' || ctx.state === 'suspended') {
+        ctx.resume().catch(function(){});
+      }
+    };
+  }
+
+  // Unlock audio on iOS — must be called from a user gesture
+  function unlockAudio() {
+    createCtx();
+
+    // Resume suspended context
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+      ctx.resume().catch(function(){});
+    }
+
+    // Play a silent WebAudio buffer to warm up the hardware
+    try {
+      var b = ctx.createBuffer(1, 1, 22050);
+      var s = ctx.createBufferSource();
+      s.buffer = b;
+      s.connect(ctx.destination);
+      s.start(0);
+    } catch(e) {}
+
+    // Play looping silent HTML5 Audio to claim the media audio channel
+    if (!silentAudio) {
+      silentAudio = document.createElement('audio');
+      silentAudio.setAttribute('x-webkit-airplay', 'deny');
+      silentAudio.preload = 'auto';
+      silentAudio.loop = true;
+      silentAudio.src = SILENCE_MP3;
+      silentAudio.load();
+    }
+    silentAudio.play().catch(function(){});
+
+    // Process any sounds queued before context was ready
+    for (var i = 0; i < pending.length; i++) {
+      doLoad(pending[i].id, pending[i].url);
+    }
+    pending.length = 0;
+  }
+
+  // Trigger unlock on all gesture types (touch for mobile, key/click for desktop)
+  ['touchstart','touchend','mousedown','click','keydown'].forEach(function(e) {
+    document.addEventListener(e, unlockAudio, {passive: true, capture: true});
+  });
+
+  // Re-activate audio when returning from background / tab switch
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && silentAudio) {
+      silentAudio.play().catch(function(){});
+      if (ctx && ctx.state !== 'running') {
+        ctx.resume().catch(function(){});
+      }
+    }
+  });
 
   async function doLoad(id, url) {
     try {
-      const resp = await fetch(url);
-      const data = await resp.arrayBuffer();
+      var resp = await fetch(url);
+      var data = await resp.arrayBuffer();
       buffers[id] = await ctx.decodeAudioData(data);
-      console.log(`audio loaded: ${id}`);
+      console.log('audio loaded: ' + id);
     } catch (e) {
-      console.warn(`audio load failed: ${id}`, e);
+      console.warn('audio load failed: ' + id, e);
     }
   }
 
@@ -62,14 +118,18 @@
 
   window.audioLoad = function(id, url) {
     if (ctx) { doLoad(id, url); }
-    else { pending.push({ id, url }); }
+    else { pending.push({ id: id, url: url }); }
   };
 
   window.audioPlay = function(id, loops, volume, fadeIn, pitch) {
-    if (!ensureCtx()) return;
+    if (!ctx) return;
+    // Resume if needed (may happen after background/interrupt)
+    if (ctx.state !== 'running') {
+      ctx.resume().catch(function(){});
+    }
     // If buffer isn't loaded yet, retry every 200ms until it is
     if (!buffers[id]) {
-      const retry = setInterval(() => {
+      var retry = setInterval(function() {
         if (buffers[id]) {
           clearInterval(retry);
           window.audioPlay(id, loops, volume, fadeIn, pitch);
@@ -83,12 +143,12 @@
       try { active[id].source.stop(); } catch (_) {}
     }
 
-    const source = ctx.createBufferSource();
+    var source = ctx.createBufferSource();
     source.buffer = buffers[id];
     source.loop = (loops === -1);
     source.playbackRate.value = pitch;
 
-    const gain = ctx.createGain();
+    var gain = ctx.createGain();
     if (fadeIn > 0) {
       gain.gain.setValueAtTime(0.0001, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + fadeIn);
@@ -98,19 +158,19 @@
 
     source.connect(gain);
     gain.connect(ctx.destination);
-    source.start();
+    source.start(0);
 
-    source.onended = () => { if (active[id]?.source === source) delete active[id]; };
-    active[id] = { source, gain, volume };
+    source.onended = function() { if (active[id] && active[id].source === source) delete active[id]; };
+    active[id] = { source: source, gain: gain, volume: volume };
   };
 
   window.audioStop = function(id, fadeOut) {
-    const s = active[id];
+    var s = active[id];
     if (!s) return;
     if (fadeOut > 0 && ctx) {
       s.gain.gain.setValueAtTime(s.gain.gain.value, ctx.currentTime);
       s.gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + fadeOut);
-      setTimeout(() => {
+      setTimeout(function() {
         try { s.source.stop(); } catch (_) {}
         delete active[id];
       }, fadeOut * 1000 + 50);
@@ -121,7 +181,7 @@
   };
 
   window.audioSetVolume = function(id, volume, fadeSecs) {
-    const s = active[id];
+    var s = active[id];
     if (!s || !ctx) return;
     if (fadeSecs > 0) {
       s.gain.gain.setValueAtTime(s.gain.gain.value, ctx.currentTime);
@@ -133,7 +193,7 @@
   };
 
   window.audioSetPitch = function(id, pitch) {
-    const s = active[id];
+    var s = active[id];
     if (s) s.source.playbackRate.value = pitch;
   };
 })();
@@ -148,11 +208,16 @@ async function run() {
 
   const display = document.getElementById('display');
 
+  // Scale font for mobile/retina: use larger text on touch devices
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const fontSize = isMobile ? '5px' : '11px';
+  display.style.fontSize = fontSize;
+
   // Measure character cell size using a probe
   const probe = document.createElement('span');
   probe.style.cssText = display.style.cssText || '';
   probe.style.fontFamily = '"Courier New", Courier, monospace';
-  probe.style.fontSize = '11px';
+  probe.style.fontSize = fontSize;
   probe.style.lineHeight = '1.0';
   probe.style.letterSpacing = '0px';
   probe.style.whiteSpace = 'pre';
@@ -189,6 +254,71 @@ async function run() {
   document.addEventListener('keyup', e => {
     engine.key_up(e.key);
   });
+
+  // --- Touch controls (invisible, no HUD) ---
+  // Bottom half: joystick moves the character
+  // Top half: joystick orbits the camera
+  let moveTouch = null;  // {id, ox, oy}
+  let camTouch = null;   // {id, ox, oy}
+  const DEAD_ZONE = 10;
+  const MAX_RADIUS = 80;
+  const CAM_SPEED = 0.012; // radians per pixel of drag
+
+  document.addEventListener('touchstart', e => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const isBottom = t.clientY > window.innerHeight * 0.5;
+      if (isBottom && !moveTouch) {
+        moveTouch = { id: t.identifier, ox: t.clientX, oy: t.clientY };
+      } else if (!isBottom && !camTouch) {
+        camTouch = { id: t.identifier, ox: t.clientX, oy: t.clientY };
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+
+      if (moveTouch && t.identifier === moveTouch.id) {
+        const dx = t.clientX - moveTouch.ox;
+        const dy = t.clientY - moveTouch.oy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < DEAD_ZONE) {
+          engine.touch_input(0, 0);
+        } else {
+          const mag = Math.min((dist - DEAD_ZONE) / (MAX_RADIUS - DEAD_ZONE), 1.0);
+          engine.touch_input((dx / dist) * mag, (-dy / dist) * mag);
+        }
+      }
+
+      if (camTouch && t.identifier === camTouch.id) {
+        const dx = t.clientX - camTouch.ox;
+        // Continuously orbit based on distance from origin
+        engine.touch_camera(dx * CAM_SPEED);
+        // Update origin so it doesn't accumulate
+        camTouch.ox = t.clientX;
+        camTouch.oy = t.clientY;
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  function touchEnd(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const id = e.changedTouches[i].identifier;
+      if (moveTouch && id === moveTouch.id) {
+        moveTouch = null;
+        engine.touch_input(0, 0);
+      }
+      if (camTouch && id === camTouch.id) {
+        camTouch = null;
+      }
+    }
+  }
+  document.addEventListener('touchend', touchEnd);
+  document.addEventListener('touchcancel', touchEnd);
 
   let lastTime = performance.now();
   let capped = false;

@@ -33,6 +33,16 @@ export class Engine {
      */
     resize(width: number, height: number): void;
     /**
+     * Applies touch camera orbit (top half of screen).
+     * `delta_yaw` is in radians.
+     */
+    touch_camera(delta_yaw: number): void;
+    /**
+     * Sets touch joystick input (bottom half of screen).
+     * `dx` and `dy` are normalized [-1, 1] relative to the camera.
+     */
+    touch_input(dx: number, dy: number): void;
+    /**
      * Advances the simulation by `dt` seconds and returns the rendered ASCII frame.
      *
      * This is the main game loop: it updates movement, camera, terrain, particles,
@@ -57,6 +67,8 @@ export interface InitOutput {
     readonly engine_key_up: (a: number, b: number, c: number) => void;
     readonly engine_new: (a: number, b: number) => number;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_touch_camera: (a: number, b: number) => void;
+    readonly engine_touch_input: (a: number, b: number, c: number) => void;
     readonly engine_update: (a: number, b: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;

@@ -61,6 +61,23 @@ export class Engine {
         wasm.engine_resize(this.__wbg_ptr, width, height);
     }
     /**
+     * Applies touch camera orbit (top half of screen).
+     * `delta_yaw` is in radians.
+     * @param {number} delta_yaw
+     */
+    touch_camera(delta_yaw) {
+        wasm.engine_touch_camera(this.__wbg_ptr, delta_yaw);
+    }
+    /**
+     * Sets touch joystick input (bottom half of screen).
+     * `dx` and `dy` are normalized [-1, 1] relative to the camera.
+     * @param {number} dx
+     * @param {number} dy
+     */
+    touch_input(dx, dy) {
+        wasm.engine_touch_input(this.__wbg_ptr, dx, dy);
+    }
+    /**
      * Advances the simulation by `dt` seconds and returns the rendered ASCII frame.
      *
      * This is the main game loop: it updates movement, camera, terrain, particles,
