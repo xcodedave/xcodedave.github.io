@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ASCII 3D Terrain</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+  #display {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 11px;
+    line-height: 1.0;
+    letter-spacing: 0px;
+    color: #b0d0b0;
+    white-space: pre;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+</style>
+</head>
+<body>
+<pre id="display"></pre>
+
+<!-- Audio manager: Web Audio API wrapper called from WASM -->
+<script>
+(function() {
+  let ctx = null;
+  const buffers = {};
+  const active = {};
+  const pending = []; // loads queued before AudioContext exists
+
+  // AudioContext requires a user gesture — create on first keydown
+  function ensureCtx() {
+    if (ctx) return true;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Process any sounds queued before context was ready
+      for (const { id, url } of pending) { doLoad(id, url); }
+      pending.length = 0;
+      return true;
+    } catch (e) {
+      console.warn('AudioContext not available:', e);
+      return false;
+    }
+  }
+
+  document.addEventListener('keydown', () => ensureCtx(), { once: false });
+
+  async function doLoad(id, url) {
+    try {
+      const resp = await fetch(url);
+      const data = await resp.arrayBuffer();
+      buffers[id] = await ctx.decodeAudioData(data);
+      console.log(`audio loaded: ${id}`);
+    } catch (e) {
+      console.warn(`audio load failed: ${id}`, e);
+    }
+  }
+
+  // --- Global functions called from WASM ---
+
+  window.audioLoad = function(id, url) {
+    if (ctx) { doLoad(id, url); }
+    else { pending.push({ id, url }); }
+  };
+
+  window.audioPlay = function(id, loops, volume, fadeIn, pitch) {
+    if (!ensureCtx()) return;
+    // If buffer isn't loaded yet, retry every 200ms until it is
+    if (!buffers[id]) {
+      const retry = setInterval(() => {
+        if (buffers[id]) {
+          clearInterval(retry);
+          window.audioPlay(id, loops, volume, fadeIn, pitch);
+        }
+      }, 200);
+      return;
+    }
+
+    // Stop existing instance of this sound
+    if (active[id]) {
+      try { active[id].source.stop(); } catch (_) {}
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffers[id];
+    source.loop = (loops === -1);
+    source.playbackRate.value = pitch;
+
+    const gain = ctx.createGain();
+    if (fadeIn > 0) {
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + fadeIn);
+    } else {
+      gain.gain.value = volume;
+    }
+
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+
+    source.onended = () => { if (active[id]?.source === source) delete active[id]; };
+    active[id] = { source, gain, volume };
+  };
+
+  window.audioStop = function(id, fadeOut) {
+    const s = active[id];
+    if (!s) return;
+    if (fadeOut > 0 && ctx) {
+      s.gain.gain.setValueAtTime(s.gain.gain.value, ctx.currentTime);
+      s.gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + fadeOut);
+      setTimeout(() => {
+        try { s.source.stop(); } catch (_) {}
+        delete active[id];
+      }, fadeOut * 1000 + 50);
+    } else {
+      try { s.source.stop(); } catch (_) {}
+      delete active[id];
+    }
+  };
+
+  window.audioSetVolume = function(id, volume, fadeSecs) {
+    const s = active[id];
+    if (!s || !ctx) return;
+    if (fadeSecs > 0) {
+      s.gain.gain.setValueAtTime(s.gain.gain.value, ctx.currentTime);
+      s.gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + fadeSecs);
+    } else {
+      s.gain.gain.value = volume;
+    }
+    s.volume = volume;
+  };
+
+  window.audioSetPitch = function(id, pitch) {
+    const s = active[id];
+    if (s) s.source.playbackRate.value = pitch;
+  };
+})();
+</script>
+
+<script type="module">
+import init, { Engine, build_id } from './pkg/ascii3d.js';
+
+async function run() {
+  await init();
+  console.log('build:', build_id());
+
+  const display = document.getElementById('display');
+
+  // Measure character cell size using a probe
+  const probe = document.createElement('span');
+  probe.style.cssText = display.style.cssText || '';
+  probe.style.fontFamily = '"Courier New", Courier, monospace';
+  probe.style.fontSize = '11px';
+  probe.style.lineHeight = '1.0';
+  probe.style.letterSpacing = '0px';
+  probe.style.whiteSpace = 'pre';
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.textContent = 'X';
+  document.body.appendChild(probe);
+  const charW = probe.getBoundingClientRect().width;
+  const charH = probe.getBoundingClientRect().height;
+  document.body.removeChild(probe);
+
+  let cols = Math.floor(window.innerWidth / charW);
+  let rows = Math.floor(window.innerHeight / charH);
+  console.log(`grid: ${cols}x${rows} (char: ${charW}x${charH})`);
+
+  const engine = new Engine(cols, rows);
+
+  window.addEventListener('resize', () => {
+    const newCols = Math.floor(window.innerWidth / charW);
+    const newRows = Math.floor(window.innerHeight / charH);
+    if (newCols !== cols || newRows !== rows) {
+      cols = newCols;
+      rows = newRows;
+      engine.resize(cols, rows);
+      console.log(`resized: ${cols}x${rows}`);
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    engine.key_down(e.key);
+    e.preventDefault();
+  });
+
+  document.addEventListener('keyup', e => {
+    engine.key_up(e.key);
+  });
+
+  let lastTime = performance.now();
+  let capped = false;
+  const MIN_FRAME_MS = 1000 / 12; // 12 fps cap
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'f' || e.key === 'F') {
+      capped = !capped;
+    }
+  });
+
+  function frame(now) {
+    if (capped && (now - lastTime) < MIN_FRAME_MS) {
+      requestAnimationFrame(frame);
+      return;
+    }
+
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+
+    const text = engine.update(dt);
+    display.textContent = text;
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+run();
+
+// Poll the WASM binary for changes and auto-reload
+(async function watchForChanges() {
+  let lastModified = null;
+  while (true) {
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const res = await fetch('./pkg/ascii3d_bg.wasm', { method: 'HEAD', cache: 'no-store' });
+      const mod = res.headers.get('last-modified');
+      if (lastModified === null) {
+        lastModified = mod;
+      } else if (mod !== lastModified) {
+        console.log('WASM changed, reloading...');
+        location.reload();
+      }
+    } catch {}
+  }
+})();
+</script>
+</body>
+</html>
