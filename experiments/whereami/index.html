@@ -210,7 +210,7 @@ async function run() {
 
   // Scale font for mobile/retina: use larger text on touch devices
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const fontSize = isMobile ? '5px' : '11px';
+  const fontSize = isMobile ? '10px' : '11px';
   display.style.fontSize = fontSize;
 
   // Measure character cell size using a probe
@@ -289,7 +289,7 @@ async function run() {
           engine.touch_input(0, 0);
         } else {
           const mag = Math.min((dist - DEAD_ZONE) / (MAX_RADIUS - DEAD_ZONE), 1.0);
-          engine.touch_input((dx / dist) * mag, (-dy / dist) * mag);
+          engine.touch_input(-(dx / dist) * mag, (-dy / dist) * mag);
         }
       }
 
