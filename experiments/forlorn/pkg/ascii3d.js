@@ -182,6 +182,9 @@ function __wbg_get_imports() {
         __wbg_audioPlay_852fcdb1cbe33481: function(arg0, arg1, arg2, arg3, arg4, arg5) {
             audioPlay(getStringFromWasm0(arg0, arg1), arg2, arg3, arg4, arg5);
         },
+        __wbg_audioSetVolume_9dbd113678653695: function(arg0, arg1, arg2, arg3) {
+            audioSetVolume(getStringFromWasm0(arg0, arg1), arg2, arg3);
+        },
         __wbg_audioStop_e93371f428cccd44: function(arg0, arg1, arg2) {
             audioStop(getStringFromWasm0(arg0, arg1), arg2);
         },
