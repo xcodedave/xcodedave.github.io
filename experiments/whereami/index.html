@@ -286,7 +286,7 @@ async function run() {
       if (moveTouch && t.identifier === moveTouch.id) {
         // Horizontal delta orbits camera
         const hdx = t.clientX - moveTouch.lastX;
-        engine.touch_camera(hdx * MOVE_CAM_SPEED);
+        engine.touch_camera(-hdx * MOVE_CAM_SPEED);
         moveTouch.lastX = t.clientX;
 
         // Full drag vector from origin
