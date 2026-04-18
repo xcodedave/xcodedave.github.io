@@ -12,6 +12,15 @@ export class Engine {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * Returns a compact state string encoding player position, camera, and weather.
+     * Format: "px,pz,yaw,cyaw,cpitch,torch,rain" as comma-separated floats.
+     */
+    get_state(): string;
+    /**
+     * Returns true if the figure is currently moving.
+     */
+    is_moving(): boolean;
+    /**
      * Handles a key-down event from JavaScript.
      * WASD/arrows move the stick figure; Q/E orbit the camera; T toggles the torch.
      */
@@ -32,6 +41,10 @@ export class Engine {
      * Resizes the character grid without resetting game state.
      */
     resize(width: number, height: number): void;
+    /**
+     * Restores state from a compact state string.
+     */
+    set_state(state: string): void;
     /**
      * Applies touch camera orbit (top half of screen).
      * `delta_yaw` is in radians.
@@ -63,10 +76,13 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_engine_free: (a: number, b: number) => void;
     readonly build_id: () => [number, number];
+    readonly engine_get_state: (a: number) => [number, number];
+    readonly engine_is_moving: (a: number) => number;
     readonly engine_key_down: (a: number, b: number, c: number) => void;
     readonly engine_key_up: (a: number, b: number, c: number) => void;
     readonly engine_new: (a: number, b: number) => number;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_set_state: (a: number, b: number, c: number) => void;
     readonly engine_touch_camera: (a: number, b: number) => void;
     readonly engine_touch_input: (a: number, b: number, c: number) => void;
     readonly engine_update: (a: number, b: number) => [number, number];

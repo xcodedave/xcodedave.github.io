@@ -19,6 +19,31 @@ export class Engine {
         wasm.__wbg_engine_free(ptr, 0);
     }
     /**
+     * Returns a compact state string encoding player position, camera, and weather.
+     * Format: "px,pz,yaw,cyaw,cpitch,torch,rain" as comma-separated floats.
+     * @returns {string}
+     */
+    get_state() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.engine_get_state(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * Returns true if the figure is currently moving.
+     * @returns {boolean}
+     */
+    is_moving() {
+        const ret = wasm.engine_is_moving(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
      * Handles a key-down event from JavaScript.
      * WASD/arrows move the stick figure; Q/E orbit the camera; T toggles the torch.
      * @param {string} key
@@ -59,6 +84,15 @@ export class Engine {
      */
     resize(width, height) {
         wasm.engine_resize(this.__wbg_ptr, width, height);
+    }
+    /**
+     * Restores state from a compact state string.
+     * @param {string} state
+     */
+    set_state(state) {
+        const ptr0 = passStringToWasm0(state, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.engine_set_state(this.__wbg_ptr, ptr0, len0);
     }
     /**
      * Applies touch camera orbit (top half of screen).
