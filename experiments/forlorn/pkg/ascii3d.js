@@ -86,6 +86,18 @@ export class Engine {
         wasm.engine_resize(this.__wbg_ptr, width, height);
     }
     /**
+     * Sets the spawn position without marking as walked.
+     * Used for random start — preserves "HOW DID I GET HERE?" speech and
+     * delays rain/ambience until the player first moves.
+     * @param {number} px
+     * @param {number} pz
+     * @param {number} yaw
+     * @param {number} cam_yaw
+     */
+    set_spawn(px, pz, yaw, cam_yaw) {
+        wasm.engine_set_spawn(this.__wbg_ptr, px, pz, yaw, cam_yaw);
+    }
+    /**
      * Restores state from a compact state string.
      * @param {string} state
      */

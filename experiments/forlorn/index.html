@@ -122,20 +122,19 @@
   };
 
   window.audioPlay = function(id, loops, volume, fadeIn, pitch) {
-    if (!ctx) return;
-    // Resume if needed (may happen after background/interrupt)
-    if (ctx.state !== 'running') {
-      ctx.resume().catch(function(){});
-    }
-    // If buffer isn't loaded yet, retry every 200ms until it is
-    if (!buffers[id]) {
+    // If AudioContext or buffer isn't ready yet, retry until both are available
+    if (!ctx || !buffers[id]) {
       var retry = setInterval(function() {
-        if (buffers[id]) {
+        if (ctx && buffers[id]) {
           clearInterval(retry);
           window.audioPlay(id, loops, volume, fadeIn, pitch);
         }
       }, 200);
       return;
+    }
+    // Resume if needed (may happen after background/interrupt)
+    if (ctx.state !== 'running') {
+      ctx.resume().catch(function(){});
     }
 
     // Stop existing instance of this sound
@@ -235,7 +234,7 @@ async function run() {
 
   const engine = new Engine(cols, rows);
 
-  // Restore state from URL hash if present
+  // Restore state from URL hash, or randomise start location
   if (window.location.hash.length > 1) {
     try {
       const state = atob(window.location.hash.substring(1));
@@ -244,6 +243,13 @@ async function run() {
     } catch (e) {
       console.warn('invalid state in URL');
     }
+  } else {
+    // Random start: position within ±2000 units, random camera orbit
+    const rx = (Math.random() - 0.5) * 10000;
+    const rz = (Math.random() - 0.5) * 10000;
+    const rcam = Math.random() * Math.PI * 2;
+    // Random spawn: figure faces away from camera, preserves initial speech
+    engine.set_spawn(rx, rz, rcam, rcam);
   }
 
   // Update URL when the character stops moving
