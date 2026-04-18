@@ -263,7 +263,7 @@ async function run() {
   const DEAD_ZONE = 10;
   const MAX_RADIUS = 80;
   const CAM_SPEED = 0.012;      // radians per pixel (top half - pure camera)
-  const MOVE_CAM_SPEED = 0.008; // radians per pixel (bottom half - blended camera)
+  const MOVE_CAM_SPEED = 0.005; // radians per pixel (bottom half - blended camera)
 
   document.addEventListener('touchstart', e => {
     for (let i = 0; i < e.changedTouches.length; i++) {
@@ -303,8 +303,8 @@ async function run() {
           const ndy = dy / dist;
           // Blend: 75% pure forward (sign of vertical), 25% actual drag angle
           const forwardDir = ndy >= 0 ? 1.0 : -1.0;
-          const strafeX = ndx * 0.25;
-          const forwardZ = forwardDir * 0.75 + ndy * 0.25;
+          const strafeX = ndx * 0.4;
+          const forwardZ = forwardDir * 0.6 + ndy * 0.4;
           engine.touch_input(-strafeX * mag, forwardZ * mag);
         }
       }
