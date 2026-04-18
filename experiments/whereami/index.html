@@ -256,20 +256,21 @@ async function run() {
   });
 
   // --- Touch controls (invisible, no HUD) ---
-  // Bottom half: joystick moves the character
-  // Top half: joystick orbits the camera
+  // Bottom half: horizontal drag orbits camera, vertical drag distance = run speed
+  // Top half: pure camera orbit
   let moveTouch = null;  // {id, ox, oy}
   let camTouch = null;   // {id, ox, oy}
   const DEAD_ZONE = 10;
   const MAX_RADIUS = 80;
-  const CAM_SPEED = 0.012; // radians per pixel of drag
+  const CAM_SPEED = 0.012;      // radians per pixel (top half - pure camera)
+  const MOVE_CAM_SPEED = 0.008; // radians per pixel (bottom half - blended camera)
 
   document.addEventListener('touchstart', e => {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       const isBottom = t.clientY > window.innerHeight * 0.5;
       if (isBottom && !moveTouch) {
-        moveTouch = { id: t.identifier, ox: t.clientX, oy: t.clientY };
+        moveTouch = { id: t.identifier, ox: t.clientX, oy: t.clientY, lastX: t.clientX };
       } else if (!isBottom && !camTouch) {
         camTouch = { id: t.identifier, ox: t.clientX, oy: t.clientY };
       }
@@ -281,23 +282,28 @@ async function run() {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
 
+      // Bottom half: camera orbit from horizontal drag + forward run from drag distance
       if (moveTouch && t.identifier === moveTouch.id) {
-        const dx = t.clientX - moveTouch.ox;
-        const dy = t.clientY - moveTouch.oy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < DEAD_ZONE) {
+        // Horizontal delta orbits camera (like top half but slightly slower)
+        const hdx = t.clientX - moveTouch.lastX;
+        engine.touch_camera(hdx * MOVE_CAM_SPEED);
+        moveTouch.lastX = t.clientX;
+
+        // Vertical distance from origin controls forward speed
+        const dy = moveTouch.oy - t.clientY; // positive = dragged up = forward
+        if (Math.abs(dy) < DEAD_ZONE) {
           engine.touch_input(0, 0);
         } else {
-          const mag = Math.min((dist - DEAD_ZONE) / (MAX_RADIUS - DEAD_ZONE), 1.0);
-          engine.touch_input(-(dx / dist) * mag, (-dy / dist) * mag);
+          const mag = Math.min((Math.abs(dy) - DEAD_ZONE) / (MAX_RADIUS - DEAD_ZONE), 1.0);
+          const dir = dy > 0 ? 1.0 : -1.0; // up = forward, down = backward
+          engine.touch_input(0, dir * mag);
         }
       }
 
+      // Top half: pure camera orbit
       if (camTouch && t.identifier === camTouch.id) {
         const dx = t.clientX - camTouch.ox;
-        // Continuously orbit based on distance from origin
         engine.touch_camera(dx * CAM_SPEED);
-        // Update origin so it doesn't accumulate
         camTouch.ox = t.clientX;
         camTouch.oy = t.clientY;
       }
