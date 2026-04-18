@@ -282,21 +282,30 @@ async function run() {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
 
-      // Bottom half: camera orbit from horizontal drag + forward run from drag distance
+      // Bottom half: camera orbit + movement with subtle strafing
       if (moveTouch && t.identifier === moveTouch.id) {
-        // Horizontal delta orbits camera (like top half but slightly slower)
+        // Horizontal delta orbits camera
         const hdx = t.clientX - moveTouch.lastX;
         engine.touch_camera(hdx * MOVE_CAM_SPEED);
         moveTouch.lastX = t.clientX;
 
-        // Vertical distance from origin controls forward speed
-        const dy = moveTouch.oy - t.clientY; // positive = dragged up = forward
-        if (Math.abs(dy) < DEAD_ZONE) {
+        // Full drag vector from origin
+        const dx = t.clientX - moveTouch.ox;
+        const dy = moveTouch.oy - t.clientY; // positive = up = forward
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < DEAD_ZONE) {
           engine.touch_input(0, 0);
         } else {
-          const mag = Math.min((Math.abs(dy) - DEAD_ZONE) / (MAX_RADIUS - DEAD_ZONE), 1.0);
-          const dir = dy > 0 ? 1.0 : -1.0; // up = forward, down = backward
-          engine.touch_input(0, dir * mag);
+          const mag = Math.min((dist - DEAD_ZONE) / (MAX_RADIUS - DEAD_ZONE), 1.0);
+          // Normalize the drag direction
+          const ndx = dx / dist;
+          const ndy = dy / dist;
+          // Blend: 75% pure forward (sign of vertical), 25% actual drag angle
+          const forwardDir = ndy >= 0 ? 1.0 : -1.0;
+          const strafeX = ndx * 0.25;
+          const forwardZ = forwardDir * 0.75 + ndy * 0.25;
+          engine.touch_input(-strafeX * mag, forwardZ * mag);
         }
       }
 
