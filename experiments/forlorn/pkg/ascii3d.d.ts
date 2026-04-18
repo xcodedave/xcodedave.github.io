@@ -42,6 +42,10 @@ export class Engine {
      */
     resize(width: number, height: number): void;
     /**
+     * Sets the camera field of view in degrees.
+     */
+    set_fov(degrees: number): void;
+    /**
      * Sets the spawn position without marking as walked.
      * Used for random start — preserves "HOW DID I GET HERE?" speech and
      * delays rain/ambience until the player first moves.
@@ -88,6 +92,7 @@ export interface InitOutput {
     readonly engine_key_up: (a: number, b: number, c: number) => void;
     readonly engine_new: (a: number, b: number) => number;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_set_fov: (a: number, b: number) => void;
     readonly engine_set_spawn: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_set_state: (a: number, b: number, c: number) => void;
     readonly engine_touch_camera: (a: number, b: number) => void;

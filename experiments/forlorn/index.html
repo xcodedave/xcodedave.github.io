@@ -233,6 +233,7 @@ async function run() {
   console.log(`grid: ${cols}x${rows} (char: ${charW}x${charH})`);
 
   const engine = new Engine(cols, rows);
+  if (isMobile) { engine.set_fov(75); }
 
   // Restore state from URL hash, or randomise start location
   if (window.location.hash.length > 1) {

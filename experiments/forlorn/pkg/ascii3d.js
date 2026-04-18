@@ -86,6 +86,13 @@ export class Engine {
         wasm.engine_resize(this.__wbg_ptr, width, height);
     }
     /**
+     * Sets the camera field of view in degrees.
+     * @param {number} degrees
+     */
+    set_fov(degrees) {
+        wasm.engine_set_fov(this.__wbg_ptr, degrees);
+    }
+    /**
      * Sets the spawn position without marking as walked.
      * Used for random start — preserves "HOW DID I GET HERE?" speech and
      * delays rain/ambience until the player first moves.
