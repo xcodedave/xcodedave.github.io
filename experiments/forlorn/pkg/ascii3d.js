@@ -19,6 +19,20 @@ export class Engine {
         wasm.__wbg_engine_free(ptr, 0);
     }
     /**
+     * @returns {number}
+     */
+    get_far_bias() {
+        const ret = wasm.engine_get_far_bias(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get_near_bias() {
+        const ret = wasm.engine_get_near_bias(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      * Returns a compact state string encoding player position, camera, and weather.
      * Format: "px,pz,yaw,cyaw,cpitch,torch,rain" as comma-separated floats.
      * @returns {string}
@@ -86,11 +100,23 @@ export class Engine {
         wasm.engine_resize(this.__wbg_ptr, width, height);
     }
     /**
+     * @param {number} val
+     */
+    set_far_bias(val) {
+        wasm.engine_set_far_bias(this.__wbg_ptr, val);
+    }
+    /**
      * Sets the camera field of view in degrees.
      * @param {number} degrees
      */
     set_fov(degrees) {
         wasm.engine_set_fov(this.__wbg_ptr, degrees);
+    }
+    /**
+     * @param {number} val
+     */
+    set_near_bias(val) {
+        wasm.engine_set_near_bias(this.__wbg_ptr, val);
     }
     /**
      * Sets the spawn position without marking as walked.
@@ -150,6 +176,51 @@ export class Engine {
         } finally {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
+    }
+    /**
+     * Edge bias at far distance
+     * @returns {number}
+     */
+    get far_bias() {
+        const ret = wasm.__wbg_get_engine_far_bias(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Near-silhouette grazing angle threshold
+     * @returns {number}
+     */
+    get graze_threshold() {
+        const ret = wasm.__wbg_get_engine_graze_threshold(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Edge bias at near distance
+     * @returns {number}
+     */
+    get near_bias() {
+        const ret = wasm.__wbg_get_engine_near_bias(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Edge bias at far distance
+     * @param {number} arg0
+     */
+    set far_bias(arg0) {
+        wasm.__wbg_set_engine_far_bias(this.__wbg_ptr, arg0);
+    }
+    /**
+     * Near-silhouette grazing angle threshold
+     * @param {number} arg0
+     */
+    set graze_threshold(arg0) {
+        wasm.__wbg_set_engine_graze_threshold(this.__wbg_ptr, arg0);
+    }
+    /**
+     * Edge bias at near distance
+     * @param {number} arg0
+     */
+    set near_bias(arg0) {
+        wasm.__wbg_set_engine_near_bias(this.__wbg_ptr, arg0);
     }
 }
 if (Symbol.dispose) Engine.prototype[Symbol.dispose] = Engine.prototype.free;

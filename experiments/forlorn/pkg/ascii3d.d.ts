@@ -11,6 +11,8 @@
 export class Engine {
     free(): void;
     [Symbol.dispose](): void;
+    get_far_bias(): number;
+    get_near_bias(): number;
     /**
      * Returns a compact state string encoding player position, camera, and weather.
      * Format: "px,pz,yaw,cyaw,cpitch,torch,rain" as comma-separated floats.
@@ -41,10 +43,12 @@ export class Engine {
      * Resizes the character grid without resetting game state.
      */
     resize(width: number, height: number): void;
+    set_far_bias(val: number): void;
     /**
      * Sets the camera field of view in degrees.
      */
     set_fov(degrees: number): void;
+    set_near_bias(val: number): void;
     /**
      * Sets the spawn position without marking as walked.
      * Used for random start — preserves "HOW DID I GET HERE?" speech and
@@ -73,6 +77,18 @@ export class Engine {
      * (one row per line, separated by newlines).
      */
     update(dt: number): string;
+    /**
+     * Edge bias at far distance
+     */
+    far_bias: number;
+    /**
+     * Near-silhouette grazing angle threshold
+     */
+    graze_threshold: number;
+    /**
+     * Edge bias at near distance
+     */
+    near_bias: number;
 }
 
 /**
@@ -85,14 +101,24 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_engine_free: (a: number, b: number) => void;
+    readonly __wbg_get_engine_far_bias: (a: number) => number;
+    readonly __wbg_get_engine_graze_threshold: (a: number) => number;
+    readonly __wbg_get_engine_near_bias: (a: number) => number;
+    readonly __wbg_set_engine_far_bias: (a: number, b: number) => void;
+    readonly __wbg_set_engine_graze_threshold: (a: number, b: number) => void;
+    readonly __wbg_set_engine_near_bias: (a: number, b: number) => void;
     readonly build_id: () => [number, number];
+    readonly engine_get_far_bias: (a: number) => number;
+    readonly engine_get_near_bias: (a: number) => number;
     readonly engine_get_state: (a: number) => [number, number];
     readonly engine_is_moving: (a: number) => number;
     readonly engine_key_down: (a: number, b: number, c: number) => void;
     readonly engine_key_up: (a: number, b: number, c: number) => void;
     readonly engine_new: (a: number, b: number) => number;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_set_far_bias: (a: number, b: number) => void;
     readonly engine_set_fov: (a: number, b: number) => void;
+    readonly engine_set_near_bias: (a: number, b: number) => void;
     readonly engine_set_spawn: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_set_state: (a: number, b: number, c: number) => void;
     readonly engine_touch_camera: (a: number, b: number) => void;

@@ -121,12 +121,19 @@
     else { pending.push({ id: id, url: url }); }
   };
 
+  // Track pending retry intervals so they can be cancelled
+  var retries = {};
+
   window.audioPlay = function(id, loops, volume, fadeIn, pitch) {
+    // Cancel any pending retry for this sound
+    if (retries[id]) { clearInterval(retries[id]); delete retries[id]; }
+
     // If AudioContext or buffer isn't ready yet, retry until both are available
     if (!ctx || !buffers[id]) {
-      var retry = setInterval(function() {
+      retries[id] = setInterval(function() {
         if (ctx && buffers[id]) {
-          clearInterval(retry);
+          clearInterval(retries[id]);
+          delete retries[id];
           window.audioPlay(id, loops, volume, fadeIn, pitch);
         }
       }, 200);
@@ -140,6 +147,7 @@
     // Stop existing instance of this sound
     if (active[id]) {
       try { active[id].source.stop(); } catch (_) {}
+      delete active[id];
     }
 
     var source = ctx.createBufferSource();
@@ -164,14 +172,21 @@
   };
 
   window.audioStop = function(id, fadeOut) {
+    // Cancel any pending retry for this sound
+    if (retries[id]) { clearInterval(retries[id]); delete retries[id]; }
+
     var s = active[id];
     if (!s) return;
+    var stoppedSource = s.source; // capture reference for the timeout check
     if (fadeOut > 0 && ctx) {
       s.gain.gain.setValueAtTime(s.gain.gain.value, ctx.currentTime);
       s.gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + fadeOut);
       setTimeout(function() {
-        try { s.source.stop(); } catch (_) {}
-        delete active[id];
+        try { stoppedSource.stop(); } catch (_) {}
+        // Only delete from active if it's still the same source (not replaced by a new play)
+        if (active[id] && active[id].source === stoppedSource) {
+          delete active[id];
+        }
       }, fadeOut * 1000 + 50);
     } else {
       try { s.source.stop(); } catch (_) {}
@@ -233,6 +248,8 @@ async function run() {
   console.log(`grid: ${cols}x${rows} (char: ${charW}x${charH})`);
 
   const engine = new Engine(cols, rows);
+
+
   if (isMobile) { engine.set_fov(75); }
 
   // Restore state from URL hash, or randomise start location
@@ -268,6 +285,8 @@ async function run() {
   });
 
   document.addEventListener('keydown', e => {
+    // Don't intercept browser shortcuts (Cmd+R, Ctrl+R, Cmd+Shift+R, etc.)
+    if (e.metaKey || e.ctrlKey) return;
     engine.key_down(e.key);
     e.preventDefault();
   });

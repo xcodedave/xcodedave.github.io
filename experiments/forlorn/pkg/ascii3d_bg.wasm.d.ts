@@ -2,14 +2,24 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const __wbg_engine_free: (a: number, b: number) => void;
+export const __wbg_get_engine_far_bias: (a: number) => number;
+export const __wbg_get_engine_graze_threshold: (a: number) => number;
+export const __wbg_get_engine_near_bias: (a: number) => number;
+export const __wbg_set_engine_far_bias: (a: number, b: number) => void;
+export const __wbg_set_engine_graze_threshold: (a: number, b: number) => void;
+export const __wbg_set_engine_near_bias: (a: number, b: number) => void;
 export const build_id: () => [number, number];
+export const engine_get_far_bias: (a: number) => number;
+export const engine_get_near_bias: (a: number) => number;
 export const engine_get_state: (a: number) => [number, number];
 export const engine_is_moving: (a: number) => number;
 export const engine_key_down: (a: number, b: number, c: number) => void;
 export const engine_key_up: (a: number, b: number, c: number) => void;
 export const engine_new: (a: number, b: number) => number;
 export const engine_resize: (a: number, b: number, c: number) => void;
+export const engine_set_far_bias: (a: number, b: number) => void;
 export const engine_set_fov: (a: number, b: number) => void;
+export const engine_set_near_bias: (a: number, b: number) => void;
 export const engine_set_spawn: (a: number, b: number, c: number, d: number, e: number) => void;
 export const engine_set_state: (a: number, b: number, c: number) => void;
 export const engine_touch_camera: (a: number, b: number) => void;
