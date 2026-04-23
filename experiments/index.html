@@ -13,9 +13,11 @@
       color: #ccccdd;
       margin: 0;
       padding: 48px 32px 64px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    }
+
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
     }
 
     h1 {
@@ -31,7 +33,6 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 12px;
-      max-width: 900px;
     }
 
     .card {
@@ -125,6 +126,7 @@
   </style>
 </head>
 <body>
+  <div class="wrap">
   <h1>Experiments</h1>
   <div class="grid">
 
@@ -194,6 +196,7 @@
       </div>
     </a>
 
+  </div>
   </div>
 </body>
 </html>
