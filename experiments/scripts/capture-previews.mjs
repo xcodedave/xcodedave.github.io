@@ -6,31 +6,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
 
 const experiments = [
-  { name: 'forlorn',        url: 'https://xcodedave.github.io/experiments/forlorn/' },
-  { name: 'sevenbillion',   url: 'https://xcodedave.github.io/experiments/sevenbillion/' },
-  { name: 'swift-voxel',    url: 'https://xcodedave.github.io/experiments/swift-voxel/' },
-  { name: 'flight',         url: 'https://xcodedave.github.io/experiments/flight/' },
-  { name: 'avd-to-lottie',  url: 'https://xcodedave.github.io/experiments/avd-to-lottie/' },
-  { name: 'screech',        url: 'https://xcodedave.github.io/experiments/screech/' },
+  { name: 'forlorn',        url: 'https://xcodedave.github.io/experiments/forlorn/',       wait: 4000 },
+  { name: 'sevenbillion',   url: 'https://xcodedave.github.io/experiments/sevenbillion/',  wait: 4000 },
+  { name: 'swift-voxel',    url: 'https://xcodedave.github.io/experiments/swift-voxel/',  wait: 4000 },
+  { name: 'flight',         url: 'https://xcodedave.github.io/experiments/flight/',        wait: 10000 },
+  { name: 'avd-to-lottie',  url: 'https://xcodedave.github.io/experiments/avd-to-lottie/', wait: 4000 },
+  { name: 'screech',        url: 'https://xcodedave.github.io/experiments/screech/',       wait: 4000 },
 ];
 
 const browser = await chromium.launch({
+  channel: 'chrome',
   headless: false,
   args: [
     '--enable-unsafe-webgpu',
-    '--enable-features=Vulkan,UseSkiaRenderer',
-    '--disable-web-security',
+    '--ignore-gpu-blocklist',
   ],
 });
 
-for (const { name, url } of experiments) {
+for (const { name, url, wait } of experiments) {
   console.log(`Capturing ${name}...`);
   const page = await browser.newPage();
   await page.setViewportSize({ width: 1280, height: 800 });
 
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(wait);
 
     const outPath = path.join(repoRoot, 'experiments', name, 'preview.png');
     await page.screenshot({ path: outPath, type: 'png' });
