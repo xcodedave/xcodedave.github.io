@@ -90,6 +90,15 @@
       opacity: 1;
     }
 
+    .card.dark-overlay .overlay {
+      background: linear-gradient(
+        to bottom,
+        transparent 10%,
+        rgba(0, 0, 0, 0.6) 50%,
+        rgba(0, 0, 0, 0.97) 100%
+      );
+    }
+
     .info {
       position: absolute;
       bottom: 0;
@@ -160,7 +169,7 @@
       </div>
     </a>
 
-    <a class="card" href="/experiments/flight/">
+    <a class="card dark-overlay" href="/experiments/flight/">
       <div class="card-inner">
         <img src="/experiments/flight/preview.png" alt="Flight">
         <div class="overlay"></div>
