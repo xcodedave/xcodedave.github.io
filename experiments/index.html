@@ -9,7 +9,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
       background: #0d0d14;
       color: #ccccdd;
-      max-width: 640px;
+      max-width: 680px;
       margin: 60px auto;
       padding: 0 24px;
     }
@@ -26,23 +26,43 @@
       margin: 0;
     }
     li {
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
-    a {
-      color: #6688cc;
+    .card {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
       text-decoration: none;
-      font-size: 1rem;
-      font-weight: 500;
+      color: inherit;
     }
-    a:hover {
+    .card:hover .title {
       color: #88aaee;
       text-decoration: underline;
+    }
+    .card img {
+      width: 140px;
+      height: 88px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #2a2a3a;
+      flex-shrink: 0;
+      background: #1a1a24;
+    }
+    .card .text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .title {
+      color: #6688cc;
+      font-size: 1rem;
+      font-weight: 500;
     }
     p {
       color: #7777aa;
       font-size: 0.85rem;
-      margin-top: 4px;
       line-height: 1.5;
+      margin: 0;
     }
   </style>
 </head>
@@ -50,28 +70,58 @@
   <h1>Experiments</h1>
   <ul>
     <li>
-      <a href="/experiments/forlorn/">Forlorn</a>
-      <p>An ASCII 3D game rendered entirely in a terminal-style monospace grid. Walk through a desolate landscape with ambient desert sounds and rain.</p>
+      <a class="card" href="/experiments/forlorn/">
+        <img src="/experiments/forlorn/preview.png" alt="Forlorn preview">
+        <div class="text">
+          <span class="title">Forlorn</span>
+          <p>An ASCII 3D game rendered entirely in a terminal-style monospace grid. Walk through a desolate landscape with ambient desert sounds and rain.</p>
+        </div>
+      </a>
     </li>
     <li>
-      <a href="/experiments/sevenbillion/">7,000,000,000</a>
-      <p>A match-3 puzzle game set in space, built in Rust/WASM with WebGPU. Features spatial audio and atmospheric visuals.</p>
+      <a class="card" href="/experiments/sevenbillion/">
+        <img src="/experiments/sevenbillion/preview.png" alt="7,000,000,000 preview">
+        <div class="text">
+          <span class="title">7,000,000,000</span>
+          <p>A match-3 puzzle game set in space, built in Rust/WASM with WebGPU. Features spatial audio and atmospheric visuals.</p>
+        </div>
+      </a>
     </li>
     <li>
-      <a href="/experiments/swift-voxel/">SwiftVoxel</a>
-      <p>A WebGPU voxel editor running in the browser. Place and remove blocks to sculpt 3D structures in real time.</p>
+      <a class="card" href="/experiments/swift-voxel/">
+        <img src="/experiments/swift-voxel/preview.png" alt="SwiftVoxel preview">
+        <div class="text">
+          <span class="title">SwiftVoxel</span>
+          <p>A WebGPU voxel editor running in the browser. Place and remove blocks to sculpt 3D structures in real time.</p>
+        </div>
+      </a>
     </li>
     <li>
-      <a href="/experiments/flight/">Flight</a>
-      <p>A Rust/WASM flight simulation. A minimal canvas experiment exploring movement and 3D geometry.</p>
+      <a class="card" href="/experiments/flight/">
+        <img src="/experiments/flight/preview.png" alt="Flight preview">
+        <div class="text">
+          <span class="title">Flight</span>
+          <p>A Rust/WASM flight simulation. A minimal canvas experiment exploring movement and 3D geometry.</p>
+        </div>
+      </a>
     </li>
     <li>
-      <a href="/experiments/avd-to-lottie/">AVD &harr; Lottie Converter</a>
-      <p>Convert Android Vector Drawable (AVD) animation files to Lottie JSON format, entirely in the browser via WASM.</p>
+      <a class="card" href="/experiments/avd-to-lottie/">
+        <img src="/experiments/avd-to-lottie/preview.png" alt="AVD to Lottie preview">
+        <div class="text">
+          <span class="title">AVD ↔ Lottie Converter</span>
+          <p>Convert Android Vector Drawable (AVD) animation files to Lottie JSON format, entirely in the browser via WASM.</p>
+        </div>
+      </a>
     </li>
     <li>
-      <a href="/experiments/screech/">Screech Chat</a>
-      <p>A minimal real-time chat interface experiment.</p>
+      <a class="card" href="/experiments/screech/">
+        <img src="/experiments/screech/preview.png" alt="Screech preview">
+        <div class="text">
+          <span class="title">Screech Chat</span>
+          <p>A minimal real-time chat interface experiment.</p>
+        </div>
+      </a>
     </li>
   </ul>
 </body>
