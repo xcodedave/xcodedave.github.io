@@ -7,7 +7,7 @@ const repoRoot = path.resolve(__dirname, '../..');
 
 const experiments = [
   { name: 'forlorn',        url: 'https://xcodedave.github.io/experiments/forlorn/',       wait: 4000 },
-  { name: 'sevenbillion',   url: 'https://xcodedave.github.io/experiments/sevenbillion/',  wait: 4000 },
+  { name: 'sevenbillion',   url: 'https://xcodedave.github.io/experiments/sevenbillion/',  wait: 2500 },
   { name: 'swift-voxel',    url: 'https://xcodedave.github.io/experiments/swift-voxel/',  wait: 4000 },
   { name: 'flight',         url: 'https://xcodedave.github.io/experiments/flight/',        wait: 10000 },
   { name: 'avd-to-lottie',  url: 'https://xcodedave.github.io/experiments/avd-to-lottie/', wait: 4000 },
