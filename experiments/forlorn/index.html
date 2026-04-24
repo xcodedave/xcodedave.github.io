@@ -350,12 +350,49 @@ async function run() {
     ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - mh - 4) + 'px';
   });
 
-  document.getElementById('ctx-menu-copy').addEventListener('click', () => {
-    navigator.clipboard.writeText(display.textContent).catch(() => {});
-    ctxMenu.classList.remove('visible');
+  const copyBtn = document.getElementById('ctx-menu-copy');
+  copyBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const text = display.textContent;
+
+    function onSuccess() {
+      copyBtn.textContent = 'Copied!';
+      ctxMenu.classList.remove('visible');
+      setTimeout(() => { copyBtn.textContent = 'Copy Frame'; }, 1500);
+    }
+    function onFail() {
+      copyBtn.textContent = 'Failed';
+      ctxMenu.classList.remove('visible');
+      setTimeout(() => { copyBtn.textContent = 'Copy Frame'; }, 1500);
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(onSuccess, () => fallbackCopy(text, onSuccess, onFail));
+    } else {
+      fallbackCopy(text, onSuccess, onFail);
+    }
   });
 
-  document.addEventListener('click', () => { ctxMenu.classList.remove('visible'); });
+  function fallbackCopy(text, onSuccess, onFail) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:absolute;left:-9999px;top:0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      ok ? onSuccess() : onFail();
+    } catch(err) {
+      onFail();
+    }
+  }
+
+  document.addEventListener('mousedown', e => {
+    if (!ctxMenu.contains(e.target)) ctxMenu.classList.remove('visible');
+  });
   document.addEventListener('keydown', e => { ctxMenu.classList.remove('visible'); }, { capture: false });
 
   // --- Touch controls (invisible, no HUD) ---
