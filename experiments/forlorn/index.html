@@ -18,10 +18,32 @@
     top: 0;
     left: 0;
   }
+  #ctx-menu {
+    display: none;
+    position: fixed;
+    background: #1a1a1a;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 4px 0;
+    z-index: 1000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    min-width: 140px;
+  }
+  #ctx-menu.visible { display: block; }
+  #ctx-menu-copy {
+    padding: 7px 16px;
+    color: #b0d0b0;
+    cursor: pointer;
+    user-select: none;
+  }
+  #ctx-menu-copy:hover { background: #2a2a2a; }
 </style>
 </head>
 <body>
 <pre id="display"></pre>
+<div id="ctx-menu"><div id="ctx-menu-copy">Copy Frame</div></div>
 
 <!-- Audio manager: Web Audio API wrapper with Mobile Safari / iPhone support -->
 <script>
@@ -301,6 +323,7 @@ async function run() {
   const MOUSE_CAM_SPEED = 0.005;
 
   document.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
     mouseDragging = true;
     mouseLastX = e.clientX;
   });
@@ -314,6 +337,26 @@ async function run() {
 
   document.addEventListener('mouseup', () => { mouseDragging = false; });
   document.addEventListener('mouseleave', () => { mouseDragging = false; });
+
+  // --- Right-click context menu ---
+  const ctxMenu = document.getElementById('ctx-menu');
+
+  document.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    ctxMenu.classList.add('visible');
+    const mw = ctxMenu.offsetWidth;
+    const mh = ctxMenu.offsetHeight;
+    ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - mw - 4) + 'px';
+    ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - mh - 4) + 'px';
+  });
+
+  document.getElementById('ctx-menu-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(display.textContent).catch(() => {});
+    ctxMenu.classList.remove('visible');
+  });
+
+  document.addEventListener('click', () => { ctxMenu.classList.remove('visible'); });
+  document.addEventListener('keydown', e => { ctxMenu.classList.remove('visible'); }, { capture: false });
 
   // --- Touch controls (invisible, no HUD) ---
   // Bottom half: horizontal drag orbits camera, vertical drag distance = run speed
