@@ -14,8 +14,8 @@ export class Engine {
     get_far_bias(): number;
     get_near_bias(): number;
     /**
-     * Returns a compact state string encoding player position, camera, and weather.
-     * Format: "px,pz,yaw,cyaw,cpitch,torch,rain" as comma-separated floats.
+     * Returns a compact state string encoding player position, camera, weather, and viewport.
+     * Format: "px,pz,yaw,cyaw,cpitch,torch,rain,cols,rows" as comma-separated values.
      */
     get_state(): string;
     /**
@@ -82,10 +82,6 @@ export class Engine {
      */
     far_bias: number;
     /**
-     * Near-silhouette grazing angle threshold
-     */
-    graze_threshold: number;
-    /**
      * Edge bias at near distance
      */
     near_bias: number;
@@ -102,10 +98,8 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_engine_free: (a: number, b: number) => void;
     readonly __wbg_get_engine_far_bias: (a: number) => number;
-    readonly __wbg_get_engine_graze_threshold: (a: number) => number;
     readonly __wbg_get_engine_near_bias: (a: number) => number;
     readonly __wbg_set_engine_far_bias: (a: number, b: number) => void;
-    readonly __wbg_set_engine_graze_threshold: (a: number, b: number) => void;
     readonly __wbg_set_engine_near_bias: (a: number, b: number) => void;
     readonly build_id: () => [number, number];
     readonly engine_get_far_bias: (a: number) => number;

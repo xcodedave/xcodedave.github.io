@@ -33,8 +33,8 @@ export class Engine {
         return ret;
     }
     /**
-     * Returns a compact state string encoding player position, camera, and weather.
-     * Format: "px,pz,yaw,cyaw,cpitch,torch,rain" as comma-separated floats.
+     * Returns a compact state string encoding player position, camera, weather, and viewport.
+     * Format: "px,pz,yaw,cyaw,cpitch,torch,rain,cols,rows" as comma-separated values.
      * @returns {string}
      */
     get_state() {
@@ -186,14 +186,6 @@ export class Engine {
         return ret;
     }
     /**
-     * Near-silhouette grazing angle threshold
-     * @returns {number}
-     */
-    get graze_threshold() {
-        const ret = wasm.__wbg_get_engine_graze_threshold(this.__wbg_ptr);
-        return ret;
-    }
-    /**
      * Edge bias at near distance
      * @returns {number}
      */
@@ -207,13 +199,6 @@ export class Engine {
      */
     set far_bias(arg0) {
         wasm.__wbg_set_engine_far_bias(this.__wbg_ptr, arg0);
-    }
-    /**
-     * Near-silhouette grazing angle threshold
-     * @param {number} arg0
-     */
-    set graze_threshold(arg0) {
-        wasm.__wbg_set_engine_graze_threshold(this.__wbg_ptr, arg0);
     }
     /**
      * Edge bias at near distance

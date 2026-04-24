@@ -391,7 +391,6 @@ async function run() {
   document.addEventListener('mousedown', e => {
     if (!ctxMenu.contains(e.target)) ctxMenu.classList.remove('visible');
   });
-  document.addEventListener('keydown', e => { ctxMenu.classList.remove('visible'); }, { capture: false });
 
   // --- Touch controls (invisible, no HUD) ---
   // Bottom half: horizontal drag orbits camera, vertical drag distance = run speed

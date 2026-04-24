@@ -3,10 +3,8 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_engine_free: (a: number, b: number) => void;
 export const __wbg_get_engine_far_bias: (a: number) => number;
-export const __wbg_get_engine_graze_threshold: (a: number) => number;
 export const __wbg_get_engine_near_bias: (a: number) => number;
 export const __wbg_set_engine_far_bias: (a: number, b: number) => void;
-export const __wbg_set_engine_graze_threshold: (a: number, b: number) => void;
 export const __wbg_set_engine_near_bias: (a: number, b: number) => void;
 export const build_id: () => [number, number];
 export const engine_get_far_bias: (a: number) => number;
