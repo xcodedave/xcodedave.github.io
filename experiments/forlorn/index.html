@@ -358,13 +358,11 @@ async function run() {
 
     function onSuccess() {
       copyBtn.textContent = 'Copied!';
-      ctxMenu.classList.remove('visible');
-      setTimeout(() => { copyBtn.textContent = 'Copy Frame'; }, 1500);
+      setTimeout(() => { ctxMenu.classList.remove('visible'); copyBtn.textContent = 'Copy Frame'; }, 1000);
     }
     function onFail() {
       copyBtn.textContent = 'Failed';
-      ctxMenu.classList.remove('visible');
-      setTimeout(() => { copyBtn.textContent = 'Copy Frame'; }, 1500);
+      setTimeout(() => { ctxMenu.classList.remove('visible'); copyBtn.textContent = 'Copy Frame'; }, 1000);
     }
 
     if (navigator.clipboard && window.isSecureContext) {
