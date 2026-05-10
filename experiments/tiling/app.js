@@ -43,6 +43,73 @@ const state = {
   background: "#ffffff",
 };
 
+// --- URL-hash state codec --------------------------------------------------
+//
+// Encode `state` as URL-safe base64(JSON) and stamp it into `location.hash`
+// after the user finishes interacting (debounced) so the URL becomes a
+// shareable permalink. Tiling identity is stored as its index into
+// `TilingSession.listConfigs()` (single-byte).
+
+function urlSafeBtoa(s) {
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function urlSafeAtob(s) {
+  const padLen = (4 - (s.length % 4)) % 4;
+  return atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(padLen));
+}
+
+function encodeState(s) {
+  // Compact key names to keep the URL short.
+  const obj = {
+    c: s.configIdx,
+    a: s.angleDeg,
+    b: s.bandWidth,
+    z: s.zoom,
+    x: s.panX,
+    y: s.panY,
+    st: s.showTiles ? 1 : 0,
+    ss: s.showStars ? 1 : 0,
+    bm: s.bandedMode ? 1 : 0,
+    tw: s.tileWeave ? 1 : 0,
+    sw: s.starWeave ? 1 : 0,
+    pal: s.tilePalette,
+    sf: s.starFill,
+    sk: s.starStroke,
+    ts: s.tileStroke,
+    bg: s.background,
+  };
+  return urlSafeBtoa(JSON.stringify(obj));
+}
+
+function decodeStateInto(s, encoded) {
+  let obj;
+  try {
+    obj = JSON.parse(urlSafeAtob(encoded));
+  } catch (_) {
+    return false;
+  }
+  if (typeof obj !== "object" || obj === null) return false;
+  if (Number.isInteger(obj.c)) s.configIdx = obj.c;
+  if (typeof obj.a === "number") s.angleDeg = obj.a;
+  if (typeof obj.b === "number") s.bandWidth = obj.b;
+  if (typeof obj.z === "number") s.zoom = obj.z;
+  if (typeof obj.x === "number") s.panX = obj.x;
+  if (typeof obj.y === "number") s.panY = obj.y;
+  if (obj.st !== undefined) s.showTiles = !!obj.st;
+  if (obj.ss !== undefined) s.showStars = !!obj.ss;
+  if (obj.bm !== undefined) s.bandedMode = !!obj.bm;
+  if (obj.tw !== undefined) s.tileWeave = !!obj.tw;
+  if (obj.sw !== undefined) s.starWeave = !!obj.sw;
+  if (obj.pal && typeof obj.pal === "object") {
+    s.tilePalette = { ...s.tilePalette, ...obj.pal };
+  }
+  if (typeof obj.sf === "string") s.starFill = obj.sf;
+  if (typeof obj.sk === "string") s.starStroke = obj.sk;
+  if (typeof obj.ts === "string") s.tileStroke = obj.ts;
+  if (typeof obj.bg === "string") s.background = obj.bg;
+  return true;
+}
+
 function hexToRgb(hex) {
   const h = hex.startsWith("#") ? hex.slice(1) : hex;
   const v = h.length === 3
@@ -57,6 +124,13 @@ function hexToRgb(hex) {
 
 async function main() {
   await init();
+
+  // Apply any state encoded in the URL hash *before* we wire up the session
+  // and DOM, so dropdowns/sliders/colour pickers all start in the saved
+  // state rather than briefly flashing the defaults.
+  if (location.hash && location.hash.length > 1) {
+    decodeStateInto(state, location.hash.slice(1));
+  }
 
   const canvas = document.getElementById("stage");
   const ctx = canvas.getContext("2d");
@@ -98,6 +172,10 @@ async function main() {
     opt.value = String(i);
     opt.textContent = configs[i];
     select.appendChild(opt);
+  }
+  // Clamp in case a stale URL hash carries an out-of-range index.
+  if (state.configIdx < 0 || state.configIdx >= configs.length) {
+    state.configIdx = 0;
   }
   select.value = String(state.configIdx);
 
@@ -173,6 +251,7 @@ async function main() {
         const [r, g, b] = hexToRgb(input.value);
         session.setTilePaletteColor(n, r, g, b);
         draw();
+        scheduleHashUpdate();
       });
       const label = document.createElement("span");
       label.textContent = `${n}-gon`;
@@ -182,7 +261,49 @@ async function main() {
     }
   };
 
+  // Sync DOM input values from `state`. Called once on init (after the hash
+  // has been decoded) and on `switchConfig` (which resets pan/zoom). All
+  // input elements with persisted state are updated; their own `input` /
+  // `change` handlers do *not* fire because we set `.value` / `.checked`
+  // programmatically.
+  const applyStateToDom = () => {
+    select.value = String(state.configIdx);
+    angle.value = String(state.angleDeg);
+    angleReadout.textContent = `${state.angleDeg.toFixed(0)}°`;
+    band.value = String(state.bandWidth);
+    bandReadout.textContent = `${state.bandWidth.toFixed(1)} px`;
+    zoomSlider.value = String(state.zoom);
+    showStarsCb.checked = state.showStars;
+    showTilesCb.checked = state.showTiles;
+    bandedCb.checked = state.bandedMode;
+    tileWeaveCb.checked = state.tileWeave;
+    starWeaveCb.checked = state.starWeave;
+    starFillInput.value = state.starFill;
+    starStrokeInput.value = state.starStroke;
+    tileStrokeInput.value = state.tileStroke;
+    backgroundInput.value = state.background;
+  };
+
+  // Debounced URL-hash writer. Coalesces rapid changes (slider drag, wheel
+  // zoom, pan) so the hash only gets stamped once interaction settles.
+  // `history.replaceState` avoids polluting the back/forward stack and
+  // doesn't fire `hashchange`.
+  let hashTimer = null;
+  const scheduleHashUpdate = () => {
+    if (hashTimer !== null) clearTimeout(hashTimer);
+    hashTimer = setTimeout(() => {
+      hashTimer = null;
+      const enc = encodeState(state);
+      try {
+        history.replaceState(null, "", "#" + enc);
+      } catch (_) {
+        location.hash = enc;
+      }
+    }, 300);
+  };
+
   // Initial state push.
+  applyStateToDom();
   session.setStarAngle((state.angleDeg * Math.PI) / 180);
   session.setBandWidth(state.bandWidth);
   session.setShowStars(state.showStars);
@@ -193,6 +314,7 @@ async function main() {
   pushColors();
   rebuildTilePalette();
   updateZoomReadout();
+  applyBodyBackground();
   draw();
 
   // --- Controls ----------------------------------------------------------
@@ -215,6 +337,7 @@ async function main() {
     rebuildTilePalette();
     updateZoomReadout();
     draw();
+    scheduleHashUpdate();
   };
 
   select.addEventListener("change", () => {
@@ -234,30 +357,35 @@ async function main() {
     state.showStars = showStarsCb.checked;
     session.setShowStars(state.showStars);
     draw();
+    scheduleHashUpdate();
   });
 
   showTilesCb.addEventListener("change", () => {
     state.showTiles = showTilesCb.checked;
     session.setShowTiles(state.showTiles);
     draw();
+    scheduleHashUpdate();
   });
 
   bandedCb.addEventListener("change", () => {
     state.bandedMode = bandedCb.checked;
     session.setBandedMode(state.bandedMode);
     draw();
+    scheduleHashUpdate();
   });
 
   tileWeaveCb.addEventListener("change", () => {
     state.tileWeave = tileWeaveCb.checked;
     session.setShowTileWeave(state.tileWeave);
     draw();
+    scheduleHashUpdate();
   });
 
   starWeaveCb.addEventListener("change", () => {
     state.starWeave = starWeaveCb.checked;
     session.setShowStarWeave(state.starWeave);
     draw();
+    scheduleHashUpdate();
   });
 
   angle.addEventListener("input", () => {
@@ -265,6 +393,7 @@ async function main() {
     angleReadout.textContent = `${state.angleDeg.toFixed(0)}°`;
     session.setStarAngle((state.angleDeg * Math.PI) / 180);
     draw();
+    scheduleHashUpdate();
   });
 
   const updateBandReadout = () => {
@@ -276,12 +405,14 @@ async function main() {
     updateBandReadout();
     session.setBandWidth(state.bandWidth);
     draw();
+    scheduleHashUpdate();
   });
 
   zoomSlider.addEventListener("input", () => {
     state.zoom = parseFloat(zoomSlider.value);
     updateZoomReadout();
     draw();
+    scheduleHashUpdate();
   });
 
   resetBtn.addEventListener("click", () => {
@@ -290,6 +421,7 @@ async function main() {
     state.zoom = RESET_ZOOM;
     updateZoomReadout();
     draw();
+    scheduleHashUpdate();
   });
 
   // Colour pickers (non-palette ones).
@@ -298,18 +430,21 @@ async function main() {
     const [r, g, b] = hexToRgb(state.starFill);
     session.setStarFillColor(r, g, b);
     draw();
+    scheduleHashUpdate();
   });
   starStrokeInput.addEventListener("input", () => {
     state.starStroke = starStrokeInput.value;
     const [r, g, b] = hexToRgb(state.starStroke);
     session.setStarStrokeColor(r, g, b);
     draw();
+    scheduleHashUpdate();
   });
   tileStrokeInput.addEventListener("input", () => {
     state.tileStroke = tileStrokeInput.value;
     const [r, g, b] = hexToRgb(state.tileStroke);
     session.setTileStrokeColor(r, g, b);
     draw();
+    scheduleHashUpdate();
   });
   backgroundInput.addEventListener("input", () => {
     state.background = backgroundInput.value;
@@ -317,6 +452,7 @@ async function main() {
     session.setBackground(r, g, b);
     applyBodyBackground();
     draw();
+    scheduleHashUpdate();
   });
 
   // Drag to pan.
@@ -336,6 +472,7 @@ async function main() {
     lastX = e.clientX;
     lastY = e.clientY;
     draw();
+    scheduleHashUpdate();
   });
   const endDrag = (e) => {
     dragging = false;
@@ -363,6 +500,7 @@ async function main() {
       state.panY = cy - wy * state.zoom;
       updateZoomReadout();
       draw();
+      scheduleHashUpdate();
     },
     { passive: false }
   );
