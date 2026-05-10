@@ -238,9 +238,6 @@ function __wbg_get_imports() {
         __wbg_scale_fc1a54fbad588f52: function() { return handleError(function (arg0, arg1, arg2) {
             arg0.scale(arg1, arg2);
         }, arguments); },
-        __wbg_setTransform_f58d3fff89c964b4: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-            arg0.setTransform(arg1, arg2, arg3, arg4, arg5, arg6);
-        }, arguments); },
         __wbg_set_fillStyle_ac68c79af375566e: function(arg0, arg1, arg2) {
             arg0.fillStyle = getStringFromWasm0(arg1, arg2);
         },
