@@ -1,0 +1,140 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #222;
+  background: #fff;
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  cursor: grab;
+  background: #fff;
+  touch-action: none;
+}
+
+#stage:active {
+  cursor: grabbing;
+}
+
+#panel {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 280px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(6px);
+  font-size: 0.88rem;
+  z-index: 10;
+  user-select: none;
+}
+
+#panel h1 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.row {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row label {
+  font-weight: 500;
+  color: #444;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.row label.inline {
+  flex-direction: row;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.row label.inline input[type="checkbox"] {
+  margin: 0;
+}
+
+.row.toggles {
+  flex-direction: row;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.row-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.row-controls select {
+  flex: 1;
+  min-width: 0;
+}
+
+#panel select,
+#panel input[type="range"],
+#panel button {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+#panel input[type="range"] {
+  padding: 0;
+  width: 100%;
+}
+
+#panel button:hover {
+  background: #f0f0f0;
+}
+
+#panel button#random {
+  padding: 2px 8px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.row.buttons {
+  flex-direction: row;
+  gap: 6px;
+}
+
+.row.buttons button {
+  flex: 1;
+}
+
+#angle-readout,
+#zoom-readout {
+  font-variant-numeric: tabular-nums;
+  color: #888;
+  font-weight: 400;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #888;
+}

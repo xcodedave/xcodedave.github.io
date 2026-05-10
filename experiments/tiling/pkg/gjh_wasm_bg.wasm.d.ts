@@ -1,0 +1,21 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_tilingsession_free: (a: number, b: number) => void;
+export const tilingsession_currentConfig: (a: number) => [number, number];
+export const tilingsession_exportSvg: (a: number) => [number, number];
+export const tilingsession_listConfigs: () => [number, number];
+export const tilingsession_new: (a: number) => number;
+export const tilingsession_render: (a: number, b: any) => void;
+export const tilingsession_setBandWidth: (a: number, b: number) => void;
+export const tilingsession_setConfig: (a: number, b: number) => void;
+export const tilingsession_setShowStars: (a: number, b: number) => void;
+export const tilingsession_setShowTiles: (a: number, b: number) => void;
+export const tilingsession_setStarAngle: (a: number, b: number) => void;
+export const tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const __wbindgen_exn_store: (a: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __externref_drop_slice: (a: number, b: number) => void;
+export const __wbindgen_start: () => void;
