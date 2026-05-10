@@ -33,12 +33,21 @@ export class TilingSession {
      */
     render(ctx: CanvasRenderingContext2D): void;
     /**
+     * Set the canvas background colour. In banded mode this also serves as
+     * the band interior fill.
+     */
+    setBackground(r: number, g: number, b: number): void;
+    /**
      * Update the stroke width applied to both tile and star polygon outlines.
      * At higher values the strokes read as visible mitred bands hugging the
      * polygon edges. Clamped to `≥ 0`; a value of 0 hides the outline (the
      * renderer treats it as a zero-width stroke).
      */
     setBandWidth(width: number): void;
+    /**
+     * Toggle banded rendering. See module docs.
+     */
+    setBandedMode(on: boolean): void;
     /**
      * Switch to a different library config. Cell polygons are rebuilt;
      * star layer is rebuilt against them.
@@ -60,11 +69,33 @@ export class TilingSession {
      */
     setStarAngle(radians: number): void;
     /**
+     * Set the fill colour for star polygons.
+     */
+    setStarFillColor(r: number, g: number, b: number): void;
+    /**
+     * Set the stroke (band-edge) colour for stars.
+     */
+    setStarStrokeColor(r: number, g: number, b: number): void;
+    /**
+     * Set the fill colour for tiles with `edge_count` edges. Triggers a
+     * per-frame re-paint; cell polygons / star layer are unaffected.
+     */
+    setTilePaletteColor(edge_count: number, r: number, g: number, b: number): void;
+    /**
+     * Set the stroke (band-edge) colour for tiles.
+     */
+    setTileStrokeColor(r: number, g: number, b: number): void;
+    /**
      * Update the viewport. `pan_x`/`pan_y` are in canvas pixels (positive
      * values move the world to the right / down). `zoom` is multiplicative
      * over `WORLD_SCALE` — `zoom = 1.0` is the default scale.
      */
     setViewport(canvas_w: number, canvas_h: number, pan_x: number, pan_y: number, zoom: number): void;
+    /**
+     * Sorted unique edge counts present in the current cell polygons. The
+     * JS shell uses this to render one colour picker per shape kind.
+     */
+    tileShapeEdgeCounts(): Uint32Array;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -77,12 +108,19 @@ export interface InitOutput {
     readonly tilingsession_listConfigs: () => [number, number];
     readonly tilingsession_new: (a: number) => number;
     readonly tilingsession_render: (a: number, b: any) => void;
+    readonly tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setBandWidth: (a: number, b: number) => void;
+    readonly tilingsession_setBandedMode: (a: number, b: number) => void;
     readonly tilingsession_setConfig: (a: number, b: number) => void;
     readonly tilingsession_setShowStars: (a: number, b: number) => void;
     readonly tilingsession_setShowTiles: (a: number, b: number) => void;
     readonly tilingsession_setStarAngle: (a: number, b: number) => void;
+    readonly tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setStarStrokeColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setTilePaletteColor: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly tilingsession_setTileStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly tilingsession_tileShapeEdgeCounts: (a: number) => [number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;

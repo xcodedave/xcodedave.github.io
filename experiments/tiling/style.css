@@ -138,3 +138,73 @@ body {
   font-size: 0.75rem;
   color: #888;
 }
+
+details.palette {
+  margin: 4px 0 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+details.palette > summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #444;
+  list-style: none;
+  user-select: none;
+}
+
+details.palette > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.palette > summary::before {
+  content: "▶ ";
+  font-size: 0.7rem;
+  color: #999;
+}
+
+details.palette[open] > summary::before {
+  content: "▼ ";
+}
+
+.palette-section {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.palette-title {
+  font-size: 0.78rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.swatch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+label.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: #555;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+label.swatch input[type="color"] {
+  width: 28px;
+  height: 22px;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  padding: 0;
+  background: #fff;
+  cursor: pointer;
+}

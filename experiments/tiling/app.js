@@ -11,6 +11,18 @@ const RESET_ZOOM = 1.0;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 6.0;
 
+// Default per-shape tile palette. Mirrors `default_palette()` in
+// `crates/gjh-wasm/src/lib.rs` so the colour pickers match what the wasm
+// session actually starts with.
+const DEFAULT_TILE_PALETTE = {
+  3: "#abc6d5",
+  4: "#f0ebdc",
+  6: "#cdaf8c",
+  8: "#b49178",
+  12: "#9b7864",
+};
+const FALLBACK_TILE_COLOR = "#dcdcdc";
+
 const state = {
   panX: 0,
   panY: 0,
@@ -20,7 +32,26 @@ const state = {
   bandWidth: 4,
   showStars: true,
   showTiles: true,
+  bandedMode: false,
+  // Mutable colour state — initialised from the input defaults below.
+  tilePalette: { ...DEFAULT_TILE_PALETTE },
+  starFill: "#ebd7af",
+  starStroke: "#c82020",
+  tileStroke: "#202020",
+  background: "#ffffff",
 };
+
+function hexToRgb(hex) {
+  const h = hex.startsWith("#") ? hex.slice(1) : hex;
+  const v = h.length === 3
+    ? h.split("").map((c) => c + c).join("")
+    : h;
+  return [
+    parseInt(v.slice(0, 2), 16),
+    parseInt(v.slice(2, 4), 16),
+    parseInt(v.slice(4, 6), 16),
+  ];
+}
 
 async function main() {
   await init();
@@ -38,9 +69,23 @@ async function main() {
   const zoomReadout = document.getElementById("zoom-readout");
   const showStarsCb = document.getElementById("show-stars");
   const showTilesCb = document.getElementById("show-tiles");
+  const bandedCb = document.getElementById("banded");
   const resetBtn = document.getElementById("reset-view");
   const svgBtn = document.getElementById("export-svg");
   const pngBtn = document.getElementById("export-png");
+
+  const tilePaletteContainer = document.getElementById("tile-palette");
+  const starFillInput = document.getElementById("star-fill");
+  const starStrokeInput = document.getElementById("star-stroke");
+  const tileStrokeInput = document.getElementById("tile-stroke");
+  const backgroundInput = document.getElementById("background");
+
+  // Apply the body background colour outside the canvas so the floating
+  // panel sits on the same colour the canvas fills with.
+  const applyBodyBackground = () => {
+    document.body.style.background = state.background;
+  };
+  applyBodyBackground();
 
   // Populate config dropdown.
   const configs = TilingSession.listConfigs();
@@ -83,11 +128,64 @@ async function main() {
     zoomSlider.value = String(state.zoom);
   };
 
+  const pushColors = () => {
+    const sf = hexToRgb(state.starFill);
+    const ss = hexToRgb(state.starStroke);
+    const ts = hexToRgb(state.tileStroke);
+    const bg = hexToRgb(state.background);
+    session.setStarFillColor(sf[0], sf[1], sf[2]);
+    session.setStarStrokeColor(ss[0], ss[1], ss[2]);
+    session.setTileStrokeColor(ts[0], ts[1], ts[2]);
+    session.setBackground(bg[0], bg[1], bg[2]);
+    for (const [n, hex] of Object.entries(state.tilePalette)) {
+      const [r, g, b] = hexToRgb(hex);
+      session.setTilePaletteColor(parseInt(n, 10), r, g, b);
+    }
+  };
+
+  // Build colour pickers for the polygon shapes present in the current
+  // tiling. Called on init and on every config switch — the set of shapes
+  // can change (e.g. switching from `6/m30/r(h1)` to `12-3/m30/r(c2)`
+  // adds a 12-gon picker).
+  const rebuildTilePalette = () => {
+    tilePaletteContainer.innerHTML = "";
+    const counts = Array.from(session.tileShapeEdgeCounts());
+    counts.sort((a, b) => a - b);
+    if (counts.length === 0) {
+      tilePaletteContainer.innerHTML = '<span class="palette-title" style="color:#aaa">(none)</span>';
+      return;
+    }
+    for (const n of counts) {
+      const wrap = document.createElement("label");
+      wrap.className = "swatch";
+      const input = document.createElement("input");
+      input.type = "color";
+      const current = state.tilePalette[n] || FALLBACK_TILE_COLOR;
+      input.value = current;
+      // Persist any newly-added defaults so the next rebuild keeps them.
+      state.tilePalette[n] = current;
+      input.addEventListener("input", () => {
+        state.tilePalette[n] = input.value;
+        const [r, g, b] = hexToRgb(input.value);
+        session.setTilePaletteColor(n, r, g, b);
+        draw();
+      });
+      const label = document.createElement("span");
+      label.textContent = `${n}-gon`;
+      wrap.appendChild(input);
+      wrap.appendChild(label);
+      tilePaletteContainer.appendChild(wrap);
+    }
+  };
+
   // Initial state push.
   session.setStarAngle((state.angleDeg * Math.PI) / 180);
   session.setBandWidth(state.bandWidth);
   session.setShowStars(state.showStars);
   session.setShowTiles(state.showTiles);
+  session.setBandedMode(state.bandedMode);
+  pushColors();
+  rebuildTilePalette();
   updateZoomReadout();
   draw();
 
@@ -104,6 +202,9 @@ async function main() {
     session.setBandWidth(state.bandWidth);
     session.setShowStars(state.showStars);
     session.setShowTiles(state.showTiles);
+    session.setBandedMode(state.bandedMode);
+    pushColors();
+    rebuildTilePalette();
     updateZoomReadout();
     draw();
   };
@@ -130,6 +231,12 @@ async function main() {
   showTilesCb.addEventListener("change", () => {
     state.showTiles = showTilesCb.checked;
     session.setShowTiles(state.showTiles);
+    draw();
+  });
+
+  bandedCb.addEventListener("change", () => {
+    state.bandedMode = bandedCb.checked;
+    session.setBandedMode(state.bandedMode);
     draw();
   });
 
@@ -162,6 +269,33 @@ async function main() {
     state.panY = 0;
     state.zoom = RESET_ZOOM;
     updateZoomReadout();
+    draw();
+  });
+
+  // Colour pickers (non-palette ones).
+  starFillInput.addEventListener("input", () => {
+    state.starFill = starFillInput.value;
+    const [r, g, b] = hexToRgb(state.starFill);
+    session.setStarFillColor(r, g, b);
+    draw();
+  });
+  starStrokeInput.addEventListener("input", () => {
+    state.starStroke = starStrokeInput.value;
+    const [r, g, b] = hexToRgb(state.starStroke);
+    session.setStarStrokeColor(r, g, b);
+    draw();
+  });
+  tileStrokeInput.addEventListener("input", () => {
+    state.tileStroke = tileStrokeInput.value;
+    const [r, g, b] = hexToRgb(state.tileStroke);
+    session.setTileStrokeColor(r, g, b);
+    draw();
+  });
+  backgroundInput.addEventListener("input", () => {
+    state.background = backgroundInput.value;
+    const [r, g, b] = hexToRgb(state.background);
+    session.setBackground(r, g, b);
+    applyBodyBackground();
     draw();
   });
 

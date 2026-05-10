@@ -29,6 +29,10 @@
           <input type="checkbox" id="show-stars" checked />
           Stars
         </label>
+        <label class="inline">
+          <input type="checkbox" id="banded" />
+          Banded
+        </label>
       </div>
 
       <div class="row">
@@ -45,6 +49,43 @@
         <label for="zoom">Zoom <span id="zoom-readout">1.00×</span></label>
         <input id="zoom" type="range" min="0.2" max="6" value="1" step="0.05" />
       </div>
+
+      <details class="palette">
+        <summary>Colours</summary>
+
+        <div class="palette-section">
+          <span class="palette-title">Tiles by shape</span>
+          <div id="tile-palette" class="swatch-grid"></div>
+        </div>
+
+        <div class="palette-section">
+          <span class="palette-title">Star</span>
+          <div class="swatch-grid">
+            <label class="swatch">
+              <input type="color" id="star-fill" value="#ebd7af" />
+              <span>Fill</span>
+            </label>
+            <label class="swatch">
+              <input type="color" id="star-stroke" value="#c82020" />
+              <span>Edge</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="palette-section">
+          <span class="palette-title">Other</span>
+          <div class="swatch-grid">
+            <label class="swatch">
+              <input type="color" id="tile-stroke" value="#202020" />
+              <span>Tile edge</span>
+            </label>
+            <label class="swatch">
+              <input type="color" id="background" value="#ffffff" />
+              <span>Background</span>
+            </label>
+          </div>
+        </div>
+      </details>
 
       <div class="row buttons">
         <button id="reset-view">Reset view</button>

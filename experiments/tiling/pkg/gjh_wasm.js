@@ -79,6 +79,16 @@ export class TilingSession {
         wasm.tilingsession_render(this.__wbg_ptr, ctx);
     }
     /**
+     * Set the canvas background colour. In banded mode this also serves as
+     * the band interior fill.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setBackground(r, g, b) {
+        wasm.tilingsession_setBackground(this.__wbg_ptr, r, g, b);
+    }
+    /**
      * Update the stroke width applied to both tile and star polygon outlines.
      * At higher values the strokes read as visible mitred bands hugging the
      * polygon edges. Clamped to `≥ 0`; a value of 0 hides the outline (the
@@ -87,6 +97,13 @@ export class TilingSession {
      */
     setBandWidth(width) {
         wasm.tilingsession_setBandWidth(this.__wbg_ptr, width);
+    }
+    /**
+     * Toggle banded rendering. See module docs.
+     * @param {boolean} on
+     */
+    setBandedMode(on) {
+        wasm.tilingsession_setBandedMode(this.__wbg_ptr, on);
     }
     /**
      * Switch to a different library config. Cell polygons are rebuilt;
@@ -121,6 +138,44 @@ export class TilingSession {
         wasm.tilingsession_setStarAngle(this.__wbg_ptr, radians);
     }
     /**
+     * Set the fill colour for star polygons.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setStarFillColor(r, g, b) {
+        wasm.tilingsession_setStarFillColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
+     * Set the stroke (band-edge) colour for stars.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setStarStrokeColor(r, g, b) {
+        wasm.tilingsession_setStarStrokeColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
+     * Set the fill colour for tiles with `edge_count` edges. Triggers a
+     * per-frame re-paint; cell polygons / star layer are unaffected.
+     * @param {number} edge_count
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setTilePaletteColor(edge_count, r, g, b) {
+        wasm.tilingsession_setTilePaletteColor(this.__wbg_ptr, edge_count, r, g, b);
+    }
+    /**
+     * Set the stroke (band-edge) colour for tiles.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setTileStrokeColor(r, g, b) {
+        wasm.tilingsession_setTileStrokeColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
      * Update the viewport. `pan_x`/`pan_y` are in canvas pixels (positive
      * values move the world to the right / down). `zoom` is multiplicative
      * over `WORLD_SCALE` — `zoom = 1.0` is the default scale.
@@ -133,6 +188,17 @@ export class TilingSession {
     setViewport(canvas_w, canvas_h, pan_x, pan_y, zoom) {
         wasm.tilingsession_setViewport(this.__wbg_ptr, canvas_w, canvas_h, pan_x, pan_y, zoom);
     }
+    /**
+     * Sorted unique edge counts present in the current cell polygons. The
+     * JS shell uses this to render one colour picker per shape kind.
+     * @returns {Uint32Array}
+     */
+    tileShapeEdgeCounts() {
+        const ret = wasm.tilingsession_tileShapeEdgeCounts(this.__wbg_ptr);
+        var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
 }
 if (Symbol.dispose) TilingSession.prototype[Symbol.dispose] = TilingSession.prototype.free;
 function __wbg_get_imports() {
@@ -141,16 +207,10 @@ function __wbg_get_imports() {
         __wbg___wbindgen_throw_9c31b086c2b26051: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_beginPath_0362b3134ed67152: function(arg0) {
-            arg0.beginPath();
-        },
         __wbg_clearRect_1ea64f387215d3b8: function(arg0, arg1, arg2, arg3, arg4) {
             arg0.clearRect(arg1, arg2, arg3, arg4);
         },
         __wbg_closePath_404039b8951c60c5: function(arg0) {
-            arg0.closePath();
-        },
-        __wbg_closePath_ab8775c8f9ce941f: function(arg0) {
             arg0.closePath();
         },
         __wbg_fillRect_4f7134801b257e68: function(arg0, arg1, arg2, arg3, arg4) {
@@ -159,14 +219,8 @@ function __wbg_get_imports() {
         __wbg_fill_061bfd3132ac2ece: function(arg0, arg1) {
             arg0.fill(arg1);
         },
-        __wbg_lineTo_72d6b123d28ab168: function(arg0, arg1, arg2) {
-            arg0.lineTo(arg1, arg2);
-        },
         __wbg_lineTo_f83e8a14258ea4ae: function(arg0, arg1, arg2) {
             arg0.lineTo(arg1, arg2);
-        },
-        __wbg_moveTo_11bf5a977e6b8610: function(arg0, arg1, arg2) {
-            arg0.moveTo(arg1, arg2);
         },
         __wbg_moveTo_930aede484e3c1bc: function(arg0, arg1, arg2) {
             arg0.moveTo(arg1, arg2);
@@ -204,9 +258,6 @@ function __wbg_get_imports() {
         },
         __wbg_stroke_1e9a53ffb709ce84: function(arg0, arg1) {
             arg0.stroke(arg1);
-        },
-        __wbg_stroke_82139a335b371e81: function(arg0) {
-            arg0.stroke();
         },
         __wbg_translate_60b6d2cb9b18fba1: function() { return handleError(function (arg0, arg1, arg2) {
             arg0.translate(arg1, arg2);
@@ -253,6 +304,11 @@ function getArrayJsValueFromWasm0(ptr, len) {
     return result;
 }
 
+function getArrayU32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
 let cachedDataViewMemory0 = null;
 function getDataViewMemory0() {
     if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
@@ -263,6 +319,14 @@ function getDataViewMemory0() {
 
 function getStringFromWasm0(ptr, len) {
     return decodeText(ptr >>> 0, len);
+}
+
+let cachedUint32ArrayMemory0 = null;
+function getUint32ArrayMemory0() {
+    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
+        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32ArrayMemory0;
 }
 
 let cachedUint8ArrayMemory0 = null;
@@ -302,6 +366,7 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;
+    cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;
