@@ -11,7 +11,9 @@ export const tilingsession_setBackground: (a: number, b: number, c: number, d: n
 export const tilingsession_setBandWidth: (a: number, b: number) => void;
 export const tilingsession_setBandedMode: (a: number, b: number) => void;
 export const tilingsession_setConfig: (a: number, b: number) => void;
+export const tilingsession_setShowStarWeave: (a: number, b: number) => void;
 export const tilingsession_setShowStars: (a: number, b: number) => void;
+export const tilingsession_setShowTileWeave: (a: number, b: number) => void;
 export const tilingsession_setShowTiles: (a: number, b: number) => void;
 export const tilingsession_setStarAngle: (a: number, b: number) => void;
 export const tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;

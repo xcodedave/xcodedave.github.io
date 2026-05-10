@@ -33,6 +33,8 @@ const state = {
   showStars: true,
   showTiles: true,
   bandedMode: false,
+  tileWeave: false,
+  starWeave: false,
   // Mutable colour state — initialised from the input defaults below.
   tilePalette: { ...DEFAULT_TILE_PALETTE },
   starFill: "#ebd7af",
@@ -70,6 +72,8 @@ async function main() {
   const showStarsCb = document.getElementById("show-stars");
   const showTilesCb = document.getElementById("show-tiles");
   const bandedCb = document.getElementById("banded");
+  const tileWeaveCb = document.getElementById("tile-weave");
+  const starWeaveCb = document.getElementById("star-weave");
   const resetBtn = document.getElementById("reset-view");
   const svgBtn = document.getElementById("export-svg");
   const pngBtn = document.getElementById("export-png");
@@ -184,6 +188,8 @@ async function main() {
   session.setShowStars(state.showStars);
   session.setShowTiles(state.showTiles);
   session.setBandedMode(state.bandedMode);
+  session.setShowTileWeave(state.tileWeave);
+  session.setShowStarWeave(state.starWeave);
   pushColors();
   rebuildTilePalette();
   updateZoomReadout();
@@ -203,6 +209,8 @@ async function main() {
     session.setShowStars(state.showStars);
     session.setShowTiles(state.showTiles);
     session.setBandedMode(state.bandedMode);
+    session.setShowTileWeave(state.tileWeave);
+    session.setShowStarWeave(state.starWeave);
     pushColors();
     rebuildTilePalette();
     updateZoomReadout();
@@ -237,6 +245,18 @@ async function main() {
   bandedCb.addEventListener("change", () => {
     state.bandedMode = bandedCb.checked;
     session.setBandedMode(state.bandedMode);
+    draw();
+  });
+
+  tileWeaveCb.addEventListener("change", () => {
+    state.tileWeave = tileWeaveCb.checked;
+    session.setShowTileWeave(state.tileWeave);
+    draw();
+  });
+
+  starWeaveCb.addEventListener("change", () => {
+    state.starWeave = starWeaveCb.checked;
+    session.setShowStarWeave(state.starWeave);
     draw();
   });
 

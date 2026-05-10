@@ -54,10 +54,20 @@ export class TilingSession {
      */
     setConfig(config_idx: number): void;
     /**
+     * Toggle the star-layer Cromwell weave.
+     */
+    setShowStarWeave(show: boolean): void;
+    /**
      * Toggle whether Hankin stars are drawn on top of the cell tiling.
      * Cell polygons stay visible regardless.
      */
     setShowStars(show: boolean): void;
+    /**
+     * Toggle the tile-layer Cromwell weave. The first activation builds the
+     * strand-trace + clipped ribbon polygons (one-shot O(E) cost); turning
+     * it back on after a polygon change rebuilds lazily.
+     */
+    setShowTileWeave(show: boolean): void;
     /**
      * Toggle whether the base tiles (cell polygons) are drawn. When off, only
      * stars (if enabled) appear; useful for emphasising the Hankin overlay.
@@ -112,7 +122,9 @@ export interface InitOutput {
     readonly tilingsession_setBandWidth: (a: number, b: number) => void;
     readonly tilingsession_setBandedMode: (a: number, b: number) => void;
     readonly tilingsession_setConfig: (a: number, b: number) => void;
+    readonly tilingsession_setShowStarWeave: (a: number, b: number) => void;
     readonly tilingsession_setShowStars: (a: number, b: number) => void;
+    readonly tilingsession_setShowTileWeave: (a: number, b: number) => void;
     readonly tilingsession_setShowTiles: (a: number, b: number) => void;
     readonly tilingsession_setStarAngle: (a: number, b: number) => void;
     readonly tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;

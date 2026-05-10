@@ -114,12 +114,28 @@ export class TilingSession {
         wasm.tilingsession_setConfig(this.__wbg_ptr, config_idx);
     }
     /**
+     * Toggle the star-layer Cromwell weave.
+     * @param {boolean} show
+     */
+    setShowStarWeave(show) {
+        wasm.tilingsession_setShowStarWeave(this.__wbg_ptr, show);
+    }
+    /**
      * Toggle whether Hankin stars are drawn on top of the cell tiling.
      * Cell polygons stay visible regardless.
      * @param {boolean} show
      */
     setShowStars(show) {
         wasm.tilingsession_setShowStars(this.__wbg_ptr, show);
+    }
+    /**
+     * Toggle the tile-layer Cromwell weave. The first activation builds the
+     * strand-trace + clipped ribbon polygons (one-shot O(E) cost); turning
+     * it back on after a polygon change rebuilds lazily.
+     * @param {boolean} show
+     */
+    setShowTileWeave(show) {
+        wasm.tilingsession_setShowTileWeave(this.__wbg_ptr, show);
     }
     /**
      * Toggle whether the base tiles (cell polygons) are drawn. When off, only
