@@ -161,6 +161,8 @@ async function main() {
   const zoomReadout = document.getElementById("zoom-readout");
   const showStarsCb = document.getElementById("show-stars");
   const showTilesCb = document.getElementById("show-tiles");
+  const starsGroup = document.getElementById("stars-group");
+  const tilesGroup = document.getElementById("tiles-group");
   const tileWeaveCb = document.getElementById("tile-weave");
   const starWeaveCb = document.getElementById("star-weave");
   const harmonicSnapCb = document.getElementById("harmonic-snap");
@@ -181,6 +183,12 @@ async function main() {
     document.body.style.background = state.background;
   };
   applyBodyBackground();
+
+  // Hide group fieldsets entirely when their master toggle is off.
+  const applyGroupVisibility = () => {
+    starsGroup.hidden = !state.showStars;
+    tilesGroup.hidden = !state.showTiles;
+  };
 
   // Populate config dropdown.
   const configs = TilingSession.listConfigs();
@@ -339,6 +347,7 @@ async function main() {
     zoomSlider.value = String(state.zoom);
     showStarsCb.checked = state.showStars;
     showTilesCb.checked = state.showTiles;
+    applyGroupVisibility();
     tileWeaveCb.checked = state.tileWeave;
     starWeaveCb.checked = state.starWeave;
     harmonicSnapCb.checked = state.harmonicSnap;
@@ -423,6 +432,7 @@ async function main() {
   showStarsCb.addEventListener("change", () => {
     state.showStars = showStarsCb.checked;
     session.setShowStars(state.showStars);
+    applyGroupVisibility();
     draw();
     scheduleHashUpdate();
   });
@@ -430,6 +440,7 @@ async function main() {
   showTilesCb.addEventListener("change", () => {
     state.showTiles = showTilesCb.checked;
     session.setShowTiles(state.showTiles);
+    applyGroupVisibility();
     draw();
     scheduleHashUpdate();
   });

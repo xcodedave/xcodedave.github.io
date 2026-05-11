@@ -18,53 +18,17 @@
         </div>
       </div>
 
-      <fieldset class="group">
-        <legend>Tiles</legend>
+      <div class="row group-toggle">
+        <label class="inline">
+          <input type="checkbox" id="show-stars" checked />
+          Stars
+        </label>
+      </div>
 
-        <div class="row toggles">
-          <label class="inline">
-            <input type="checkbox" id="show-tiles" />
-            Tiles
-          </label>
-          <label class="inline">
-            <input type="checkbox" id="tile-weave" />
-            Tile weave
-          </label>
-        </div>
-
-        <div class="row">
-          <label for="tile-band">Band width <span id="tile-band-readout">4 px</span></label>
-          <input id="tile-band" type="range" min="0" max="40" value="4" step="0.5" />
-        </div>
-
-        <details class="palette">
-          <summary>Colours</summary>
-
-          <div class="palette-section">
-            <span class="palette-title">Tiles by shape</span>
-            <div id="tile-palette" class="swatch-grid"></div>
-          </div>
-
-          <div class="palette-section">
-            <span class="palette-title">Edges</span>
-            <div class="swatch-grid">
-              <label class="swatch">
-                <input type="color" id="tile-stroke" value="#202020" />
-                <span>Tile edge</span>
-              </label>
-            </div>
-          </div>
-        </details>
-      </fieldset>
-
-      <fieldset class="group">
+      <fieldset class="group" id="stars-group">
         <legend>Stars</legend>
 
         <div class="row toggles">
-          <label class="inline">
-            <input type="checkbox" id="show-stars" checked />
-            Stars
-          </label>
           <label class="inline">
             <input type="checkbox" id="star-weave" checked />
             Star weave
@@ -111,6 +75,48 @@
         </details>
       </fieldset>
 
+      <div class="row group-toggle">
+        <label class="inline">
+          <input type="checkbox" id="show-tiles" />
+          Tiles
+        </label>
+      </div>
+
+      <fieldset class="group" id="tiles-group">
+        <legend>Tiles</legend>
+
+        <div class="row toggles">
+          <label class="inline">
+            <input type="checkbox" id="tile-weave" />
+            Tile weave
+          </label>
+        </div>
+
+        <div class="row">
+          <label for="tile-band">Band width <span id="tile-band-readout">4 px</span></label>
+          <input id="tile-band" type="range" min="0" max="40" value="4" step="0.5" />
+        </div>
+
+        <details class="palette">
+          <summary>Colours</summary>
+
+          <div class="palette-section">
+            <span class="palette-title">Tiles by shape</span>
+            <div id="tile-palette" class="swatch-grid"></div>
+          </div>
+
+          <div class="palette-section">
+            <span class="palette-title">Edges</span>
+            <div class="swatch-grid">
+              <label class="swatch">
+                <input type="color" id="tile-stroke" value="#202020" />
+                <span>Tile edge</span>
+              </label>
+            </div>
+          </div>
+        </details>
+      </fieldset>
+
       <div class="row">
         <label for="zoom">Zoom <span id="zoom-readout">1.00×</span></label>
         <input id="zoom" type="range" min="0.2" max="6" value="1" step="0.05" />
@@ -132,6 +138,6 @@
       <p class="hint">Drag to pan · scroll to zoom</p>
     </aside>
 
-    <script type="module" src="./app.js?v=2"></script>
+    <script type="module" src="./app.js?v=3"></script>
   </body>
 </html>
