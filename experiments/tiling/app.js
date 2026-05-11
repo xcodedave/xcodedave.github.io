@@ -830,9 +830,39 @@ async function main() {
     const d = pointerSpread();
 
     if (pointers.size === 1) {
-      // Single-finger / mouse drag → pan.
-      state.panX += m.x - lastMidX;
-      state.panY += m.y - lastMidY;
+      const dx = m.x - lastMidX;
+      const dy = m.y - lastMidY;
+      // When the panel is collapsed AND the input is touch, repurpose the
+      // single-finger drag: horizontal → star angle, vertical → star ribbon
+      // width. Rationale: in collapsed-mobile mode the sliders are hidden
+      // and there's no other way to live-tune those parameters, while
+      // panning is less interesting when the user can't see what they're
+      // moving away from. Two-finger pinch still zooms normally below.
+      const mobileCollapsed =
+        panel.classList.contains("collapsed") && e.pointerType === "touch";
+      if (mobileCollapsed) {
+        // ~360px of horizontal travel = full 0–90° sweep (one phone-width-ish).
+        if (dx !== 0) {
+          const raw = Math.max(0, Math.min(90, state.angleDeg + dx * (90 / 360)));
+          const snapped = snapAngle(raw);
+          state.angleDeg = snapped;
+          angle.value = String(snapped);
+          angleReadout.textContent = formatAngle(state.angleDeg);
+          session.setStarAngle((state.angleDeg * Math.PI) / 180);
+        }
+        // Drag up = thicker ribbon (matches the up-arrow-as-"more" idiom).
+        // ~360px of vertical travel = full 0–40px sweep.
+        if (dy !== 0) {
+          const w = Math.max(0, Math.min(40, state.starBandWidth - dy * (40 / 360)));
+          state.starBandWidth = Math.round(w * 2) / 2;
+          starBand.value = String(state.starBandWidth);
+          starBandReadout.textContent = `${state.starBandWidth.toFixed(1)} px`;
+          session.setStarBandWidth(state.starBandWidth);
+        }
+      } else {
+        state.panX += dx;
+        state.panY += dy;
+      }
     } else if (pointers.size === 2 && lastDist > 0 && d > 0) {
       // Two-finger pinch → zoom anchored at the gesture midpoint, plus
       // pan with the midpoint motion so the pinch also drags content.
