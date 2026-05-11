@@ -16,6 +16,10 @@ body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  /* `manipulation` removes the 300ms tap delay and the browser's
+     double-tap-to-zoom behaviour. The viewport meta also has
+     user-scalable=no for belt-and-braces on iOS Safari. */
+  touch-action: manipulation;
 }
 
 #stage {
