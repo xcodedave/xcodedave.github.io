@@ -44,6 +44,7 @@ const state = {
   tilePalette: { ...DEFAULT_TILE_PALETTE },
   starFill: "#ebd7af",
   starStroke: "#c82020",
+  interstitialFill: "#c8643c",
   tileStroke: "#202020",
   background: "#ffffff",
 };
@@ -81,6 +82,7 @@ function encodeState(s) {
     pal: s.tilePalette,
     sf: s.starFill,
     sk: s.starStroke,
+    bw: s.interstitialFill,
     ts: s.tileStroke,
     bg: s.background,
   };
@@ -116,6 +118,7 @@ function decodeStateInto(s, encoded) {
   }
   if (typeof obj.sf === "string") s.starFill = obj.sf;
   if (typeof obj.sk === "string") s.starStroke = obj.sk;
+  if (typeof obj.bw === "string") s.interstitialFill = obj.bw;
   if (typeof obj.ts === "string") s.tileStroke = obj.ts;
   if (typeof obj.bg === "string") s.background = obj.bg;
   return true;
@@ -168,6 +171,7 @@ async function main() {
   const tilePaletteContainer = document.getElementById("tile-palette");
   const starFillInput = document.getElementById("star-fill");
   const starStrokeInput = document.getElementById("star-stroke");
+  const interstitialFillInput = document.getElementById("interstitial-fill");
   const tileStrokeInput = document.getElementById("tile-stroke");
   const backgroundInput = document.getElementById("background");
 
@@ -228,8 +232,10 @@ async function main() {
     const ss = hexToRgb(state.starStroke);
     const ts = hexToRgb(state.tileStroke);
     const bg = hexToRgb(state.background);
+    const inter = hexToRgb(state.interstitialFill);
     session.setStarFillColor(sf[0], sf[1], sf[2]);
     session.setStarStrokeColor(ss[0], ss[1], ss[2]);
+    session.setInterstitialFillColor(inter[0], inter[1], inter[2]);
     session.setTileStrokeColor(ts[0], ts[1], ts[2]);
     session.setBackground(bg[0], bg[1], bg[2]);
     for (const [n, hex] of Object.entries(state.tilePalette)) {
@@ -338,6 +344,7 @@ async function main() {
     harmonicSnapCb.checked = state.harmonicSnap;
     starFillInput.value = state.starFill;
     starStrokeInput.value = state.starStroke;
+    interstitialFillInput.value = state.interstitialFill;
     tileStrokeInput.value = state.tileStroke;
     backgroundInput.value = state.background;
   };
@@ -522,6 +529,13 @@ async function main() {
     state.starStroke = starStrokeInput.value;
     const [r, g, b] = hexToRgb(state.starStroke);
     session.setStarStrokeColor(r, g, b);
+    draw();
+    scheduleHashUpdate();
+  });
+  interstitialFillInput.addEventListener("input", () => {
+    state.interstitialFill = interstitialFillInput.value;
+    const [r, g, b] = hexToRgb(state.interstitialFill);
+    session.setInterstitialFillColor(r, g, b);
     draw();
     scheduleHashUpdate();
   });

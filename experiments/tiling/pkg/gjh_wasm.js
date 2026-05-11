@@ -95,6 +95,17 @@ export class TilingSession {
         wasm.tilingsession_setConfig(this.__wbg_ptr, config_idx);
     }
     /**
+     * Set the fill colour for the inter-star corner polygons — the
+     * quadrilaterals that fill the space between adjacent inscribed stars
+     * within each parent tile. Only visible when `show_stars` is on.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setInterstitialFillColor(r, g, b) {
+        wasm.tilingsession_setInterstitialFillColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
      * Toggle the star-layer Cromwell weave.
      * @param {boolean} show
      */

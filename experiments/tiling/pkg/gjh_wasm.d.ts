@@ -41,6 +41,12 @@ export class TilingSession {
      */
     setConfig(config_idx: number): void;
     /**
+     * Set the fill colour for the inter-star corner polygons — the
+     * quadrilaterals that fill the space between adjacent inscribed stars
+     * within each parent tile. Only visible when `show_stars` is on.
+     */
+    setInterstitialFillColor(r: number, g: number, b: number): void;
+    /**
      * Toggle the star-layer Cromwell weave.
      */
     setShowStarWeave(show: boolean): void;
@@ -130,6 +136,7 @@ export interface InitOutput {
     readonly tilingsession_render: (a: number, b: any) => void;
     readonly tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setConfig: (a: number, b: number) => void;
+    readonly tilingsession_setInterstitialFillColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setShowStarWeave: (a: number, b: number) => void;
     readonly tilingsession_setShowStars: (a: number, b: number) => void;
     readonly tilingsession_setShowTileWeave: (a: number, b: number) => void;

@@ -9,6 +9,7 @@ export const tilingsession_new: (a: number) => number;
 export const tilingsession_render: (a: number, b: any) => void;
 export const tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setConfig: (a: number, b: number) => void;
+export const tilingsession_setInterstitialFillColor: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setShowStarWeave: (a: number, b: number) => void;
 export const tilingsession_setShowStars: (a: number, b: number) => void;
 export const tilingsession_setShowTileWeave: (a: number, b: number) => void;
