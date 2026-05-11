@@ -210,7 +210,8 @@ async function main() {
   // their colours with the launch randomiser. If not, we'll pick a random
   // palette once the curated palette set finishes loading.
   let hashHadStarColors = false;
-  if (location.hash && location.hash.length > 1) {
+  const hasHash = location.hash && location.hash.length > 1;
+  if (hasHash) {
     const encoded = location.hash.slice(1);
     decodeStateInto(state, encoded);
     try {
@@ -219,6 +220,16 @@ async function main() {
         "sf" in obj || "bw" in obj || "srf" in obj || "srs" in obj
       );
     } catch (_) { /* malformed hash; treat as no colours */ }
+  }
+
+  // On phones / coarse-pointer devices, default to a zoomed-out view so
+  // more of the tiling pattern is visible at once. Only applied when the
+  // user didn't bring their own zoom via a permalink hash.
+  const isMobileViewport =
+    window.matchMedia("(max-width: 600px)").matches ||
+    window.matchMedia("(pointer: coarse)").matches;
+  if (isMobileViewport && !hasHash) {
+    state.zoom = 0.35;
   }
 
   const canvas = document.getElementById("stage");
