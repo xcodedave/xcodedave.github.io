@@ -44,7 +44,6 @@ const state = {
   tilePalette: { ...DEFAULT_TILE_PALETTE },
   starFill: "#ebd7af",
   interstitialFill: "#c8643c",
-  tileStroke: "#202020",
   // Per-layer ribbon colours. Defaults reproduce the prior "background body +
   // polygon-stroke rails" look so users on existing hashes see no visual
   // change until they pick a colour.
@@ -88,7 +87,6 @@ function encodeState(s) {
     pal: s.tilePalette,
     sf: s.starFill,
     bw: s.interstitialFill,
-    ts: s.tileStroke,
     srf: s.starRibbonFill,
     srs: s.starRibbonStroke,
     trf: s.tileRibbonFill,
@@ -127,7 +125,6 @@ function decodeStateInto(s, encoded) {
   }
   if (typeof obj.sf === "string") s.starFill = obj.sf;
   if (typeof obj.bw === "string") s.interstitialFill = obj.bw;
-  if (typeof obj.ts === "string") s.tileStroke = obj.ts;
   if (typeof obj.srf === "string") s.starRibbonFill = obj.srf;
   if (typeof obj.srs === "string") s.starRibbonStroke = obj.srs;
   if (typeof obj.trf === "string") s.tileRibbonFill = obj.trf;
@@ -185,7 +182,6 @@ async function main() {
   const tilePaletteContainer = document.getElementById("tile-palette");
   const starFillInput = document.getElementById("star-fill");
   const interstitialFillInput = document.getElementById("interstitial-fill");
-  const tileStrokeInput = document.getElementById("tile-stroke");
   const starRibbonFillInput = document.getElementById("star-ribbon-fill");
   const starRibbonStrokeInput = document.getElementById("star-ribbon-stroke");
   const tileRibbonFillInput = document.getElementById("tile-ribbon-fill");
@@ -252,12 +248,10 @@ async function main() {
 
   const pushColors = () => {
     const sf = hexToRgb(state.starFill);
-    const ts = hexToRgb(state.tileStroke);
     const bg = hexToRgb(state.background);
     const inter = hexToRgb(state.interstitialFill);
     session.setStarFillColor(sf[0], sf[1], sf[2]);
     session.setInterstitialFillColor(inter[0], inter[1], inter[2]);
-    session.setTileStrokeColor(ts[0], ts[1], ts[2]);
     const srf = hexToRgb(state.starRibbonFill);
     const srs = hexToRgb(state.starRibbonStroke);
     const trf = hexToRgb(state.tileRibbonFill);
@@ -374,7 +368,6 @@ async function main() {
     harmonicSnapCb.checked = state.harmonicSnap;
     starFillInput.value = state.starFill;
     interstitialFillInput.value = state.interstitialFill;
-    tileStrokeInput.value = state.tileStroke;
     starRibbonFillInput.value = state.starRibbonFill;
     starRibbonStrokeInput.value = state.starRibbonStroke;
     tileRibbonFillInput.value = state.tileRibbonFill;
@@ -572,13 +565,6 @@ async function main() {
     state.interstitialFill = interstitialFillInput.value;
     const [r, g, b] = hexToRgb(state.interstitialFill);
     session.setInterstitialFillColor(r, g, b);
-    draw();
-    scheduleHashUpdate();
-  });
-  tileStrokeInput.addEventListener("input", () => {
-    state.tileStroke = tileStrokeInput.value;
-    const [r, g, b] = hexToRgb(state.tileStroke);
-    session.setTileStrokeColor(r, g, b);
     draw();
     scheduleHashUpdate();
   });

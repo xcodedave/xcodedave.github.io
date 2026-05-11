@@ -200,9 +200,9 @@ export class TilingSession {
         wasm.tilingsession_setTilePaletteColor(this.__wbg_ptr, edge_count, r, g, b);
     }
     /**
-     * Set the fill colour of the tile-layer ribbon body. Independent of
-     * `tile_stroke` (which still drives the polygon outline). Only takes
-     * visual effect when `show_tile_weave` is on.
+     * Set the fill colour of the tile-layer ribbon body. Only takes
+     * visual effect when `show_tile_weave` is on. The matching
+     * `tile_ribbon_stroke` colour also drives the tile polygon outline.
      * @param {number} r
      * @param {number} g
      * @param {number} b
@@ -218,15 +218,6 @@ export class TilingSession {
      */
     setTileRibbonStrokeColor(r, g, b) {
         wasm.tilingsession_setTileRibbonStrokeColor(this.__wbg_ptr, r, g, b);
-    }
-    /**
-     * Set the stroke (band-edge) colour for tiles.
-     * @param {number} r
-     * @param {number} g
-     * @param {number} b
-     */
-    setTileStrokeColor(r, g, b) {
-        wasm.tilingsession_setTileStrokeColor(this.__wbg_ptr, r, g, b);
     }
     /**
      * Update the viewport. `pan_x`/`pan_y` are in canvas pixels (positive

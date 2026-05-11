@@ -99,19 +99,15 @@ export class TilingSession {
      */
     setTilePaletteColor(edge_count: number, r: number, g: number, b: number): void;
     /**
-     * Set the fill colour of the tile-layer ribbon body. Independent of
-     * `tile_stroke` (which still drives the polygon outline). Only takes
-     * visual effect when `show_tile_weave` is on.
+     * Set the fill colour of the tile-layer ribbon body. Only takes
+     * visual effect when `show_tile_weave` is on. The matching
+     * `tile_ribbon_stroke` colour also drives the tile polygon outline.
      */
     setTileRibbonFillColor(r: number, g: number, b: number): void;
     /**
      * Set the stroke colour of the tile-layer ribbon rails.
      */
     setTileRibbonStrokeColor(r: number, g: number, b: number): void;
-    /**
-     * Set the stroke (band-edge) colour for tiles.
-     */
-    setTileStrokeColor(r: number, g: number, b: number): void;
     /**
      * Update the viewport. `pan_x`/`pan_y` are in canvas pixels (positive
      * values move the world to the right / down). `zoom` is multiplicative
@@ -164,7 +160,6 @@ export interface InitOutput {
     readonly tilingsession_setTilePaletteColor: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly tilingsession_setTileRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setTileRibbonStrokeColor: (a: number, b: number, c: number, d: number) => void;
-    readonly tilingsession_setTileStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly tilingsession_tileShapeEdgeCounts: (a: number) => [number, number];
     readonly tilingsession_weaveStatsJson: (a: number) => [number, number];
