@@ -55,6 +55,15 @@ body {
   font-size: 0.88rem;
   z-index: 10;
   user-select: none;
+  /* `touch-action` is NOT inherited, so the value on <body> doesn't
+     reach the form controls inside the panel. Without this, double-
+     tapping a button/label triggers iOS Safari's double-tap-to-zoom
+     (viewport `user-scalable=no` has been ignored on iOS since v10). */
+  touch-action: manipulation;
+}
+
+#panel * {
+  touch-action: manipulation;
 }
 
 /* On narrow viewports, anchor the panel to both sides so the right
