@@ -625,7 +625,18 @@ async function main() {
   // randomiser fires immediately unless the user followed a permalink that
   // carried explicit star colours — those must not be clobbered.
   const applyRandomPalette = () => {
-    const [sf, intf, rf, rs] = TilingSession.randomPalette();
+    // 50% of the time, shuffle the four colours within the palette so they
+    // map differently onto (star, polygon, ribbon-fill, ribbon-stroke) —
+    // gives the dice button more variety without enlarging the palette set.
+    // Fisher–Yates over a 4-element array is fine; no Set needed.
+    const quad = Array.from(TilingSession.randomPalette());
+    if (Math.random() < 0.5) {
+      for (let i = quad.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [quad[i], quad[j]] = [quad[j], quad[i]];
+      }
+    }
+    const [sf, intf, rf, rs] = quad;
     starFillInput.value = sf;
     interstitialFillInput.value = intf;
     starRibbonFillInput.value = rf;
