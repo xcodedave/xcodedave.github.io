@@ -38,6 +38,10 @@ body {
   top: 16px;
   left: 16px;
   width: 280px;
+  /* Clamp so the right edge always keeps a 16px gutter from the viewport.
+     On phones (≤ 312px wide) the panel shrinks to fit between the two
+     16px gutters; on tablets/desktops it stays at 280px. */
+  max-width: calc(100vw - 32px);
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid #ccc;
   border-radius: 8px;
