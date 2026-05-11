@@ -28,7 +28,6 @@ export class TilingSession {
         }
     }
     /**
-     * Render the current state to an SVG document and return it as a string.
      * Uses the same draw pipeline as `render`, so the export matches the
      * on-screen view.
      * @returns {string}
@@ -214,6 +213,31 @@ export class TilingSession {
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
+    }
+    /**
+     * Render the current state to an SVG document and return it as a string.
+     * Diagnostic counters for the most recent weave build, as a JSON string.
+     * Shape:
+     *   {"tile":{"strands":N, "components":C, "crossings":T,
+     *            "violations_zero":Z, "violations_many":M, ...} | null,
+     *    "star":{...} | null}
+     * `null` for a layer means that layer's weave has not been built yet
+     * (either it was disabled or no rebuild happened since session creation),
+     * or it was built via the non-lattice fallback path which does not emit
+     * stats.
+     * @returns {string}
+     */
+    weaveStatsJson() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.tilingsession_weaveStatsJson(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
     }
 }
 if (Symbol.dispose) TilingSession.prototype[Symbol.dispose] = TilingSession.prototype.free;

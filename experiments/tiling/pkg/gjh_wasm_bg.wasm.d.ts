@@ -22,6 +22,7 @@ export const tilingsession_setTilePaletteColor: (a: number, b: number, c: number
 export const tilingsession_setTileStrokeColor: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
 export const tilingsession_tileShapeEdgeCounts: (a: number) => [number, number];
+export const tilingsession_weaveStatsJson: (a: number) => [number, number];
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;

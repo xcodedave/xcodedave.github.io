@@ -9,7 +9,6 @@ export class TilingSession {
      */
     currentConfig(): string;
     /**
-     * Render the current state to an SVG document and return it as a string.
      * Uses the same draw pipeline as `render`, so the export matches the
      * on-screen view.
      */
@@ -106,6 +105,19 @@ export class TilingSession {
      * JS shell uses this to render one colour picker per shape kind.
      */
     tileShapeEdgeCounts(): Uint32Array;
+    /**
+     * Render the current state to an SVG document and return it as a string.
+     * Diagnostic counters for the most recent weave build, as a JSON string.
+     * Shape:
+     *   {"tile":{"strands":N, "components":C, "crossings":T,
+     *            "violations_zero":Z, "violations_many":M, ...} | null,
+     *    "star":{...} | null}
+     * `null` for a layer means that layer's weave has not been built yet
+     * (either it was disabled or no rebuild happened since session creation),
+     * or it was built via the non-lattice fallback path which does not emit
+     * stats.
+     */
+    weaveStatsJson(): string;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -133,6 +145,7 @@ export interface InitOutput {
     readonly tilingsession_setTileStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly tilingsession_tileShapeEdgeCounts: (a: number) => [number, number];
+    readonly tilingsession_weaveStatsJson: (a: number) => [number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
