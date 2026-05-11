@@ -189,6 +189,14 @@ function hueShiftHex(hex, deltaDeg) {
   const [r2, g2, b2] = hslToRgb(h + deltaDeg, s, l);
   return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
 }
+// Multiplicative saturation boost: s' = clamp(s * (1 + factor), 0, 1).
+function saturateHex(hex, factor) {
+  const [r, g, b] = hexToRgb(hex);
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const s2 = Math.max(0, Math.min(1, s * (1 + factor)));
+  const [r2, g2, b2] = hslToRgb(h, s2, l);
+  return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
+}
 
 async function main() {
   await init();
@@ -709,6 +717,14 @@ async function main() {
     if (Math.random() < 0.5) {
       const delta = Math.random() * 360;
       quad = quad.map((c) => hueShiftHex(c, delta));
+    }
+    // Always nudge saturation up by a uniform random factor in [0, 0.35].
+    // Mined palettes lean muted (real-world tile photography); a small
+    // multiplicative boost pops them on the canvas without over-cooking
+    // the already-vivid ones (clamped at 1.0).
+    const satBoost = Math.random() * 0.35;
+    if (satBoost > 0) {
+      quad = quad.map((c) => saturateHex(c, satBoost));
     }
     // 50% of the time, shuffle the four colours within the palette so they
     // map differently onto (star, polygon, ribbon-fill, ribbon-stroke) —
