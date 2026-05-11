@@ -29,10 +29,10 @@ const state = {
   zoom: RESET_ZOOM,
   configIdx: 0,
   angleDeg: 30,
-  bandWidth: 4,
+  tileBandWidth: 4,
+  starBandWidth: 4,
   showStars: true,
   showTiles: true,
-  bandedMode: false,
   tileWeave: false,
   starWeave: false,
   // Mutable colour state — initialised from the input defaults below.
@@ -63,13 +63,13 @@ function encodeState(s) {
   const obj = {
     c: s.configIdx,
     a: s.angleDeg,
-    b: s.bandWidth,
+    tb: s.tileBandWidth,
+    sb: s.starBandWidth,
     z: s.zoom,
     x: s.panX,
     y: s.panY,
     st: s.showTiles ? 1 : 0,
     ss: s.showStars ? 1 : 0,
-    bm: s.bandedMode ? 1 : 0,
     tw: s.tileWeave ? 1 : 0,
     sw: s.starWeave ? 1 : 0,
     pal: s.tilePalette,
@@ -91,13 +91,17 @@ function decodeStateInto(s, encoded) {
   if (typeof obj !== "object" || obj === null) return false;
   if (Number.isInteger(obj.c)) s.configIdx = obj.c;
   if (typeof obj.a === "number") s.angleDeg = obj.a;
-  if (typeof obj.b === "number") s.bandWidth = obj.b;
+  // Per-layer band widths (new). Fall back to legacy `b` (one slider for
+  // both layers) so old URL hashes keep working.
+  if (typeof obj.tb === "number") s.tileBandWidth = obj.tb;
+  else if (typeof obj.b === "number") s.tileBandWidth = obj.b;
+  if (typeof obj.sb === "number") s.starBandWidth = obj.sb;
+  else if (typeof obj.b === "number") s.starBandWidth = obj.b;
   if (typeof obj.z === "number") s.zoom = obj.z;
   if (typeof obj.x === "number") s.panX = obj.x;
   if (typeof obj.y === "number") s.panY = obj.y;
   if (obj.st !== undefined) s.showTiles = !!obj.st;
   if (obj.ss !== undefined) s.showStars = !!obj.ss;
-  if (obj.bm !== undefined) s.bandedMode = !!obj.bm;
   if (obj.tw !== undefined) s.tileWeave = !!obj.tw;
   if (obj.sw !== undefined) s.starWeave = !!obj.sw;
   if (obj.pal && typeof obj.pal === "object") {
@@ -139,13 +143,14 @@ async function main() {
   const randomBtn = document.getElementById("random");
   const angle = document.getElementById("angle");
   const angleReadout = document.getElementById("angle-readout");
-  const band = document.getElementById("band");
-  const bandReadout = document.getElementById("band-readout");
+  const tileBand = document.getElementById("tile-band");
+  const tileBandReadout = document.getElementById("tile-band-readout");
+  const starBand = document.getElementById("star-band");
+  const starBandReadout = document.getElementById("star-band-readout");
   const zoomSlider = document.getElementById("zoom");
   const zoomReadout = document.getElementById("zoom-readout");
   const showStarsCb = document.getElementById("show-stars");
   const showTilesCb = document.getElementById("show-tiles");
-  const bandedCb = document.getElementById("banded");
   const tileWeaveCb = document.getElementById("tile-weave");
   const starWeaveCb = document.getElementById("star-weave");
   const resetBtn = document.getElementById("reset-view");
@@ -270,12 +275,13 @@ async function main() {
     select.value = String(state.configIdx);
     angle.value = String(state.angleDeg);
     angleReadout.textContent = `${state.angleDeg.toFixed(0)}°`;
-    band.value = String(state.bandWidth);
-    bandReadout.textContent = `${state.bandWidth.toFixed(1)} px`;
+    tileBand.value = String(state.tileBandWidth);
+    tileBandReadout.textContent = `${state.tileBandWidth.toFixed(1)} px`;
+    starBand.value = String(state.starBandWidth);
+    starBandReadout.textContent = `${state.starBandWidth.toFixed(1)} px`;
     zoomSlider.value = String(state.zoom);
     showStarsCb.checked = state.showStars;
     showTilesCb.checked = state.showTiles;
-    bandedCb.checked = state.bandedMode;
     tileWeaveCb.checked = state.tileWeave;
     starWeaveCb.checked = state.starWeave;
     starFillInput.value = state.starFill;
@@ -305,10 +311,10 @@ async function main() {
   // Initial state push.
   applyStateToDom();
   session.setStarAngle((state.angleDeg * Math.PI) / 180);
-  session.setBandWidth(state.bandWidth);
+  session.setTileBandWidth(state.tileBandWidth);
+  session.setStarBandWidth(state.starBandWidth);
   session.setShowStars(state.showStars);
   session.setShowTiles(state.showTiles);
-  session.setBandedMode(state.bandedMode);
   session.setShowTileWeave(state.tileWeave);
   session.setShowStarWeave(state.starWeave);
   pushColors();
@@ -327,10 +333,10 @@ async function main() {
     select.value = String(idx);
     session.setConfig(idx);
     session.setStarAngle((state.angleDeg * Math.PI) / 180);
-    session.setBandWidth(state.bandWidth);
+    session.setTileBandWidth(state.tileBandWidth);
+    session.setStarBandWidth(state.starBandWidth);
     session.setShowStars(state.showStars);
     session.setShowTiles(state.showTiles);
-    session.setBandedMode(state.bandedMode);
     session.setShowTileWeave(state.tileWeave);
     session.setShowStarWeave(state.starWeave);
     pushColors();
@@ -367,13 +373,6 @@ async function main() {
     scheduleHashUpdate();
   });
 
-  bandedCb.addEventListener("change", () => {
-    state.bandedMode = bandedCb.checked;
-    session.setBandedMode(state.bandedMode);
-    draw();
-    scheduleHashUpdate();
-  });
-
   tileWeaveCb.addEventListener("change", () => {
     state.tileWeave = tileWeaveCb.checked;
     session.setShowTileWeave(state.tileWeave);
@@ -396,14 +395,25 @@ async function main() {
     scheduleHashUpdate();
   });
 
-  const updateBandReadout = () => {
-    bandReadout.textContent = `${state.bandWidth.toFixed(1)} px`;
+  const updateTileBandReadout = () => {
+    tileBandReadout.textContent = `${state.tileBandWidth.toFixed(1)} px`;
   };
-  updateBandReadout();
-  band.addEventListener("input", () => {
-    state.bandWidth = parseFloat(band.value);
-    updateBandReadout();
-    session.setBandWidth(state.bandWidth);
+  const updateStarBandReadout = () => {
+    starBandReadout.textContent = `${state.starBandWidth.toFixed(1)} px`;
+  };
+  updateTileBandReadout();
+  updateStarBandReadout();
+  tileBand.addEventListener("input", () => {
+    state.tileBandWidth = parseFloat(tileBand.value);
+    updateTileBandReadout();
+    session.setTileBandWidth(state.tileBandWidth);
+    draw();
+    scheduleHashUpdate();
+  });
+  starBand.addEventListener("input", () => {
+    state.starBandWidth = parseFloat(starBand.value);
+    updateStarBandReadout();
+    session.setStarBandWidth(state.starBandWidth);
     draw();
     scheduleHashUpdate();
   });

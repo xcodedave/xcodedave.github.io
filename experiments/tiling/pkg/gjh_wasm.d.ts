@@ -32,21 +32,9 @@ export class TilingSession {
      */
     render(ctx: CanvasRenderingContext2D): void;
     /**
-     * Set the canvas background colour. In banded mode this also serves as
-     * the band interior fill.
+     * Set the canvas background colour.
      */
     setBackground(r: number, g: number, b: number): void;
-    /**
-     * Update the stroke width applied to both tile and star polygon outlines.
-     * At higher values the strokes read as visible mitred bands hugging the
-     * polygon edges. Clamped to `≥ 0`; a value of 0 hides the outline (the
-     * renderer treats it as a zero-width stroke).
-     */
-    setBandWidth(width: number): void;
-    /**
-     * Toggle banded rendering. See module docs.
-     */
-    setBandedMode(on: boolean): void;
     /**
      * Switch to a different library config. Cell polygons are rebuilt;
      * star layer is rebuilt against them.
@@ -78,6 +66,11 @@ export class TilingSession {
      */
     setStarAngle(radians: number): void;
     /**
+     * Update the stroke width applied to star polygon outlines and the
+     * star-weave ribbon half-width. Clamped to `≥ 0`.
+     */
+    setStarBandWidth(width: number): void;
+    /**
      * Set the fill colour for star polygons.
      */
     setStarFillColor(r: number, g: number, b: number): void;
@@ -85,6 +78,11 @@ export class TilingSession {
      * Set the stroke (band-edge) colour for stars.
      */
     setStarStrokeColor(r: number, g: number, b: number): void;
+    /**
+     * Update the stroke width applied to tile polygon outlines and the
+     * tile-weave ribbon half-width. Clamped to `≥ 0`.
+     */
+    setTileBandWidth(width: number): void;
     /**
      * Set the fill colour for tiles with `edge_count` edges. Triggers a
      * per-frame re-paint; cell polygons / star layer are unaffected.
@@ -131,16 +129,16 @@ export interface InitOutput {
     readonly tilingsession_new: (a: number) => number;
     readonly tilingsession_render: (a: number, b: any) => void;
     readonly tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
-    readonly tilingsession_setBandWidth: (a: number, b: number) => void;
-    readonly tilingsession_setBandedMode: (a: number, b: number) => void;
     readonly tilingsession_setConfig: (a: number, b: number) => void;
     readonly tilingsession_setShowStarWeave: (a: number, b: number) => void;
     readonly tilingsession_setShowStars: (a: number, b: number) => void;
     readonly tilingsession_setShowTileWeave: (a: number, b: number) => void;
     readonly tilingsession_setShowTiles: (a: number, b: number) => void;
     readonly tilingsession_setStarAngle: (a: number, b: number) => void;
+    readonly tilingsession_setStarBandWidth: (a: number, b: number) => void;
     readonly tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setStarStrokeColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setTileBandWidth: (a: number, b: number) => void;
     readonly tilingsession_setTilePaletteColor: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly tilingsession_setTileStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;

@@ -43,11 +43,25 @@ body {
   user-select: none;
 }
 
-#panel h1 {
+fieldset.group {
   margin: 0 0 10px;
-  font-size: 0.95rem;
+  padding: 8px 12px 4px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+fieldset.group > legend {
   font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 0.82rem;
+  color: #444;
+  padding: 0 6px;
+  letter-spacing: 0.02em;
+}
+
+fieldset.group > .row:last-child,
+fieldset.group > details.palette:last-child {
+  margin-bottom: 4px;
 }
 
 .row {

@@ -78,31 +78,13 @@ export class TilingSession {
         wasm.tilingsession_render(this.__wbg_ptr, ctx);
     }
     /**
-     * Set the canvas background colour. In banded mode this also serves as
-     * the band interior fill.
+     * Set the canvas background colour.
      * @param {number} r
      * @param {number} g
      * @param {number} b
      */
     setBackground(r, g, b) {
         wasm.tilingsession_setBackground(this.__wbg_ptr, r, g, b);
-    }
-    /**
-     * Update the stroke width applied to both tile and star polygon outlines.
-     * At higher values the strokes read as visible mitred bands hugging the
-     * polygon edges. Clamped to `≥ 0`; a value of 0 hides the outline (the
-     * renderer treats it as a zero-width stroke).
-     * @param {number} width
-     */
-    setBandWidth(width) {
-        wasm.tilingsession_setBandWidth(this.__wbg_ptr, width);
-    }
-    /**
-     * Toggle banded rendering. See module docs.
-     * @param {boolean} on
-     */
-    setBandedMode(on) {
-        wasm.tilingsession_setBandedMode(this.__wbg_ptr, on);
     }
     /**
      * Switch to a different library config. Cell polygons are rebuilt;
@@ -153,6 +135,14 @@ export class TilingSession {
         wasm.tilingsession_setStarAngle(this.__wbg_ptr, radians);
     }
     /**
+     * Update the stroke width applied to star polygon outlines and the
+     * star-weave ribbon half-width. Clamped to `≥ 0`.
+     * @param {number} width
+     */
+    setStarBandWidth(width) {
+        wasm.tilingsession_setStarBandWidth(this.__wbg_ptr, width);
+    }
+    /**
      * Set the fill colour for star polygons.
      * @param {number} r
      * @param {number} g
@@ -169,6 +159,14 @@ export class TilingSession {
      */
     setStarStrokeColor(r, g, b) {
         wasm.tilingsession_setStarStrokeColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
+     * Update the stroke width applied to tile polygon outlines and the
+     * tile-weave ribbon half-width. Clamped to `≥ 0`.
+     * @param {number} width
+     */
+    setTileBandWidth(width) {
+        wasm.tilingsession_setTileBandWidth(this.__wbg_ptr, width);
     }
     /**
      * Set the fill colour for tiles with `edge_count` edges. Triggers a
