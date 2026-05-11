@@ -453,11 +453,42 @@ async function main() {
 
   randomBtn.addEventListener("click", () => {
     if (configs.length <= 1) return;
+    // 1) Pick a random *different* tiling. `switchConfig` also rebuilds
+    //    `state.harmonics` for the new shape set, which we need below
+    //    before picking an angle.
     let idx = Math.floor(Math.random() * configs.length);
     if (idx === state.configIdx) {
       idx = (idx + 1) % configs.length;
     }
     switchConfig(idx);
+
+    // 2) Randomise whether the star ribbon (weave) is shown.
+    starWeaveCb.checked = Math.random() < 0.5;
+    starWeaveCb.dispatchEvent(new Event("change"));
+
+    // 3) Randomise the star ribbon width across the full slider range
+    //    [0, 40] with the slider's own 0.5 step.
+    const w = Math.round(Math.random() * 80) / 2;
+    starBand.value = String(w);
+    starBand.dispatchEvent(new Event("input"));
+
+    // 4) Randomise the star contact angle. 50% of the time snap straight to
+    //    a harmonic from the current tiling (the visually-pleasing
+    //    integer-fraction angles); otherwise pick a uniform [0, 90] value
+    //    at the slider's 0.5° step and let the existing input listener
+    //    apply harmonic-snap if the user has it on.
+    let deg;
+    if (Math.random() < 0.5 && state.harmonics.length > 0) {
+      deg = state.harmonics[Math.floor(Math.random() * state.harmonics.length)];
+    } else {
+      deg = Math.round(Math.random() * 180) / 2;
+    }
+    angle.value = String(deg);
+    angle.dispatchEvent(new Event("input"));
+
+    // 5) Randomise the star colour palette (reuses the dice-button logic
+    //    including the optional shuffle + edge-darken rolls).
+    applyRandomPalette();
   });
 
   showStarsCb.addEventListener("change", () => {
