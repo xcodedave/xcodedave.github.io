@@ -502,7 +502,15 @@ async function main() {
   });
 
   zoomSlider.addEventListener("input", () => {
-    state.zoom = parseFloat(zoomSlider.value);
+    const newZoom = parseFloat(zoomSlider.value);
+    // Center-anchored: keep the screen-center world point fixed by scaling
+    // pan by the same ratio as zoom. (Without this, zoom is anchored at the
+    // world origin, which sits off-screen once the user has panned and the
+    // content appears to fly out from a corner.)
+    const ratio = newZoom / state.zoom;
+    state.panX *= ratio;
+    state.panY *= ratio;
+    state.zoom = newZoom;
     updateZoomReadout();
     draw();
     scheduleHashUpdate();
@@ -555,55 +563,128 @@ async function main() {
     scheduleHashUpdate();
   });
 
-  // Drag to pan.
-  let dragging = false;
-  let lastX = 0;
-  let lastY = 0;
-  canvas.addEventListener("pointerdown", (e) => {
-    dragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    state.panX += e.clientX - lastX;
-    state.panY += e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    draw();
-    scheduleHashUpdate();
-  });
-  const endDrag = (e) => {
-    dragging = false;
-    try {
-      canvas.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+  // Pointer-based pan + pinch zoom. Pointer Events unify mouse, pen, and
+  // touch, so this single block handles desktop drag, iPhone single-finger
+  // pan, and iPhone two-finger pinch-zoom. The canvas CSS sets
+  // `touch-action: none` so the browser doesn't claim touch gestures first.
+  const pointers = new Map(); // pointerId -> { x, y }
+  let lastMidX = 0;
+  let lastMidY = 0;
+  let lastDist = 0;
+
+  const pointerMidpoint = () => {
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const p of pointers.values()) {
+      sx += p.x;
+      sy += p.y;
+      n += 1;
+    }
+    return n > 0 ? { x: sx / n, y: sy / n } : { x: 0, y: 0 };
   };
-  canvas.addEventListener("pointerup", endDrag);
-  canvas.addEventListener("pointercancel", endDrag);
 
-  // Wheel to zoom (centred on cursor).
-  canvas.addEventListener(
-    "wheel",
-    (e) => {
-      e.preventDefault();
-      const cx = e.clientX - window.innerWidth / 2;
-      const cy = e.clientY - window.innerHeight / 2;
+  const pointerSpread = () => {
+    if (pointers.size !== 2) return 0;
+    const it = pointers.values();
+    const a = it.next().value;
+    const b = it.next().value;
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  };
 
-      const factor = Math.exp(-e.deltaY * 0.001);
+  const resampleGesture = () => {
+    const m = pointerMidpoint();
+    lastMidX = m.x;
+    lastMidY = m.y;
+    lastDist = pointerSpread();
+  };
+
+  canvas.addEventListener("pointerdown", (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    // Any change in the active pointer set resets the gesture baseline,
+    // so adding/removing a finger doesn't cause a one-frame jump from the
+    // mismatch between the old midpoint/distance and the new pointer set.
+    resampleGesture();
+  });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    const m = pointerMidpoint();
+    const d = pointerSpread();
+
+    if (pointers.size === 1) {
+      // Single-finger / mouse drag → pan.
+      state.panX += m.x - lastMidX;
+      state.panY += m.y - lastMidY;
+    } else if (pointers.size === 2 && lastDist > 0 && d > 0) {
+      // Two-finger pinch → zoom anchored at the gesture midpoint, plus
+      // pan with the midpoint motion so the pinch also drags content.
+      const factor = d / lastDist;
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.zoom * factor));
+      const cx = m.x - window.innerWidth / 2;
+      const cy = m.y - window.innerHeight / 2;
       const wx = (cx - state.panX) / state.zoom;
       const wy = (cy - state.panY) / state.zoom;
       state.zoom = newZoom;
       state.panX = cx - wx * state.zoom;
       state.panY = cy - wy * state.zoom;
+      state.panX += m.x - lastMidX;
+      state.panY += m.y - lastMidY;
+      updateZoomReadout();
+    }
+
+    lastMidX = m.x;
+    lastMidY = m.y;
+    lastDist = d;
+    draw();
+    scheduleHashUpdate();
+  });
+
+  const releasePointer = (e) => {
+    if (pointers.has(e.pointerId)) {
+      pointers.delete(e.pointerId);
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+    resampleGesture();
+  };
+  canvas.addEventListener("pointerup", releasePointer);
+  canvas.addEventListener("pointercancel", releasePointer);
+
+  // Wheel to zoom — centre-anchored, matching the slider. (Cursor-anchored
+  // zoom is too aggressive when the cursor is near a corner: the content
+  // appears to fly out of that corner. Keeping the screen-centre world
+  // point fixed reads more naturally.)
+  canvas.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.001);
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.zoom * factor));
+      const ratio = newZoom / state.zoom;
+      state.panX *= ratio;
+      state.panY *= ratio;
+      state.zoom = newZoom;
       updateZoomReadout();
       draw();
       scheduleHashUpdate();
     },
     { passive: false }
   );
+
+  // Prevent iOS Safari's legacy gesture events from firing alongside
+  // Pointer Events (some Safari versions still emit these even with
+  // `touch-action: none`). Without these, the OS may intercept a
+  // two-finger pinch as a page-level zoom.
+  canvas.addEventListener("gesturestart", (e) => e.preventDefault());
+  canvas.addEventListener("gesturechange", (e) => e.preventDefault());
+  canvas.addEventListener("gestureend", (e) => e.preventDefault());
 
   // Export buttons.
   svgBtn.addEventListener("click", () => {
