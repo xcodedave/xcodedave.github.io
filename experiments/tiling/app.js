@@ -738,11 +738,14 @@ async function main() {
     }
     let [sf, intf, rf, rs] = quad;
     // 50% of the time, override the ribbon-stroke (edge) colour with a
-    // 65%-darkened version of the ribbon fill — gives the weave a
-    // tonal-on-tonal feel rather than always pulling a fourth distinct hue.
+    // darkened version of the ribbon fill (between 65% and 95% darker,
+    // uniform) — gives the weave a tonal-on-tonal feel rather than always
+    // pulling a fourth distinct hue, and the random magnitude keeps it
+    // from settling into one "look".
     if (Math.random() < 0.5) {
       const [r, g, b] = hexToRgb(rf);
-      const darken = (c) => Math.round(c * 0.35).toString(16).padStart(2, "0");
+      const keep = 0.05 + Math.random() * 0.30; // 5–35% of original brightness
+      const darken = (c) => Math.round(c * keep).toString(16).padStart(2, "0");
       rs = `#${darken(r)}${darken(g)}${darken(b)}`;
     }
     starFillInput.value = sf;
