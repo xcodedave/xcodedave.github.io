@@ -636,7 +636,15 @@ async function main() {
         [quad[i], quad[j]] = [quad[j], quad[i]];
       }
     }
-    const [sf, intf, rf, rs] = quad;
+    let [sf, intf, rf, rs] = quad;
+    // 50% of the time, override the ribbon-stroke (edge) colour with a
+    // half-brightness version of the ribbon fill — gives the weave a
+    // tonal-on-tonal feel rather than always pulling a fourth distinct hue.
+    if (Math.random() < 0.5) {
+      const [r, g, b] = hexToRgb(rf);
+      const darken = (c) => Math.round(c * 0.5).toString(16).padStart(2, "0");
+      rs = `#${darken(r)}${darken(g)}${darken(b)}`;
+    }
     starFillInput.value = sf;
     interstitialFillInput.value = intf;
     starRibbonFillInput.value = rf;
