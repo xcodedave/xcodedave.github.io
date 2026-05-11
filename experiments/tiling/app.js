@@ -226,6 +226,14 @@ async function main() {
 
   const select = document.getElementById("config-select");
   const randomBtn = document.getElementById("random");
+  const panel = document.getElementById("panel");
+  const panelToggleBtn = document.getElementById("panel-toggle");
+  panelToggleBtn.addEventListener("click", () => {
+    const collapsed = panel.classList.toggle("collapsed");
+    panelToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    panelToggleBtn.title = collapsed ? "Expand panel" : "Collapse panel";
+    panelToggleBtn.setAttribute("aria-label", collapsed ? "Expand panel" : "Collapse panel");
+  });
   const angle = document.getElementById("angle");
   const angleReadout = document.getElementById("angle-readout");
   const tileBand = document.getElementById("tile-band");

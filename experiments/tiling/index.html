@@ -10,11 +10,12 @@
     <canvas id="stage"></canvas>
 
     <aside id="panel">
-      <div class="row">
+      <div class="row primary">
         <label for="config-select">Tiling</label>
         <div class="row-controls">
           <select id="config-select"></select>
           <button id="random" title="Random tiling">🎲</button>
+          <button id="panel-toggle" title="Collapse panel" aria-expanded="true" aria-label="Collapse panel">▾</button>
         </div>
       </div>
 
@@ -161,6 +162,6 @@
       <p class="hint">Drag to pan · scroll to zoom</p>
     </aside>
 
-    <script type="module" src="./app.js?v=17"></script>
+    <script type="module" src="./app.js?v=18"></script>
   </body>
 </html>
