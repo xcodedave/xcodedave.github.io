@@ -163,6 +163,24 @@ export class TilingSession {
         wasm.tilingsession_setStarFillColor(this.__wbg_ptr, r, g, b);
     }
     /**
+     * Set the fill colour of the star-layer ribbon body.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setStarRibbonFillColor(r, g, b) {
+        wasm.tilingsession_setStarRibbonFillColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
+     * Set the stroke colour of the star-layer ribbon rails.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setStarRibbonStrokeColor(r, g, b) {
+        wasm.tilingsession_setStarRibbonStrokeColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
      * Set the stroke (band-edge) colour for stars.
      * @param {number} r
      * @param {number} g
@@ -189,6 +207,26 @@ export class TilingSession {
      */
     setTilePaletteColor(edge_count, r, g, b) {
         wasm.tilingsession_setTilePaletteColor(this.__wbg_ptr, edge_count, r, g, b);
+    }
+    /**
+     * Set the fill colour of the tile-layer ribbon body. Independent of
+     * `tile_stroke` (which still drives the polygon outline). Only takes
+     * visual effect when `show_tile_weave` is on.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setTileRibbonFillColor(r, g, b) {
+        wasm.tilingsession_setTileRibbonFillColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
+     * Set the stroke colour of the tile-layer ribbon rails.
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    setTileRibbonStrokeColor(r, g, b) {
+        wasm.tilingsession_setTileRibbonStrokeColor(this.__wbg_ptr, r, g, b);
     }
     /**
      * Set the stroke (band-edge) colour for tiles.

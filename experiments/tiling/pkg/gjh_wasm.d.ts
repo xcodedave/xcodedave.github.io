@@ -81,6 +81,14 @@ export class TilingSession {
      */
     setStarFillColor(r: number, g: number, b: number): void;
     /**
+     * Set the fill colour of the star-layer ribbon body.
+     */
+    setStarRibbonFillColor(r: number, g: number, b: number): void;
+    /**
+     * Set the stroke colour of the star-layer ribbon rails.
+     */
+    setStarRibbonStrokeColor(r: number, g: number, b: number): void;
+    /**
      * Set the stroke (band-edge) colour for stars.
      */
     setStarStrokeColor(r: number, g: number, b: number): void;
@@ -94,6 +102,16 @@ export class TilingSession {
      * per-frame re-paint; cell polygons / star layer are unaffected.
      */
     setTilePaletteColor(edge_count: number, r: number, g: number, b: number): void;
+    /**
+     * Set the fill colour of the tile-layer ribbon body. Independent of
+     * `tile_stroke` (which still drives the polygon outline). Only takes
+     * visual effect when `show_tile_weave` is on.
+     */
+    setTileRibbonFillColor(r: number, g: number, b: number): void;
+    /**
+     * Set the stroke colour of the tile-layer ribbon rails.
+     */
+    setTileRibbonStrokeColor(r: number, g: number, b: number): void;
     /**
      * Set the stroke (band-edge) colour for tiles.
      */
@@ -144,9 +162,13 @@ export interface InitOutput {
     readonly tilingsession_setStarAngle: (a: number, b: number) => void;
     readonly tilingsession_setStarBandWidth: (a: number, b: number) => void;
     readonly tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setStarRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setStarRibbonStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setStarStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setTileBandWidth: (a: number, b: number) => void;
     readonly tilingsession_setTilePaletteColor: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly tilingsession_setTileRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setTileRibbonStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setTileStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly tilingsession_tileShapeEdgeCounts: (a: number) => [number, number];

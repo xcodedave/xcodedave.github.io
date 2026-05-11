@@ -46,6 +46,13 @@ const state = {
   starStroke: "#c82020",
   interstitialFill: "#c8643c",
   tileStroke: "#202020",
+  // Per-layer ribbon colours. Defaults reproduce the prior "background body +
+  // polygon-stroke rails" look so users on existing hashes see no visual
+  // change until they pick a colour.
+  starRibbonFill: "#ffffff",
+  starRibbonStroke: "#c82020",
+  tileRibbonFill: "#ffffff",
+  tileRibbonStroke: "#202020",
   background: "#ffffff",
 };
 
@@ -84,6 +91,10 @@ function encodeState(s) {
     sk: s.starStroke,
     bw: s.interstitialFill,
     ts: s.tileStroke,
+    srf: s.starRibbonFill,
+    srs: s.starRibbonStroke,
+    trf: s.tileRibbonFill,
+    trs: s.tileRibbonStroke,
     bg: s.background,
   };
   return urlSafeBtoa(JSON.stringify(obj));
@@ -120,6 +131,10 @@ function decodeStateInto(s, encoded) {
   if (typeof obj.sk === "string") s.starStroke = obj.sk;
   if (typeof obj.bw === "string") s.interstitialFill = obj.bw;
   if (typeof obj.ts === "string") s.tileStroke = obj.ts;
+  if (typeof obj.srf === "string") s.starRibbonFill = obj.srf;
+  if (typeof obj.srs === "string") s.starRibbonStroke = obj.srs;
+  if (typeof obj.trf === "string") s.tileRibbonFill = obj.trf;
+  if (typeof obj.trs === "string") s.tileRibbonStroke = obj.trs;
   if (typeof obj.bg === "string") s.background = obj.bg;
   return true;
 }
@@ -175,6 +190,10 @@ async function main() {
   const starStrokeInput = document.getElementById("star-stroke");
   const interstitialFillInput = document.getElementById("interstitial-fill");
   const tileStrokeInput = document.getElementById("tile-stroke");
+  const starRibbonFillInput = document.getElementById("star-ribbon-fill");
+  const starRibbonStrokeInput = document.getElementById("star-ribbon-stroke");
+  const tileRibbonFillInput = document.getElementById("tile-ribbon-fill");
+  const tileRibbonStrokeInput = document.getElementById("tile-ribbon-stroke");
   const backgroundInput = document.getElementById("background");
 
   // Apply the body background colour outside the canvas so the floating
@@ -245,6 +264,14 @@ async function main() {
     session.setStarStrokeColor(ss[0], ss[1], ss[2]);
     session.setInterstitialFillColor(inter[0], inter[1], inter[2]);
     session.setTileStrokeColor(ts[0], ts[1], ts[2]);
+    const srf = hexToRgb(state.starRibbonFill);
+    const srs = hexToRgb(state.starRibbonStroke);
+    const trf = hexToRgb(state.tileRibbonFill);
+    const trs = hexToRgb(state.tileRibbonStroke);
+    session.setStarRibbonFillColor(srf[0], srf[1], srf[2]);
+    session.setStarRibbonStrokeColor(srs[0], srs[1], srs[2]);
+    session.setTileRibbonFillColor(trf[0], trf[1], trf[2]);
+    session.setTileRibbonStrokeColor(trs[0], trs[1], trs[2]);
     session.setBackground(bg[0], bg[1], bg[2]);
     for (const [n, hex] of Object.entries(state.tilePalette)) {
       const [r, g, b] = hexToRgb(hex);
@@ -355,6 +382,10 @@ async function main() {
     starStrokeInput.value = state.starStroke;
     interstitialFillInput.value = state.interstitialFill;
     tileStrokeInput.value = state.tileStroke;
+    starRibbonFillInput.value = state.starRibbonFill;
+    starRibbonStrokeInput.value = state.starRibbonStroke;
+    tileRibbonFillInput.value = state.tileRibbonFill;
+    tileRibbonStrokeInput.value = state.tileRibbonStroke;
     backgroundInput.value = state.background;
   };
 
@@ -562,6 +593,34 @@ async function main() {
     state.tileStroke = tileStrokeInput.value;
     const [r, g, b] = hexToRgb(state.tileStroke);
     session.setTileStrokeColor(r, g, b);
+    draw();
+    scheduleHashUpdate();
+  });
+  starRibbonFillInput.addEventListener("input", () => {
+    state.starRibbonFill = starRibbonFillInput.value;
+    const [r, g, b] = hexToRgb(state.starRibbonFill);
+    session.setStarRibbonFillColor(r, g, b);
+    draw();
+    scheduleHashUpdate();
+  });
+  starRibbonStrokeInput.addEventListener("input", () => {
+    state.starRibbonStroke = starRibbonStrokeInput.value;
+    const [r, g, b] = hexToRgb(state.starRibbonStroke);
+    session.setStarRibbonStrokeColor(r, g, b);
+    draw();
+    scheduleHashUpdate();
+  });
+  tileRibbonFillInput.addEventListener("input", () => {
+    state.tileRibbonFill = tileRibbonFillInput.value;
+    const [r, g, b] = hexToRgb(state.tileRibbonFill);
+    session.setTileRibbonFillColor(r, g, b);
+    draw();
+    scheduleHashUpdate();
+  });
+  tileRibbonStrokeInput.addEventListener("input", () => {
+    state.tileRibbonStroke = tileRibbonStrokeInput.value;
+    const [r, g, b] = hexToRgb(state.tileRibbonStroke);
+    session.setTileRibbonStrokeColor(r, g, b);
     draw();
     scheduleHashUpdate();
   });
