@@ -145,6 +145,51 @@ function hexToRgb(hex) {
   ];
 }
 
+// HSL helpers used by the palette-randomiser to apply an optional global
+// hue rotation. HSL preserves perceptual lightness across hues better than
+// HSV, so a rotated palette retains its dark/medium/light banding.
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d) + (g < b ? 6 : 0);
+  else if (max === g) h = ((b - r) / d) + 2;
+  else h = ((r - g) / d) + 4;
+  return [h * 60, s, l];
+}
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v];
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const k = (t) => {
+    t = (t + 1) % 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [
+    Math.round(k(h + 1 / 3) * 255),
+    Math.round(k(h) * 255),
+    Math.round(k(h - 1 / 3) * 255),
+  ];
+}
+function hueShiftHex(hex, deltaDeg) {
+  const [r, g, b] = hexToRgb(hex);
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const [r2, g2, b2] = hslToRgb(h + deltaDeg, s, l);
+  return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
+}
+
 async function main() {
   await init();
 
@@ -656,11 +701,19 @@ async function main() {
   // randomiser fires immediately unless the user followed a permalink that
   // carried explicit star colours — those must not be clobbered.
   const applyRandomPalette = () => {
+    // 50% of the time, rotate the whole palette in HSL hue space by a
+    // uniform random amount. All four colours shift by the same angle so
+    // the relative palette structure is preserved — only the colour key
+    // changes (e.g. an ochre/terracotta palette becomes teal/violet).
+    let quad = Array.from(TilingSession.randomPalette());
+    if (Math.random() < 0.5) {
+      const delta = Math.random() * 360;
+      quad = quad.map((c) => hueShiftHex(c, delta));
+    }
     // 50% of the time, shuffle the four colours within the palette so they
     // map differently onto (star, polygon, ribbon-fill, ribbon-stroke) —
     // gives the dice button more variety without enlarging the palette set.
     // Fisher–Yates over a 4-element array is fine; no Set needed.
-    const quad = Array.from(TilingSession.randomPalette());
     if (Math.random() < 0.5) {
       for (let i = quad.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
