@@ -233,6 +233,10 @@ async function main() {
     panelToggleBtn.setAttribute("aria-expanded", String(!collapsed));
     panelToggleBtn.title = collapsed ? "Expand panel" : "Collapse panel";
     panelToggleBtn.setAttribute("aria-label", collapsed ? "Expand panel" : "Collapse panel");
+    // ☰ is the universal "open menu" affordance; ✕ is the universal
+    // "close / minimise" affordance. Swapping the glyph makes the
+    // button's purpose obvious without a text label.
+    panelToggleBtn.textContent = collapsed ? "☰" : "✕";
   });
   const angle = document.getElementById("angle");
   const angleReadout = document.getElementById("angle-readout");

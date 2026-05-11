@@ -135,19 +135,31 @@ fieldset.group > details.palette:last-child {
   background: #f0f0f0;
 }
 
-#panel button#random,
-#panel button#panel-toggle {
+#panel button#random {
   padding: 2px 8px;
   font-size: 1rem;
   line-height: 1;
 }
 
+/* Make the collapse/expand control clearly read as a panel chrome
+   button: a chunkier square, slightly bolder border, and a visible
+   hover/active state. The icon is swapped between ✕ (collapse) and
+   ☰ (expand) in JS so the affordance is unambiguous. */
 #panel button#panel-toggle {
-  transition: transform 0.18s ease-out;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  font-size: 1.05rem;
+  line-height: 1;
+  border: 1px solid #888;
+  background: #f5f5f5;
+  border-radius: 5px;
+  font-weight: 600;
+  color: #333;
 }
 
-#panel.collapsed button#panel-toggle {
-  transform: rotate(-90deg);
+#panel button#panel-toggle:hover {
+  background: #e6e6e6;
 }
 
 #panel.collapsed > :not(.primary) {
