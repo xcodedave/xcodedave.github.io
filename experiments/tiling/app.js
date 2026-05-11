@@ -852,11 +852,16 @@ async function main() {
         panel.classList.contains("collapsed") && e.pointerType === "touch";
       if (mobileCollapsed) {
         // ~360px of horizontal travel = full 0–90° sweep (one phone-width-ish).
+        // Important: do NOT run snapAngle here. Each pointermove's dx is
+        // tiny (typically 0.25–0.75°), but harmonic-snap pulls anything
+        // within 4° of a harmonic back onto it, so accumulating small
+        // touch deltas would get stuck on a harmonic until a single frame
+        // happens to push past the 4° threshold — the user sees the angle
+        // stall and then jump. The slider still snaps when grabbed.
         if (dx !== 0) {
-          const raw = Math.max(0, Math.min(90, state.angleDeg + dx * (90 / 360)));
-          const snapped = snapAngle(raw);
-          state.angleDeg = snapped;
-          angle.value = String(snapped);
+          const next = Math.max(0, Math.min(90, state.angleDeg + dx * (90 / 360)));
+          state.angleDeg = next;
+          angle.value = String(next);
           angleReadout.textContent = formatAngle(state.angleDeg);
           session.setStarAngle((state.angleDeg * Math.PI) / 180);
         }
