@@ -27,7 +27,7 @@ const state = {
   panX: 0,
   panY: 0,
   zoom: RESET_ZOOM,
-  configIdx: 0,
+  configIdx: 52,
   angleDeg: 30,
   tileBandWidth: 4,
   starBandWidth: 4,
