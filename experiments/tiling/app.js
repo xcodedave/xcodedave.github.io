@@ -151,8 +151,21 @@ async function main() {
   // Apply any state encoded in the URL hash *before* we wire up the session
   // and DOM, so dropdowns/sliders/colour pickers all start in the saved
   // state rather than briefly flashing the defaults.
+  //
+  // We also note whether the hash carried explicit star-colour overrides:
+  // if it did, the user followed a permalink and we must not override
+  // their colours with the launch randomiser. If not, we'll pick a random
+  // palette once the curated palette set finishes loading.
+  let hashHadStarColors = false;
   if (location.hash && location.hash.length > 1) {
-    decodeStateInto(state, location.hash.slice(1));
+    const encoded = location.hash.slice(1);
+    decodeStateInto(state, encoded);
+    try {
+      const obj = JSON.parse(urlSafeAtob(encoded));
+      hashHadStarColors = obj && (
+        "sf" in obj || "bw" in obj || "srf" in obj || "srs" in obj
+      );
+    } catch (_) { /* malformed hash; treat as no colours */ }
   }
 
   const canvas = document.getElementById("stage");
@@ -187,6 +200,7 @@ async function main() {
   const tileRibbonFillInput = document.getElementById("tile-ribbon-fill");
   const tileRibbonStrokeInput = document.getElementById("tile-ribbon-stroke");
   const backgroundInput = document.getElementById("background");
+  const paletteRandomizeBtn = document.getElementById("palette-randomize");
 
   // Apply the body background colour outside the canvas so the floating
   // panel sits on the same colour the canvas fills with.
@@ -604,6 +618,28 @@ async function main() {
     draw();
     scheduleHashUpdate();
   });
+
+  // Curated palettes are baked into the wasm bundle (see
+  // crates/gjh-wasm/data/palettes.json + build.rs), so picking one is a
+  // synchronous call with no fetch, no parsing, no failure mode. The launch
+  // randomiser fires immediately unless the user followed a permalink that
+  // carried explicit star colours — those must not be clobbered.
+  const applyRandomPalette = () => {
+    const [sf, intf, rf, rs] = TilingSession.randomPalette();
+    starFillInput.value = sf;
+    interstitialFillInput.value = intf;
+    starRibbonFillInput.value = rf;
+    starRibbonStrokeInput.value = rs;
+    // Re-use the existing input listeners to propagate state + push the
+    // colours into the wasm session + redraw + sync the URL hash.
+    starFillInput.dispatchEvent(new Event("input"));
+    interstitialFillInput.dispatchEvent(new Event("input"));
+    starRibbonFillInput.dispatchEvent(new Event("input"));
+    starRibbonStrokeInput.dispatchEvent(new Event("input"));
+  };
+  paletteRandomizeBtn.addEventListener("click", applyRandomPalette);
+  paletteRandomizeBtn.disabled = false;
+  if (!hashHadStarColors) applyRandomPalette();
 
   // Pointer-based pan + pinch zoom. Pointer Events unify mouse, pen, and
   // touch, so this single block handles desktop drag, iPhone single-finger

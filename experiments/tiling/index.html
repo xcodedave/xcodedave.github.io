@@ -56,7 +56,16 @@
           <summary>Colours</summary>
 
           <div class="palette-section">
-            <span class="palette-title">Star</span>
+            <div class="palette-section-header">
+              <span class="palette-title">Star</span>
+              <button
+                type="button"
+                id="palette-randomize"
+                class="palette-randomize"
+                title="Randomise colours from a curated palette"
+                aria-label="Randomise palette"
+              >🎲</button>
+            </div>
             <div class="swatch-grid">
               <label class="swatch">
                 <input type="color" id="star-fill" value="#ebd7af" />
@@ -152,6 +161,6 @@
       <p class="hint">Drag to pan · scroll to zoom</p>
     </aside>
 
-    <script type="module" src="./app.js?v=8"></script>
+    <script type="module" src="./app.js?v=10"></script>
   </body>
 </html>

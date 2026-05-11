@@ -25,6 +25,13 @@ export class TilingSession {
      */
     constructor(config_idx: number);
     /**
+     * Pick a uniformly-random palette from the curated set baked into the
+     * WASM bundle and return it as `[star_fill, interstitial_fill,
+     * ribbon_fill, ribbon_stroke]` — four `#rrggbb` strings the JS shell
+     * drops directly into its colour inputs.
+     */
+    static randomPalette(): any[];
+    /**
      * Imperatively draw the current state to a canvas 2D context. Must be
      * allocation-free per frame: the only heap traffic is the `Path2d`
      * cache rebuild inside `CanvasRenderer::begin`, which clears + rebuilds
@@ -143,6 +150,7 @@ export interface InitOutput {
     readonly tilingsession_exportSvg: (a: number) => [number, number];
     readonly tilingsession_listConfigs: () => [number, number];
     readonly tilingsession_new: (a: number) => number;
+    readonly tilingsession_randomPalette: () => [number, number];
     readonly tilingsession_render: (a: number, b: any) => void;
     readonly tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setConfig: (a: number, b: number) => void;

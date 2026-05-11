@@ -6,6 +6,7 @@ export const tilingsession_currentConfig: (a: number) => [number, number];
 export const tilingsession_exportSvg: (a: number) => [number, number];
 export const tilingsession_listConfigs: () => [number, number];
 export const tilingsession_new: (a: number) => number;
+export const tilingsession_randomPalette: () => [number, number];
 export const tilingsession_render: (a: number, b: any) => void;
 export const tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setConfig: (a: number, b: number) => void;

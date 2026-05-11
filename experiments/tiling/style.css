@@ -196,6 +196,26 @@ details.palette[open] > summary::before {
   font-weight: 500;
 }
 
+.palette-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.palette-randomize {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: transform 0.12s ease-out;
+}
+
+.palette-randomize:hover { transform: scale(1.18); }
+.palette-randomize:active { transform: scale(0.92); }
+.palette-randomize:disabled { opacity: 0.3; cursor: default; transform: none; }
+
 .swatch-grid {
   display: flex;
   flex-wrap: wrap;

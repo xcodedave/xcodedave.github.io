@@ -68,6 +68,19 @@ export class TilingSession {
         return this;
     }
     /**
+     * Pick a uniformly-random palette from the curated set baked into the
+     * WASM bundle and return it as `[star_fill, interstitial_fill,
+     * ribbon_fill, ribbon_stroke]` — four `#rrggbb` strings the JS shell
+     * drops directly into its colour inputs.
+     * @returns {any[]}
+     */
+    static randomPalette() {
+        const ret = wasm.tilingsession_randomPalette();
+        var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
      * Imperatively draw the current state to a canvas 2D context. Must be
      * allocation-free per frame: the only heap traffic is the `Path2d`
      * cache rebuild inside `CanvasRenderer::begin`, which clears + rebuilds
@@ -298,6 +311,10 @@ function __wbg_get_imports() {
             const ret = new Path2D();
             return ret;
         }, arguments); },
+        __wbg_random_a8dfe52b70cb65a5: function() {
+            const ret = Math.random();
+            return ret;
+        },
         __wbg_restore_6a7dd2b862e161a3: function(arg0) {
             arg0.restore();
         },
