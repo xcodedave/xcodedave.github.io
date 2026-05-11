@@ -32,9 +32,9 @@ const state = {
   tileBandWidth: 4,
   starBandWidth: 4,
   showStars: true,
-  showTiles: true,
+  showTiles: false,
   tileWeave: false,
-  starWeave: false,
+  starWeave: true,
   // Mutable colour state — initialised from the input defaults below.
   tilePalette: { ...DEFAULT_TILE_PALETTE },
   starFill: "#ebd7af",
