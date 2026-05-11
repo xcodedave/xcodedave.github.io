@@ -35,6 +35,11 @@ const state = {
   showTiles: false,
   tileWeave: false,
   starWeave: true,
+  harmonicSnap: true,
+  // Sorted list of "harmonic" star-contact angles (in degrees) for the
+  // currently loaded tiling: union of `k * 180/n` for each polygon edge
+  // count n. Rebuilt on every config switch.
+  harmonics: [],
   // Mutable colour state — initialised from the input defaults below.
   tilePalette: { ...DEFAULT_TILE_PALETTE },
   starFill: "#ebd7af",
@@ -72,6 +77,7 @@ function encodeState(s) {
     ss: s.showStars ? 1 : 0,
     tw: s.tileWeave ? 1 : 0,
     sw: s.starWeave ? 1 : 0,
+    hs: s.harmonicSnap ? 1 : 0,
     pal: s.tilePalette,
     sf: s.starFill,
     sk: s.starStroke,
@@ -104,6 +110,7 @@ function decodeStateInto(s, encoded) {
   if (obj.ss !== undefined) s.showStars = !!obj.ss;
   if (obj.tw !== undefined) s.tileWeave = !!obj.tw;
   if (obj.sw !== undefined) s.starWeave = !!obj.sw;
+  if (obj.hs !== undefined) s.harmonicSnap = !!obj.hs;
   if (obj.pal && typeof obj.pal === "object") {
     s.tilePalette = { ...s.tilePalette, ...obj.pal };
   }
@@ -153,6 +160,7 @@ async function main() {
   const showTilesCb = document.getElementById("show-tiles");
   const tileWeaveCb = document.getElementById("tile-weave");
   const starWeaveCb = document.getElementById("star-weave");
+  const harmonicSnapCb = document.getElementById("harmonic-snap");
   const resetBtn = document.getElementById("reset-view");
   const svgBtn = document.getElementById("export-svg");
   const pngBtn = document.getElementById("export-png");
@@ -234,6 +242,47 @@ async function main() {
   // tiling. Called on init and on every config switch — the set of shapes
   // can change (e.g. switching from `6/m30/r(h1)` to `12-3/m30/r(c2)`
   // adds a 12-gon picker).
+  // "Harmonic" star-contact angles for the current tiling: union of
+  // `k * 180/n` (in degrees, strictly between 0 and 90) for every polygon
+  // edge-count n in the tiling. These are the contact angles at which
+  // Hankin star edges most cleanly align with the polygon's symmetry axes.
+  // Examples:
+  //   triangle (n=3): {60}
+  //   square   (n=4): {45}
+  //   hexagon  (n=6): {30, 60}
+  //   octagon  (n=8): {22.5, 45, 67.5}
+  //   dodecagon(n=12): {15, 30, 45, 60, 75}
+  const rebuildHarmonics = () => {
+    const counts = Array.from(session.tileShapeEdgeCounts());
+    const set = new Set();
+    for (const n of counts) {
+      if (n < 3) continue;
+      const step = 180 / n;
+      for (let k = 1; k * step < 90 - 1e-9; k++) {
+        // Round to avoid floating-point drift in the Set dedup.
+        set.add(Math.round(k * step * 1000) / 1000);
+      }
+    }
+    state.harmonics = Array.from(set).sort((a, b) => a - b);
+  };
+
+  // Snap `deg` to the nearest harmonic if harmonic snap is enabled and the
+  // nearest harmonic is within 4°. Otherwise return `deg` unchanged.
+  const SNAP_THRESHOLD_DEG = 4;
+  const snapAngle = (deg) => {
+    if (!state.harmonicSnap || state.harmonics.length === 0) return deg;
+    let best = deg;
+    let bestD = SNAP_THRESHOLD_DEG;
+    for (const h of state.harmonics) {
+      const d = Math.abs(h - deg);
+      if (d <= bestD) {
+        bestD = d;
+        best = h;
+      }
+    }
+    return best;
+  };
+
   const rebuildTilePalette = () => {
     tilePaletteContainer.innerHTML = "";
     const counts = Array.from(session.tileShapeEdgeCounts());
@@ -274,7 +323,9 @@ async function main() {
   const applyStateToDom = () => {
     select.value = String(state.configIdx);
     angle.value = String(state.angleDeg);
-    angleReadout.textContent = `${state.angleDeg.toFixed(0)}°`;
+    angleReadout.textContent = Number.isInteger(state.angleDeg)
+      ? `${state.angleDeg.toFixed(0)}°`
+      : `${state.angleDeg.toFixed(1)}°`;
     tileBand.value = String(state.tileBandWidth);
     tileBandReadout.textContent = `${state.tileBandWidth.toFixed(1)} px`;
     starBand.value = String(state.starBandWidth);
@@ -284,6 +335,7 @@ async function main() {
     showTilesCb.checked = state.showTiles;
     tileWeaveCb.checked = state.tileWeave;
     starWeaveCb.checked = state.starWeave;
+    harmonicSnapCb.checked = state.harmonicSnap;
     starFillInput.value = state.starFill;
     starStrokeInput.value = state.starStroke;
     tileStrokeInput.value = state.tileStroke;
@@ -319,6 +371,7 @@ async function main() {
   session.setShowStarWeave(state.starWeave);
   pushColors();
   rebuildTilePalette();
+  rebuildHarmonics();
   updateZoomReadout();
   applyBodyBackground();
   draw();
@@ -341,6 +394,7 @@ async function main() {
     session.setShowStarWeave(state.starWeave);
     pushColors();
     rebuildTilePalette();
+    rebuildHarmonics();
     updateZoomReadout();
     draw();
     scheduleHashUpdate();
@@ -387,11 +441,33 @@ async function main() {
     scheduleHashUpdate();
   });
 
+  const formatAngle = (deg) =>
+    Number.isInteger(deg) ? `${deg.toFixed(0)}°` : `${deg.toFixed(1)}°`;
+
   angle.addEventListener("input", () => {
-    state.angleDeg = parseFloat(angle.value);
-    angleReadout.textContent = `${state.angleDeg.toFixed(0)}°`;
+    const raw = parseFloat(angle.value);
+    const snapped = snapAngle(raw);
+    state.angleDeg = snapped;
+    if (snapped !== raw) angle.value = String(snapped);
+    angleReadout.textContent = formatAngle(state.angleDeg);
     session.setStarAngle((state.angleDeg * Math.PI) / 180);
     draw();
+    scheduleHashUpdate();
+  });
+
+  harmonicSnapCb.addEventListener("change", () => {
+    state.harmonicSnap = harmonicSnapCb.checked;
+    // Snap the current value immediately if turning the toggle on.
+    if (state.harmonicSnap) {
+      const snapped = snapAngle(state.angleDeg);
+      if (snapped !== state.angleDeg) {
+        state.angleDeg = snapped;
+        angle.value = String(snapped);
+        angleReadout.textContent = formatAngle(state.angleDeg);
+        session.setStarAngle((state.angleDeg * Math.PI) / 180);
+        draw();
+      }
+    }
     scheduleHashUpdate();
   });
 
