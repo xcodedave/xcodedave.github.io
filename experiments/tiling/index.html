@@ -28,13 +28,6 @@
       <fieldset class="group" id="stars-group">
         <legend>Stars</legend>
 
-        <div class="row toggles">
-          <label class="inline">
-            <input type="checkbox" id="star-weave" checked />
-            Star weave
-          </label>
-        </div>
-
         <div class="row">
           <label class="inline">
             <input type="checkbox" id="harmonic-snap" checked />
@@ -47,8 +40,15 @@
           <input id="angle" type="range" min="0" max="90" value="30" step="0.5" />
         </div>
 
+        <div class="row toggles">
+          <label class="inline">
+            <input type="checkbox" id="star-weave" checked />
+            Ribbon
+          </label>
+        </div>
+
         <div class="row">
-          <label for="star-band">Band width <span id="star-band-readout">4 px</span></label>
+          <label for="star-band">Ribbon width <span id="star-band-readout">4 px</span></label>
           <input id="star-band" type="range" min="0" max="40" value="4" step="0.5" />
         </div>
 
@@ -88,12 +88,12 @@
         <div class="row toggles">
           <label class="inline">
             <input type="checkbox" id="tile-weave" />
-            Tile weave
+            Ribbon
           </label>
         </div>
 
         <div class="row">
-          <label for="tile-band">Band width <span id="tile-band-readout">4 px</span></label>
+          <label for="tile-band">Ribbon width <span id="tile-band-readout">4 px</span></label>
           <input id="tile-band" type="range" min="0" max="40" value="4" step="0.5" />
         </div>
 
@@ -138,6 +138,6 @@
       <p class="hint">Drag to pan · scroll to zoom</p>
     </aside>
 
-    <script type="module" src="./app.js?v=3"></script>
+    <script type="module" src="./app.js?v=4"></script>
   </body>
 </html>
