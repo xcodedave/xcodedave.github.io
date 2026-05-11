@@ -228,8 +228,8 @@ async function main() {
   const randomBtn = document.getElementById("random");
   const panel = document.getElementById("panel");
   const panelToggleBtn = document.getElementById("panel-toggle");
-  panelToggleBtn.addEventListener("click", () => {
-    const collapsed = panel.classList.toggle("collapsed");
+  const setPanelCollapsed = (collapsed) => {
+    panel.classList.toggle("collapsed", collapsed);
     panelToggleBtn.setAttribute("aria-expanded", String(!collapsed));
     panelToggleBtn.title = collapsed ? "Expand panel" : "Collapse panel";
     panelToggleBtn.setAttribute("aria-label", collapsed ? "Expand panel" : "Collapse panel");
@@ -237,7 +237,17 @@ async function main() {
     // "close / minimise" affordance. Swapping the glyph makes the
     // button's purpose obvious without a text label.
     panelToggleBtn.textContent = collapsed ? "☰" : "✕";
+  };
+  panelToggleBtn.addEventListener("click", () => {
+    setPanelCollapsed(!panel.classList.contains("collapsed"));
   });
+  // Default to collapsed on small viewports / touch-primary devices so the
+  // panel doesn't cover the artwork on phones. Desktop visitors still see
+  // the full panel open.
+  const isMobile =
+    window.matchMedia("(max-width: 600px)").matches ||
+    window.matchMedia("(pointer: coarse)").matches;
+  if (isMobile) setPanelCollapsed(true);
   const angle = document.getElementById("angle");
   const angleReadout = document.getElementById("angle-readout");
   const tileBand = document.getElementById("tile-band");
