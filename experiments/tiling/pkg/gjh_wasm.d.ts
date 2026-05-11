@@ -89,10 +89,6 @@ export class TilingSession {
      */
     setStarRibbonStrokeColor(r: number, g: number, b: number): void;
     /**
-     * Set the stroke (band-edge) colour for stars.
-     */
-    setStarStrokeColor(r: number, g: number, b: number): void;
-    /**
      * Update the stroke width applied to tile polygon outlines and the
      * tile-weave ribbon half-width. Clamped to `≥ 0`.
      */
@@ -164,7 +160,6 @@ export interface InitOutput {
     readonly tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setStarRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setStarRibbonStrokeColor: (a: number, b: number, c: number, d: number) => void;
-    readonly tilingsession_setStarStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setTileBandWidth: (a: number, b: number) => void;
     readonly tilingsession_setTilePaletteColor: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly tilingsession_setTileRibbonFillColor: (a: number, b: number, c: number, d: number) => void;

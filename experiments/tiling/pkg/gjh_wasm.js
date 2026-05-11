@@ -181,15 +181,6 @@ export class TilingSession {
         wasm.tilingsession_setStarRibbonStrokeColor(this.__wbg_ptr, r, g, b);
     }
     /**
-     * Set the stroke (band-edge) colour for stars.
-     * @param {number} r
-     * @param {number} g
-     * @param {number} b
-     */
-    setStarStrokeColor(r, g, b) {
-        wasm.tilingsession_setStarStrokeColor(this.__wbg_ptr, r, g, b);
-    }
-    /**
      * Update the stroke width applied to tile polygon outlines and the
      * tile-weave ribbon half-width. Clamped to `≥ 0`.
      * @param {number} width

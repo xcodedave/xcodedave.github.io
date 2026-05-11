@@ -19,7 +19,6 @@ export const tilingsession_setStarBandWidth: (a: number, b: number) => void;
 export const tilingsession_setStarFillColor: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setStarRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setStarRibbonStrokeColor: (a: number, b: number, c: number, d: number) => void;
-export const tilingsession_setStarStrokeColor: (a: number, b: number, c: number, d: number) => void;
 export const tilingsession_setTileBandWidth: (a: number, b: number) => void;
 export const tilingsession_setTilePaletteColor: (a: number, b: number, c: number, d: number, e: number) => void;
 export const tilingsession_setTileRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
