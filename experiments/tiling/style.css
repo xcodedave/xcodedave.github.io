@@ -57,6 +57,25 @@ body {
   user-select: none;
 }
 
+/* On narrow viewports, anchor the panel to both sides so the right
+   gutter equals the left/top gutter (16px). Without this the panel
+   stays at its fixed 280px width, producing an asymmetric right gap
+   on phones wider than ~312px. */
+@media (max-width: 600px) {
+  #panel {
+    right: 16px;
+    width: auto;
+    max-width: none;
+  }
+
+  /* When collapsed, shrink-wrap to the primary row instead of
+     stretching across the viewport. */
+  #panel.collapsed {
+    right: auto;
+    width: auto;
+  }
+}
+
 fieldset.group {
   margin: 0 0 10px;
   padding: 8px 12px 4px;

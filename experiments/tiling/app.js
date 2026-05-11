@@ -541,12 +541,19 @@ async function main() {
     if (configs.length <= 1) return;
     // 1) Pick a random *different* tiling. `switchConfig` also rebuilds
     //    `state.harmonics` for the new shape set, which we need below
-    //    before picking an angle.
+    //    before picking an angle. Preserve the user's current zoom
+    //    across the swap — `switchConfig` resets it to RESET_ZOOM, but
+    //    the random button is meant to reroll the star layer, not the
+    //    viewport.
     let idx = Math.floor(Math.random() * configs.length);
     if (idx === state.configIdx) {
       idx = (idx + 1) % configs.length;
     }
+    const prevZoom = state.zoom;
     switchConfig(idx);
+    state.zoom = prevZoom;
+    zoomSlider.value = String(prevZoom);
+    updateZoomReadout();
 
     // 2) Randomise whether the star ribbon (weave) is shown.
     starWeaveCb.checked = Math.random() < 0.5;
