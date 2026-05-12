@@ -683,15 +683,33 @@ async function main() {
   const formatAngle = (deg) =>
     Number.isInteger(deg) ? `${deg.toFixed(0)}°` : `${deg.toFixed(1)}°`;
 
+  // Live slider drag: track the raw value, no snapping. Same rationale as
+  // the collapsed-mobile horizontal touch-drag — pulling the angle onto a
+  // harmonic mid-drag makes the slider feel like it's stalling on snap
+  // points and then jumping past them. The `change` handler below
+  // applies snap once the user lets go.
   angle.addEventListener("input", () => {
     const raw = parseFloat(angle.value);
-    const snapped = snapAngle(raw);
-    state.angleDeg = snapped;
-    if (snapped !== raw) angle.value = String(snapped);
+    state.angleDeg = raw;
     angleReadout.textContent = formatAngle(state.angleDeg);
     session.setStarAngle((state.angleDeg * Math.PI) / 180);
     draw();
     scheduleHashUpdate();
+  });
+
+  // `change` fires once interaction ends (mouseup / touchend / blur after
+  // keyboard nudge) — apply the harmonic snap then so the final resting
+  // angle settles on a harmonic when one is in range.
+  angle.addEventListener("change", () => {
+    const snapped = snapAngle(state.angleDeg);
+    if (snapped !== state.angleDeg) {
+      state.angleDeg = snapped;
+      angle.value = String(snapped);
+      angleReadout.textContent = formatAngle(state.angleDeg);
+      session.setStarAngle((state.angleDeg * Math.PI) / 180);
+      draw();
+      scheduleHashUpdate();
+    }
   });
 
   harmonicSnapCb.addEventListener("change", () => {
