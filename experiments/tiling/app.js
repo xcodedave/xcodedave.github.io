@@ -229,7 +229,7 @@ async function main() {
     window.matchMedia("(max-width: 600px)").matches ||
     window.matchMedia("(pointer: coarse)").matches;
   if (isMobileViewport && !hasHash) {
-    state.zoom = 0.35;
+    state.zoom = 0.5;
   }
 
   const canvas = document.getElementById("stage");
