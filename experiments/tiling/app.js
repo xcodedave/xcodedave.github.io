@@ -6,6 +6,9 @@
 // panel in the top-left holds controls.
 
 import init, { TilingSession } from "./pkg/gjh_wasm.js";
+import { hexToRgb, hueShiftHex, saturateHex } from "./lib/color.js";
+import { encodeState, decodeStateInto } from "./lib/url-state.js";
+import { download, triggerDownload } from "./lib/download.js";
 
 const RESET_ZOOM = 1.0;
 const MIN_ZOOM = 0.2;
@@ -53,150 +56,6 @@ const state = {
   tileRibbonStroke: "#202020",
   background: "#ffffff",
 };
-
-// --- URL-hash state codec --------------------------------------------------
-//
-// Encode `state` as URL-safe base64(JSON) and stamp it into `location.hash`
-// after the user finishes interacting (debounced) so the URL becomes a
-// shareable permalink. Tiling identity is stored as its index into
-// `TilingSession.listConfigs()` (single-byte).
-
-function urlSafeBtoa(s) {
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function urlSafeAtob(s) {
-  const padLen = (4 - (s.length % 4)) % 4;
-  return atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(padLen));
-}
-
-function encodeState(s) {
-  // Compact key names to keep the URL short.
-  const obj = {
-    c: s.configIdx,
-    a: s.angleDeg,
-    tb: s.tileBandWidth,
-    sb: s.starBandWidth,
-    z: s.zoom,
-    x: s.panX,
-    y: s.panY,
-    st: s.showTiles ? 1 : 0,
-    ss: s.showStars ? 1 : 0,
-    tw: s.tileWeave ? 1 : 0,
-    sw: s.starWeave ? 1 : 0,
-    hs: s.harmonicSnap ? 1 : 0,
-    pal: s.tilePalette,
-    sf: s.starFill,
-    bw: s.interstitialFill,
-    srf: s.starRibbonFill,
-    srs: s.starRibbonStroke,
-    trf: s.tileRibbonFill,
-    trs: s.tileRibbonStroke,
-    bg: s.background,
-  };
-  return urlSafeBtoa(JSON.stringify(obj));
-}
-
-function decodeStateInto(s, encoded) {
-  let obj;
-  try {
-    obj = JSON.parse(urlSafeAtob(encoded));
-  } catch (_) {
-    return false;
-  }
-  if (typeof obj !== "object" || obj === null) return false;
-  if (Number.isInteger(obj.c)) s.configIdx = obj.c;
-  if (typeof obj.a === "number") s.angleDeg = obj.a;
-  // Per-layer band widths (new). Fall back to legacy `b` (one slider for
-  // both layers) so old URL hashes keep working.
-  if (typeof obj.tb === "number") s.tileBandWidth = obj.tb;
-  else if (typeof obj.b === "number") s.tileBandWidth = obj.b;
-  if (typeof obj.sb === "number") s.starBandWidth = obj.sb;
-  else if (typeof obj.b === "number") s.starBandWidth = obj.b;
-  if (typeof obj.z === "number") s.zoom = obj.z;
-  if (typeof obj.x === "number") s.panX = obj.x;
-  if (typeof obj.y === "number") s.panY = obj.y;
-  if (obj.st !== undefined) s.showTiles = !!obj.st;
-  if (obj.ss !== undefined) s.showStars = !!obj.ss;
-  if (obj.tw !== undefined) s.tileWeave = !!obj.tw;
-  if (obj.sw !== undefined) s.starWeave = !!obj.sw;
-  if (obj.hs !== undefined) s.harmonicSnap = !!obj.hs;
-  if (obj.pal && typeof obj.pal === "object") {
-    s.tilePalette = { ...s.tilePalette, ...obj.pal };
-  }
-  if (typeof obj.sf === "string") s.starFill = obj.sf;
-  if (typeof obj.bw === "string") s.interstitialFill = obj.bw;
-  if (typeof obj.srf === "string") s.starRibbonFill = obj.srf;
-  if (typeof obj.srs === "string") s.starRibbonStroke = obj.srs;
-  if (typeof obj.trf === "string") s.tileRibbonFill = obj.trf;
-  if (typeof obj.trs === "string") s.tileRibbonStroke = obj.trs;
-  if (typeof obj.bg === "string") s.background = obj.bg;
-  return true;
-}
-
-function hexToRgb(hex) {
-  const h = hex.startsWith("#") ? hex.slice(1) : hex;
-  const v = h.length === 3
-    ? h.split("").map((c) => c + c).join("")
-    : h;
-  return [
-    parseInt(v.slice(0, 2), 16),
-    parseInt(v.slice(2, 4), 16),
-    parseInt(v.slice(4, 6), 16),
-  ];
-}
-
-// HSL helpers used by the palette-randomiser to apply an optional global
-// hue rotation. HSL preserves perceptual lightness across hues better than
-// HSV, so a rotated palette retains its dark/medium/light banding.
-function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h;
-  if (max === r) h = ((g - b) / d) + (g < b ? 6 : 0);
-  else if (max === g) h = ((b - r) / d) + 2;
-  else h = ((r - g) / d) + 4;
-  return [h * 60, s, l];
-}
-function hslToRgb(h, s, l) {
-  h = ((h % 360) + 360) % 360 / 360;
-  if (s === 0) {
-    const v = Math.round(l * 255);
-    return [v, v, v];
-  }
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  const k = (t) => {
-    t = (t + 1) % 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-  return [
-    Math.round(k(h + 1 / 3) * 255),
-    Math.round(k(h) * 255),
-    Math.round(k(h - 1 / 3) * 255),
-  ];
-}
-function hueShiftHex(hex, deltaDeg) {
-  const [r, g, b] = hexToRgb(hex);
-  const [h, s, l] = rgbToHsl(r, g, b);
-  const [r2, g2, b2] = hslToRgb(h + deltaDeg, s, l);
-  return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
-}
-// Multiplicative saturation boost: s' = clamp(s * (1 + factor), 0, 1).
-function saturateHex(hex, factor) {
-  const [r, g, b] = hexToRgb(hex);
-  const [h, s, l] = rgbToHsl(r, g, b);
-  const s2 = Math.max(0, Math.min(1, s * (1 + factor)));
-  const [r2, g2, b2] = hslToRgb(h, s2, l);
-  return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
-}
 
 async function main() {
   await init();
@@ -266,34 +125,47 @@ async function main() {
   // first canvas pointerdown dismisses it and persists the dismissal
   // (localStorage), so it never reappears on a return visit.
   const HINT_DELAY_MS = 5000;
+  // Auto-hide after this much wall-clock time even if the user never
+  // touches the canvas. Without this, the looping finger animation would
+  // run forever on a stale tab, and the `pointerdown` listener would
+  // linger indefinitely — bad for both battery and memory.
+  const HINT_AUTO_DISMISS_MS = 20000;
   const HINT_STORAGE_KEY = "gjhTilingSwipeHintSeen";
   const swipeHint = document.getElementById("swipe-hint");
   const hintAlreadySeen = () => {
     try { return localStorage.getItem(HINT_STORAGE_KEY) === "1"; }
     catch (_) { return false; }
   };
-  let hintTimer = null;
+  let hintShowTimer = null;
+  let hintAutoDismissTimer = null;
+  const stage = document.getElementById("stage");
   const dismissSwipeHint = () => {
-    if (hintTimer !== null) {
-      clearTimeout(hintTimer);
-      hintTimer = null;
+    if (hintShowTimer !== null) {
+      clearTimeout(hintShowTimer);
+      hintShowTimer = null;
     }
+    if (hintAutoDismissTimer !== null) {
+      clearTimeout(hintAutoDismissTimer);
+      hintAutoDismissTimer = null;
+    }
+    // Drop the pointerdown handler too — `once: true` removes it on
+    // first fire but auto-dismissal needs to clean it up explicitly so
+    // the closure doesn't outlive the hint.
+    stage.removeEventListener("pointerdown", dismissSwipeHint);
     if (swipeHint) swipeHint.classList.remove("show");
     try { localStorage.setItem(HINT_STORAGE_KEY, "1"); }
     catch (_) { /* private mode etc — best effort */ }
   };
   if (isMobile && swipeHint && !hintAlreadySeen()) {
-    hintTimer = window.setTimeout(() => {
-      hintTimer = null;
+    hintShowTimer = window.setTimeout(() => {
+      hintShowTimer = null;
       swipeHint.classList.add("show");
+      hintAutoDismissTimer = window.setTimeout(
+        dismissSwipeHint,
+        HINT_AUTO_DISMISS_MS,
+      );
     }, HINT_DELAY_MS);
-    // `once: true` cleans the listener up after the first fire — this
-    // runs in addition to the main pointerdown handler below.
-    document.getElementById("stage").addEventListener(
-      "pointerdown",
-      dismissSwipeHint,
-      { once: true }
-    );
+    stage.addEventListener("pointerdown", dismissSwipeHint, { once: true });
   }
   const angle = document.getElementById("angle");
   const angleReadout = document.getElementById("angle-readout");
@@ -310,7 +182,6 @@ async function main() {
   const tileWeaveCb = document.getElementById("tile-weave");
   const starWeaveCb = document.getElementById("star-weave");
   const harmonicSnapCb = document.getElementById("harmonic-snap");
-  const resetBtn = document.getElementById("reset-view");
   const svgBtn = document.getElementById("export-svg");
   const pngBtn = document.getElementById("export-png");
 
@@ -322,6 +193,7 @@ async function main() {
   const tileRibbonFillInput = document.getElementById("tile-ribbon-fill");
   const tileRibbonStrokeInput = document.getElementById("tile-ribbon-stroke");
   const backgroundInput = document.getElementById("background");
+  const backgroundRow = document.getElementById("background-row");
   const paletteRandomizeBtn = document.getElementById("palette-randomize");
 
   // Apply the body background colour outside the canvas so the floating
@@ -332,9 +204,13 @@ async function main() {
   applyBodyBackground();
 
   // Hide group fieldsets entirely when their master toggle is off.
+  // The Background swatch is only meaningful when nothing covers the
+  // canvas — show it only when both stars and tiles are disabled, since
+  // any other arrangement leaves the user-chosen layer colours dominant.
   const applyGroupVisibility = () => {
     starsGroup.hidden = !state.showStars;
     tilesGroup.hidden = !state.showTiles;
+    backgroundRow.hidden = state.showStars || state.showTiles;
   };
 
   // Populate config dropdown.
@@ -766,15 +642,6 @@ async function main() {
     scheduleHashUpdate();
   });
 
-  resetBtn.addEventListener("click", () => {
-    state.panX = 0;
-    state.panY = 0;
-    state.zoom = RESET_ZOOM;
-    updateZoomReadout();
-    draw();
-    scheduleHashUpdate();
-  });
-
   // Colour pickers (non-palette ones).
   starFillInput.addEventListener("input", () => {
     state.starFill = starFillInput.value;
@@ -1088,22 +955,6 @@ async function main() {
       setTimeout(() => URL.revokeObjectURL(url), 0);
     }, "image/png");
   });
-}
-
-function download(text, filename, mime) {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  triggerDownload(url, filename);
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function triggerDownload(url, filename) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
 }
 
 main().catch((err) => {
