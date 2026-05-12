@@ -801,7 +801,17 @@ async function main() {
   };
   paletteRandomizeBtn.addEventListener("click", applyRandomPalette);
   paletteRandomizeBtn.disabled = false;
-  if (!hashHadStarColors) applyRandomPalette();
+  // Launch behaviour:
+  //   - No hash at all: roll a fully random tiling + star settings, exactly
+  //     as if the user clicked the 🎲 button. This means every fresh visit
+  //     lands on something different rather than the static defaults.
+  //   - Hash but no star colours: keep the previous behaviour of rerolling
+  //     just the palette so permalinked tilings/angles still load as shared.
+  if (!hasHash) {
+    randomBtn.click();
+  } else if (!hashHadStarColors) {
+    applyRandomPalette();
+  }
 
   // Pointer-based pan + pinch zoom. Pointer Events unify mouse, pen, and
   // touch, so this single block handles desktop drag, iPhone single-finger
