@@ -78,10 +78,12 @@ body {
   }
 
   /* When collapsed, shrink-wrap to the primary row instead of
-     stretching across the viewport. */
+     stretching across the viewport — but still cap the width so the
+     right edge keeps the 16px gutter (matching the expanded panel). */
   #panel.collapsed {
     right: auto;
     width: auto;
+    max-width: calc(100vw - 32px);
   }
 }
 

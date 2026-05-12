@@ -877,16 +877,17 @@ async function main() {
         // happens to push past the 4° threshold — the user sees the angle
         // stall and then jump. The slider still snaps when grabbed.
         if (dx !== 0) {
-          const next = Math.max(0, Math.min(90, state.angleDeg + dx * (90 / 360)));
+          const next = Math.max(0, Math.min(90, state.angleDeg + dx * (90 / 360) * 1.25));
           state.angleDeg = next;
           angle.value = String(next);
           angleReadout.textContent = formatAngle(state.angleDeg);
           session.setStarAngle((state.angleDeg * Math.PI) / 180);
         }
         // Drag up = thicker ribbon (matches the up-arrow-as-"more" idiom).
-        // ~360px of vertical travel = full 0–40px sweep.
+        // ~180px of vertical travel = full 0–40px sweep (2× the original
+        // 360px sensitivity — the slower rate felt unresponsive on phones).
         if (dy !== 0) {
-          const w = Math.max(0, Math.min(40, state.starBandWidth - dy * (40 / 360)));
+          const w = Math.max(0, Math.min(40, state.starBandWidth - dy * (40 / 360) * 2.0));
           state.starBandWidth = Math.round(w * 2) / 2;
           starBand.value = String(state.starBandWidth);
           starBandReadout.textContent = `${state.starBandWidth.toFixed(1)} px`;
@@ -921,11 +922,28 @@ async function main() {
   });
 
   const releasePointer = (e) => {
+    const wasTouch = e.pointerType === "touch";
+    const wasCollapsed = panel.classList.contains("collapsed");
     if (pointers.has(e.pointerId)) {
       pointers.delete(e.pointerId);
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch (_) {}
+    }
+    // Once all fingers are up after a collapsed-mobile single-finger drag,
+    // apply harmonic-snap to the star angle. Snapping is suppressed during
+    // the live drag (see the pointermove notes) to keep motion smooth, but
+    // the *final* angle should still settle onto a harmonic when snap is on.
+    if (wasTouch && wasCollapsed && pointers.size === 0) {
+      const snapped = snapAngle(state.angleDeg);
+      if (snapped !== state.angleDeg) {
+        state.angleDeg = snapped;
+        angle.value = String(snapped);
+        angleReadout.textContent = formatAngle(state.angleDeg);
+        session.setStarAngle((state.angleDeg * Math.PI) / 180);
+        draw();
+        scheduleHashUpdate();
+      }
     }
     resampleGesture();
   };
