@@ -395,11 +395,20 @@ async function main() {
     state.harmonics = Array.from(set).sort((a, b) => a - b);
   };
 
-  // Snap `deg` to the nearest harmonic if harmonic snap is enabled and the
-  // nearest harmonic is within 4°. Otherwise return `deg` unchanged.
+  // Snap `deg` to a harmonic (or half-harmonic) when harmonic snap is on.
+  //
+  // Two tiers:
+  //   - True harmonics use the full ±SNAP_THRESHOLD_DEG window and always
+  //     win when in range (a true harmonic is "more correct" than a midpoint).
+  //   - Half-harmonics — midpoints between consecutive true harmonics, e.g.
+  //     45° between hexagon's {30°, 60°} — use *half* the window so they're
+  //     a gentler attractor and don't fight the user near a true harmonic.
+  // If neither tier matches, `deg` is returned unchanged.
   const SNAP_THRESHOLD_DEG = 4;
   const snapAngle = (deg) => {
     if (!state.harmonicSnap || state.harmonics.length === 0) return deg;
+
+    // Tier 1: true harmonics, full window.
     let best = deg;
     let bestD = SNAP_THRESHOLD_DEG;
     for (const h of state.harmonics) {
@@ -409,6 +418,27 @@ async function main() {
         best = h;
       }
     }
+    if (best !== deg) return best;
+
+    // Tier 2: half-harmonics, half window. Midpoints between consecutive
+    // true harmonics, plus the midpoints between the slider edges (0°,
+    // 90°) and the first/last harmonic. Hexagon {30°, 60°} therefore
+    // gives halves at {15°, 45°, 75°}.
+    const halfThreshold = SNAP_THRESHOLD_DEG / 2;
+    let bestHalfD = halfThreshold;
+    const considerHalf = (mid) => {
+      const d = Math.abs(mid - deg);
+      if (d <= bestHalfD) {
+        bestHalfD = d;
+        best = mid;
+      }
+    };
+    const harmonics = state.harmonics;
+    considerHalf((0 + harmonics[0]) / 2);
+    for (let i = 0; i + 1 < harmonics.length; i++) {
+      considerHalf((harmonics[i] + harmonics[i + 1]) / 2);
+    }
+    considerHalf((harmonics[harmonics.length - 1] + 90) / 2);
     return best;
   };
 
