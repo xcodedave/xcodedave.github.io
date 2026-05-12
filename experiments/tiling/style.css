@@ -329,3 +329,58 @@ label.swatch input[type="color"] {
   background: #fff;
   cursor: pointer;
 }
+
+/* Swipe-tutorial overlay. The wrapper is a zero-size element pinned to
+   the viewport centre; the finger inside is offset back by half its own
+   box so its visual centre sits on (0,0). The animation translates the
+   finger relative to that anchor — left/right, then up/down — so it
+   communicates "you can drag the canvas in any direction" without text.
+   `pointer-events: none` ensures it never intercepts canvas gestures. */
+#swipe-hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.4s ease-in;
+}
+
+#swipe-hint.show {
+  opacity: 1;
+}
+
+.swipe-hint-finger {
+  position: absolute;
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  font-size: 48px;
+  line-height: 64px;
+  text-align: center;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  /* The emoji itself isn't selectable / draggable. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#swipe-hint.show .swipe-hint-finger {
+  animation: swipe-hint-cycle 3.2s ease-in-out 0.4s infinite;
+}
+
+/* One full cycle: short pause, swipe left → right → centre, short pause,
+   swipe up → down → centre. Then loop. Distances (~64px) are big enough
+   to read at a glance on a phone without dragging the finger off-screen. */
+@keyframes swipe-hint-cycle {
+  0%, 6% { transform: translate(0, 0); }
+  20% { transform: translate(-64px, 0); }
+  34% { transform: translate(64px, 0); }
+  46%, 56% { transform: translate(0, 0); }
+  68% { transform: translate(0, -64px); }
+  82% { transform: translate(0, 64px); }
+  94%, 100% { transform: translate(0, 0); }
+}

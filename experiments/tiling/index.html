@@ -9,6 +9,13 @@
   <body>
     <canvas id="stage"></canvas>
 
+    <!-- First-time swipe-tutorial overlay. Shown only on mobile after a
+         5s idle delay, dismissed permanently (localStorage) on first
+         canvas touch. `pointer-events: none` so it never intercepts. -->
+    <div id="swipe-hint" aria-hidden="true">
+      <span class="swipe-hint-finger">👆</span>
+    </div>
+
     <aside id="panel">
       <div class="row primary">
         <label for="config-select">Tiling</label>

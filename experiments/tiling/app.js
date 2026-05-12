@@ -259,6 +259,42 @@ async function main() {
     window.matchMedia("(max-width: 600px)").matches ||
     window.matchMedia("(pointer: coarse)").matches;
   if (isMobile) setPanelCollapsed(true);
+
+  // First-touch swipe tutorial. Mobile only: if the user hasn't yet
+  // touched the canvas after 5s, fade in an animated finger that swipes
+  // L↔R then U↔D so they discover they can pan/drag the artwork. The
+  // first canvas pointerdown dismisses it and persists the dismissal
+  // (localStorage), so it never reappears on a return visit.
+  const HINT_DELAY_MS = 5000;
+  const HINT_STORAGE_KEY = "gjhTilingSwipeHintSeen";
+  const swipeHint = document.getElementById("swipe-hint");
+  const hintAlreadySeen = () => {
+    try { return localStorage.getItem(HINT_STORAGE_KEY) === "1"; }
+    catch (_) { return false; }
+  };
+  let hintTimer = null;
+  const dismissSwipeHint = () => {
+    if (hintTimer !== null) {
+      clearTimeout(hintTimer);
+      hintTimer = null;
+    }
+    if (swipeHint) swipeHint.classList.remove("show");
+    try { localStorage.setItem(HINT_STORAGE_KEY, "1"); }
+    catch (_) { /* private mode etc — best effort */ }
+  };
+  if (isMobile && swipeHint && !hintAlreadySeen()) {
+    hintTimer = window.setTimeout(() => {
+      hintTimer = null;
+      swipeHint.classList.add("show");
+    }, HINT_DELAY_MS);
+    // `once: true` cleans the listener up after the first fire — this
+    // runs in addition to the main pointerdown handler below.
+    document.getElementById("stage").addEventListener(
+      "pointerdown",
+      dismissSwipeHint,
+      { once: true }
+    );
+  }
   const angle = document.getElementById("angle");
   const angleReadout = document.getElementById("angle-readout");
   const tileBand = document.getElementById("tile-band");
