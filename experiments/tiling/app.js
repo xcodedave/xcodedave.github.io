@@ -5,7 +5,7 @@
 // Layout: the canvas fills the whole viewport (full-page tiling); a floating
 // panel in the top-left holds controls.
 
-import init, { TilingSession } from "./pkg/gjh_wasm.js";
+import init, { TilingSession, buildHash } from "./pkg/gjh_wasm.js";
 import { hexToRgb, hueShiftHex, saturateHex } from "./lib/color.js";
 import { encodeState, decodeStateInto } from "./lib/url-state.js";
 import { download, triggerDownload } from "./lib/download.js";
@@ -59,6 +59,13 @@ const state = {
 
 async function main() {
   await init();
+
+  // Deploy-provenance label at the panel bottom: which rust-gomjauhogg
+  // revision is this WASM built from? Hash is baked in by build.rs.
+  const buildHashEl = document.getElementById("build-hash");
+  if (buildHashEl) {
+    buildHashEl.textContent = `build ${buildHash()}`;
+  }
 
   // Apply any state encoded in the URL hash *before* we wire up the session
   // and DOM, so dropdowns/sliders/colour pickers all start in the saved

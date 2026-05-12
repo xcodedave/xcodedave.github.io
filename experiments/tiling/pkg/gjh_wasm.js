@@ -12,6 +12,25 @@ export class TilingSession {
         wasm.__wbg_tilingsession_free(ptr, 0);
     }
     /**
+     * Short git commit hash of the rust-gomjauhogg revision this WASM was
+     * built from (`+dirty` suffix when built off an uncommitted tree).
+     * Baked in at build time by `build.rs`; surfaced as a tiny label in
+     * the JS shell for deploy provenance.
+     * @returns {string}
+     */
+    static buildHash() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.tilingsession_buildHash();
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * The currently-selected config string (for display).
      * @returns {string}
      */

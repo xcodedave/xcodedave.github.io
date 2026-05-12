@@ -2,6 +2,7 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const __wbg_tilingsession_free: (a: number, b: number) => void;
+export const tilingsession_buildHash: () => [number, number];
 export const tilingsession_currentConfig: (a: number) => [number, number];
 export const tilingsession_exportSvg: (a: number) => [number, number];
 export const tilingsession_listConfigs: () => [number, number];

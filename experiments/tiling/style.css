@@ -240,6 +240,17 @@ fieldset.group > details.palette:last-child {
   color: #888;
 }
 
+.build-hash {
+  margin: 6px 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.65rem;
+  color: #aaa;
+  letter-spacing: 0.02em;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
 details.palette {
   margin: 4px 0 10px;
   border: 1px solid #ddd;

@@ -5,6 +5,13 @@ export class TilingSession {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * Short git commit hash of the rust-gomjauhogg revision this WASM was
+     * built from (`+dirty` suffix when built off an uncommitted tree).
+     * Baked in at build time by `build.rs`; surfaced as a tiny label in
+     * the JS shell for deploy provenance.
+     */
+    static buildHash(): string;
+    /**
      * The currently-selected config string (for display).
      */
     currentConfig(): string;
@@ -146,6 +153,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_tilingsession_free: (a: number, b: number) => void;
+    readonly tilingsession_buildHash: () => [number, number];
     readonly tilingsession_currentConfig: (a: number) => [number, number];
     readonly tilingsession_exportSvg: (a: number) => [number, number];
     readonly tilingsession_listConfigs: () => [number, number];
