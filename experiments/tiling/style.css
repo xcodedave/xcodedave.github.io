@@ -31,6 +31,13 @@ body {
   cursor: grab;
   background: #fff;
   touch-action: none;
+  /* `-webkit-touch-callout` is non-standard and *not* reliably inherited,
+     so the value on <body> doesn't reach the canvas on iOS. Without this,
+     a slow drag (or accidental long-press during a drag) pops the iOS
+     callout / magnifier loupe — the "zoom bubble" — over the canvas. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #stage:active {
@@ -64,6 +71,12 @@ body {
 
 #panel * {
   touch-action: manipulation;
+  /* Same rationale as on #stage: belt-and-braces on every panel child so
+     a finger that drifts onto a label / select / colour swatch mid-drag
+     can't trigger the iOS magnifier loupe. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* On narrow viewports, anchor the panel to both sides so the right
