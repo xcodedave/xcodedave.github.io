@@ -60,13 +60,6 @@ const state = {
 async function main() {
   await init();
 
-  // Deploy-provenance label at the panel bottom: which rust-gomjauhogg
-  // revision is this WASM built from? Hash is baked in by build.rs.
-  const buildHashEl = document.getElementById("build-hash");
-  if (buildHashEl) {
-    buildHashEl.textContent = `build ${TilingSession.buildHash()}`;
-  }
-
   // Apply any state encoded in the URL hash *before* we wire up the session
   // and DOM, so dropdowns/sliders/colour pickers all start in the saved
   // state rather than briefly flashing the defaults.
@@ -926,7 +919,7 @@ async function main() {
     "wheel",
     (e) => {
       e.preventDefault();
-      const factor = Math.exp(-e.deltaY * 0.003);
+      const factor = Math.exp(-e.deltaY * 0.001);
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.zoom * factor));
       const ratio = newZoom / state.zoom;
       state.panX *= ratio;
