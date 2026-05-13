@@ -926,7 +926,7 @@ async function main() {
     "wheel",
     (e) => {
       e.preventDefault();
-      const factor = Math.exp(-e.deltaY * 0.001);
+      const factor = Math.exp(-e.deltaY * 0.003);
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.zoom * factor));
       const ratio = newZoom / state.zoom;
       state.panX *= ratio;
