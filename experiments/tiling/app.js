@@ -60,6 +60,15 @@ const state = {
 async function main() {
   await init();
 
+  // Surface the WASM build hash as a tiny deploy-provenance label in the
+  // panel. Static method baked in at compile time by `build.rs`.
+  const buildHashEl = document.getElementById("build-hash");
+  if (buildHashEl) {
+    try {
+      buildHashEl.textContent = TilingSession.buildHash();
+    } catch (_) { /* old wasm without buildHash — leave blank */ }
+  }
+
   // Apply any state encoded in the URL hash *before* we wire up the session
   // and DOM, so dropdowns/sliders/colour pickers all start in the saved
   // state rather than briefly flashing the defaults.
