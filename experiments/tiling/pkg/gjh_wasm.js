@@ -326,6 +326,9 @@ function __wbg_get_imports() {
         __wbg_fill_061bfd3132ac2ece: function(arg0, arg1) {
             arg0.fill(arg1);
         },
+        __wbg_fill_4468eb64d6ad19e2: function(arg0, arg1, arg2) {
+            arg0.fill(arg1, __wbindgen_enum_CanvasWindingRule[arg2]);
+        },
         __wbg_lineTo_72d6b123d28ab168: function(arg0, arg1, arg2) {
             arg0.lineTo(arg1, arg2);
         },
@@ -400,6 +403,7 @@ function __wbg_get_imports() {
     };
 }
 
+const __wbindgen_enum_CanvasWindingRule = ["nonzero", "evenodd"];
 const TilingSessionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_tilingsession_free(ptr, 1));
