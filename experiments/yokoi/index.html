@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Game Boy — WebGPU PBR</title>
+  <title>yokoi</title>
   <style>
     /* ─── Theme tokens ──────────────────────────────────────────────────
        The dark/light toggle in the top-right flips `data-theme` on
@@ -84,6 +84,46 @@
     /* Shown by inline script below if WebGPU is missing. */
     body.no-webgpu #gameboy-canvas { display: none; }
     body.no-webgpu #fallback { display: flex; }
+
+    /* ─── Wasm download loader ─────────────────────────────────────────
+       Centred overlay shown while the ~70 MB wasm bundle streams in.
+       Hidden once init() resolves (or instantly if wasm comes from the
+       browser cache — Content-Length is still known so the bar can fly
+       to 100 % in one tick rather than appearing to hang). */
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      pointer-events: none;
+      transition: opacity 220ms ease-out;
+      z-index: 5;
+    }
+    #loader.hidden { opacity: 0; }
+    #loader .label {
+      font: 12px/1 -apple-system, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--popover-label);
+      font-variant-numeric: tabular-nums;
+    }
+    #loader .bar {
+      width: 220px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--chip-border);
+      overflow: hidden;
+    }
+    #loader .bar > i {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: var(--popover-color);
+      transition: width 80ms linear;
+    }
 
     /* ─── Top-right chip buttons (theme + info) ────────────────────────
        Both buttons share the same circular-chip styling; the only
@@ -200,6 +240,10 @@
   <div id="fallback">
     This page needs <strong>WebGPU</strong>.<br />
     Try the latest Chrome, Edge, or Safari 18+.
+  </div>
+  <div id="loader" aria-live="polite">
+    <div class="label" id="loader-label">Loading 0%</div>
+    <div class="bar"><i id="loader-bar"></i></div>
   </div>
 
   <button id="theme-btn" class="chip-btn" type="button" aria-label="Toggle dark mode" aria-pressed="false"></button>
@@ -626,8 +670,66 @@
 
   <script type="module">
     import init, { gbSetTheme, gbLoadCart } from "./pkg/rust_gameboy.js";
+
+    // Stream-fetch the wasm so we can render a progress bar. The wasm
+    // is large (~70 MB), so default `init()` — which kicks off its own
+    // fetch with no progress hook — would leave the page looking dead
+    // for several seconds on a cold load. We pull the bytes via the
+    // Streams API, update the loader on each chunk, then rebuild a
+    // Response from the collected bytes and hand it to wasm-bindgen.
+    //
+    // If Content-Length is missing (rare on static hosts but possible
+    // through some CDNs/proxies), the bar shows received MB instead of
+    // a percentage so the user still sees forward motion.
+    const loader = document.getElementById('loader');
+    const bar = document.getElementById('loader-bar');
+    const label = document.getElementById('loader-label');
+    function setProgress(received, total) {
+      if (total > 0) {
+        const pct = Math.min(100, Math.round((received / total) * 100));
+        bar.style.width = pct + '%';
+        label.textContent = 'Loading ' + pct + '%';
+      } else {
+        const mb = (received / (1024 * 1024)).toFixed(1);
+        label.textContent = 'Loading ' + mb + ' MB';
+      }
+    }
+
+    async function fetchWasm() {
+      const url = new URL('./pkg/rust_gameboy_bg.wasm', import.meta.url);
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' fetching wasm');
+      const total = Number(resp.headers.get('Content-Length')) || 0;
+      // No body stream (e.g. opaque response) → fall back to a single
+      // arrayBuffer read; bar will snap to 100 % on completion.
+      if (!resp.body) {
+        const buf = await resp.arrayBuffer();
+        setProgress(buf.byteLength, total || buf.byteLength);
+        return new Response(buf, { headers: { 'Content-Type': 'application/wasm' } });
+      }
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let received = 0;
+      setProgress(0, total);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        setProgress(received, total);
+      }
+      const blob = new Blob(chunks, { type: 'application/wasm' });
+      return new Response(blob, { headers: { 'Content-Type': 'application/wasm' } });
+    }
+
+    function hideLoader() {
+      loader.classList.add('hidden');
+      setTimeout(() => { loader.style.display = 'none'; }, 260);
+    }
+
     try {
-      await init();
+      const wasmResp = await fetchWasm();
+      await init({ module_or_path: wasmResp });
       // Expose the wasm-side theme setter so the non-module theme script
       // above can call it, then push the theme that was picked before init.
       window.gbSetTheme = gbSetTheme;
@@ -636,8 +738,10 @@
       // it's just a no-op warning until this assignment runs.
       window.gbLoadCart = gbLoadCart;
       if (typeof window.gbApplyTheme === 'function') window.gbApplyTheme();
+      hideLoader();
     } catch (e) {
       console.error(e);
+      hideLoader();
       document.body.classList.add('no-webgpu');
       document.getElementById('fallback').textContent = String(e);
     }
