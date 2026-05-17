@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Game Boy — WebGPU PBR</title>
+  <style>
+    /* ─── Theme tokens ──────────────────────────────────────────────────
+       The dark/light toggle in the top-right flips `data-theme` on
+       <html>; everything that needs to recolor reads through these vars.
+       Initial value is set by an inline script in <head> (below) so the
+       page never flashes the wrong theme. */
+    :root {
+      --page-bg: #ffffff;
+      --canvas-bg: #ffffff;
+      --fallback-color: #444;
+      --chip-bg: rgba(255, 255, 255, 0.85);
+      --chip-bg-hover: rgba(255, 255, 255, 1);
+      --chip-border: rgba(0, 0, 0, 0.15);
+      --chip-color: #555;
+      --chip-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      --popover-bg: rgba(255, 255, 255, 0.97);
+      --popover-border: rgba(0, 0, 0, 0.1);
+      --popover-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+      --popover-color: #222;
+      --popover-h3: #111;
+      --popover-label: #555;
+      --popover-body: #333;
+      --kbd-bg: #f1f1f4;
+      --kbd-border: #d8d8df;
+      --kbd-color: #333;
+    }
+    :root[data-theme="dark"] {
+      /* "Dark grey between grey and black" — sits roughly midway between
+         #1a1a1a and #404040 so neither end of the canvas reads pure. */
+      --page-bg: #2a2a2a;
+      --canvas-bg: #2a2a2a;
+      --fallback-color: #cfcfcf;
+      --chip-bg: rgba(40, 40, 40, 0.75);
+      --chip-bg-hover: rgba(55, 55, 55, 0.9);
+      --chip-border: rgba(255, 255, 255, 0.18);
+      --chip-color: #e6e6e6;
+      --chip-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      --popover-bg: rgba(35, 35, 35, 0.97);
+      --popover-border: rgba(255, 255, 255, 0.12);
+      --popover-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+      --popover-color: #e2e2e2;
+      --popover-h3: #f5f5f5;
+      --popover-label: #a8a8a8;
+      --popover-body: #d4d4d4;
+      --kbd-bg: #3a3a3a;
+      --kbd-border: #4a4a4a;
+      --kbd-color: #e6e6e6;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--page-bg);
+      overflow: hidden;
+      /* prevent iOS Safari rubber-banding when dragging on canvas */
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    #gameboy-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: var(--canvas-bg);
+    }
+    #fallback {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font: 15px/1.5 -apple-system, system-ui, sans-serif;
+      color: var(--fallback-color);
+      padding: 2rem;
+      text-align: center;
+    }
+    /* Shown by inline script below if WebGPU is missing. */
+    body.no-webgpu #gameboy-canvas { display: none; }
+    body.no-webgpu #fallback { display: flex; }
+
+    /* ─── Top-right chip buttons (theme + info) ────────────────────────
+       Both buttons share the same circular-chip styling; the only
+       difference is position (theme sits to the left of info). */
+    .chip-btn {
+      position: fixed;
+      top: 14px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--chip-border);
+      background: var(--chip-bg);
+      color: var(--chip-color);
+      font: 600 17px/1 -apple-system, system-ui, sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: var(--chip-shadow);
+      transition: background 120ms ease, transform 120ms ease;
+      z-index: 10;
+      user-select: none;
+    }
+    .chip-btn:hover { background: var(--chip-bg-hover); }
+    .chip-btn:active { transform: scale(0.95); }
+    #info-btn  { right: 14px; }
+    #theme-btn { right: 54px; font-size: 15px; }
+
+    #info-popover {
+      position: fixed;
+      top: 56px;
+      right: 14px;
+      width: 280px;
+      padding: 14px 16px;
+      background: var(--popover-bg);
+      border: 1px solid var(--popover-border);
+      border-radius: 10px;
+      box-shadow: var(--popover-shadow);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      font: 13px/1.45 -apple-system, system-ui, sans-serif;
+      color: var(--popover-color);
+      display: none;
+      z-index: 10;
+    }
+    #info-popover.open { display: block; }
+    #info-popover h3 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--popover-h3);
+    }
+    #info-popover h3:not(:first-child) { margin-top: 12px; }
+    #info-popover table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #info-popover td {
+      padding: 2px 0;
+      vertical-align: top;
+    }
+    #info-popover td:first-child {
+      color: var(--popover-label);
+      white-space: nowrap;
+      padding-right: 12px;
+    }
+    #info-popover kbd {
+      font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--kbd-bg);
+      border: 1px solid var(--kbd-border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      padding: 2px 5px;
+      color: var(--kbd-color);
+    }
+    #info-popover p {
+      margin: 0;
+      color: var(--popover-body);
+    }
+    #info-popover button.cart-pick {
+      margin-top: 8px;
+      font: 12px/1 -apple-system, system-ui, sans-serif;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--chip-border);
+      background: var(--chip-bg);
+      color: var(--chip-color);
+      cursor: pointer;
+    }
+    #info-popover button.cart-pick:hover { background: var(--chip-bg-hover); }
+    #info-popover button.cart-pick:active { transform: scale(0.97); }
+  </style>
+
+  <script>
+    // Pick the initial theme before first paint so the page never flashes
+    // the wrong background. Order of precedence: saved choice in
+    // localStorage > OS `prefers-color-scheme` > light.
+    (function() {
+      var saved = null;
+      try { saved = localStorage.getItem('gb-theme'); } catch (e) {}
+      var theme = saved;
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+  <canvas id="gameboy-canvas"></canvas>
+  <div id="fallback">
+    This page needs <strong>WebGPU</strong>.<br />
+    Try the latest Chrome, Edge, or Safari 18+.
+  </div>
+
+  <button id="theme-btn" class="chip-btn" type="button" aria-label="Toggle dark mode" aria-pressed="false"></button>
+  <button id="info-btn" class="chip-btn" type="button" aria-label="Info" aria-expanded="false" aria-controls="info-popover">i</button>
+  <div id="info-popover" role="dialog" aria-label="Controls and instructions">
+    <h3>Controls</h3>
+    <table>
+      <tr><td>D-Pad</td><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td></tr>
+      <tr><td>A</td><td><kbd>X</kbd></td></tr>
+      <tr><td>B</td><td><kbd>Z</kbd></td></tr>
+      <tr><td>Start</td><td><kbd>Enter</kbd></td></tr>
+      <tr><td>Select</td><td><kbd>Backspace</kbd></td></tr>
+      <tr><td>Power</td><td><kbd>Tab</kbd></td></tr>
+    </table>
+
+    <h3>Camera</h3>
+    <table>
+      <tr><td>Orbit</td><td>Drag with mouse / one finger</td></tr>
+      <tr><td>Zoom</td><td>Scroll wheel / pinch</td></tr>
+    </table>
+
+    <h3>Load a cartridge</h3>
+    <p>Drag a <code>.gb</code>, <code>.gbc</code>, or <code>.zip</code> file onto the page — the Game Boy reboots with the new ROM.</p>
+    <button id="cart-pick-btn" class="cart-pick" type="button">Select cartridge…</button>
+    <input id="cart-pick-input" type="file" accept=".gb,.gbc,.zip,application/zip" hidden>
+  </div>
+
+  <script>
+    (function() {
+      var btn = document.getElementById('info-btn');
+      var pop = document.getElementById('info-popover');
+      function setOpen(open) {
+        pop.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        setOpen(!pop.classList.contains('open'));
+      });
+      // Click outside closes; Escape too.
+      document.addEventListener('click', function(e) {
+        if (!pop.classList.contains('open')) return;
+        if (pop.contains(e.target) || btn.contains(e.target)) return;
+        setOpen(false);
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && pop.classList.contains('open')) setOpen(false);
+      });
+    })();
+  </script>
+
+  <script>
+    // ─── "Select cartridge" file picker ────────────────────────────────────
+    // Same byte-handling as the drag-and-drop path; we just feed the bytes
+    // to the wasm side via `gbLoadCart` (set up in the module script below).
+    // The wasm call is forgiving — calls before init are a no-op warning,
+    // so wiring the click here unconditionally is fine.
+    (function() {
+      var btn = document.getElementById('cart-pick-btn');
+      var input = document.getElementById('cart-pick-input');
+      btn.addEventListener('click', function() { input.click(); });
+      input.addEventListener('change', function() {
+        var file = input.files && input.files[0];
+        if (!file) return;
+        file.arrayBuffer().then(function(ab) {
+          if (typeof window.gbLoadCart !== 'function') {
+            console.warn('gbLoadCart not yet available — try again in a moment');
+            return;
+          }
+          window.gbLoadCart(new Uint8Array(ab));
+        }).catch(function(e) {
+          console.warn('cart pick failed:', e);
+        }).finally(function() {
+          // Reset so picking the same file twice re-fires `change`.
+          input.value = '';
+        });
+      });
+    })();
+  </script>
+
+  <script>
+    // Theme toggle. The initial value was already applied by the inline
+    // script in <head>; here we just sync the button glyph and wire up
+    // clicks. The OS preference is followed only until the user makes a
+    // manual choice — after that, their pick persists.
+    (function() {
+      var btn = document.getElementById('theme-btn');
+      var root = document.documentElement;
+      var userPicked = false;
+      try { userPicked = !!localStorage.getItem('gb-theme'); } catch (e) {}
+
+      function render() {
+        var dark = root.getAttribute('data-theme') === 'dark';
+        // Show the glyph for the mode you'd switch *to*, not the current.
+        btn.textContent = dark ? '\u263C' : '\u263E'; // sun / crescent moon
+        btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      }
+      render();
+
+      // Push to wasm whenever a function is available. The wasm module
+      // initializes asynchronously (see the module script at the bottom of
+      // the page); calls before then are no-ops, but we always re-push on
+      // every change so the renderer catches up once it boots.
+      window.gbApplyTheme = function() {
+        if (typeof window.gbSetTheme === 'function') {
+          window.gbSetTheme(root.getAttribute('data-theme'));
+        }
+      };
+      window.gbApplyTheme();
+
+      btn.addEventListener('click', function() {
+        var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('gb-theme', next); } catch (e) {}
+        userPicked = true;
+        render();
+        window.gbApplyTheme();
+      });
+
+      // Follow OS changes only until the user has made a manual choice.
+      if (window.matchMedia) {
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        var onChange = function(e) {
+          if (userPicked) return;
+          root.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+          render();
+          window.gbApplyTheme();
+        };
+        if (mq.addEventListener) mq.addEventListener('change', onChange);
+        else if (mq.addListener) mq.addListener(onChange);
+      }
+    })();
+  </script>
+
+  <script>
+    // Early bail if the browser has no WebGPU at all — gives a friendlier
+    // message than waiting for the Rust panic.
+    if (!('gpu' in navigator)) {
+      document.body.classList.add('no-webgpu');
+    }
+  </script>
+
+  <script>
+    // ─── Audio manager ────────────────────────────────────────────────────
+    // Streams the Game Boy APU's PCM samples through Web Audio by scheduling
+    // back-to-back AudioBufferSourceNodes on a `nextStartTime` cursor.
+    // No AudioWorklet (avoids SharedArrayBuffer / COOP-COEP requirements) —
+    // each RAF tick from the Rust side pushes one frame's worth of samples
+    // (~735 stereo frames at 44.1 kHz / 60 Hz) and we schedule them.
+    //
+    // iOS / mobile Safari workarounds (matching the sevenbillion setup):
+    //   1. navigator.audioSession.type = 'playback' (iOS 17+) — overrides
+    //      the silent-switch.
+    //   2. Looping silent HTML5 <audio> MP3 — forces WebAudio onto the
+    //      "media" channel on older iOS; mute switch is bypassed.
+    //   3. ctx.resume() inside synchronous user-gesture handler — Safari
+    //      requires this to unlock the AudioContext.
+    //   4. Warmup with a 1-sample BufferSource immediately after resume —
+    //      primes the audio hardware so the first real chunk doesn't drop.
+    //   5. onstatechange auto-resume — recovers from phone-call /
+    //      tab-switch interruptions.
+    //   6. visibilitychange re-trigger of the silent <audio> — Safari can
+    //      pause it on backgrounding.
+    (function() {
+      var ctx = null;
+      var masterGain = null;
+      // Speaker-EQ chain (hp → peak → lp → destination). Hoisted to the
+      // IIFE scope so `gbAudioPop` can route its one-shot click into the
+      // same chain *bypassing* masterGain — that way the pop is audible
+      // even with the volume knob at zero (the real DMG pop comes from
+      // the speaker amp's capacitor discharge, downstream of the digital
+      // mix and unaffected by the volume pot).
+      var hp = null;
+      // Pre-rendered "pop" buffer — single channel, lazily built when the
+      // AudioContext exists so we know its sample rate.
+      var popBuffer = null;
+      // Dedicated output node for the power-toggle pop. Routes the one-shot
+      // straight to the destination (with a soft lowpass for cone-like
+      // limiting) — bypasses the speaker-EQ chain because the 380 Hz HP
+      // filter, tuned to kill APU sub-bass, would also strip the low body
+      // out of the pop and leave only a thin click. The pop physically
+      // models the speaker amp's DC-blocking-cap charge/discharge, not the
+      // digital audio path, so giving it its own chain is correct.
+      var popOut = null;
+      var nextStartTime = 0;
+      var silentAudio = null;
+      // Stereo, interleaved L/R/L/R...
+      var CHANNELS = 2;
+      // Re-anchor latency: when we have to snap `nextStartTime` forward
+      // (tab backgrounded, AudioContext was suspended), aim this far ahead
+      // of `currentTime` so the first new chunk lands cleanly.
+      var ANCHOR_LATENCY = 0.05;
+
+      // Layer 1: iOS 17+ / Safari 16.4+ — categorize as media playback so
+      // the silent switch doesn't mute us.
+      if ('audioSession' in navigator) {
+        navigator.audioSession.type = 'playback';
+      }
+
+      // ~0.01 s VBR joint-stereo silent MP3 used for the HTML5-audio
+      // media-channel trick on older iOS. Same bytes as the sevenbillion
+      // experiment — sourced from the "unmute" libraries.
+      var SILENCE_MP3 = 'data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//////////////////////////////////////////////////////////////////8AAABhTEFNRTMuMTAwA8MAAAAAAAAAABQgJAUHQQAB9AAAAnGMHkkIAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADgnABGiAAQBCqgCRMAAgEAH///////////////7+n/9FTuQsQH//////2NG0jWUGlio5gLQTOtIoeR2WX////X4s9Atb/JRVCbBUpeRUq//////////////////9RUi0f2jn/+xDECgPCjAEQAABN4AAANIAAAAQVTEFNRTMuMTAw';
+
+      function ensureCtx() {
+        if (ctx) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = ctx.createGain();
+        // Start silent — the Rust side sets gain to ~0.4 when the power
+        // switch is on, 0 when off. This gives instant on/off without
+        // teardown costs.
+        masterGain.gain.value = 0.0;
+
+        // ── DMG speaker emulation ──────────────────────────────────────
+        // The real Game Boy's internal speaker is a ~28 mm mylar cone with
+        // a measured response that rolls off hard below ~400 Hz and above
+        // ~10 kHz, with a characteristic mid-forward bump around 2 kHz.
+        // Raw APU output through full-range speakers/headphones sounds
+        // harsh because none of that mechanical band-limiting is present.
+        // A bandpass + mid peak gets us most of the way there:
+        //   highpass 380 Hz Q≈0.7  — kills sub-bass the cone can't move
+        //   peak     2 kHz +4 dB   — the tinny mid bump
+        //   lowpass  9 kHz  Q≈0.7  — cuts the brittle square-wave fizz
+        // Headphone-mode (the cart's 3.5 mm jack) bypasses all of this on
+        // a real DMG, but we don't model headphone insertion, so the
+        // colouration is always on.
+        hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 380;
+        hp.Q.value = 0.707;
+
+        var peak = ctx.createBiquadFilter();
+        peak.type = 'peaking';
+        peak.frequency.value = 2000;
+        peak.Q.value = 1.0;
+        peak.gain.value = 4.0;
+
+        var lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 9000;
+        lp.Q.value = 0.707;
+
+        masterGain.connect(hp);
+        hp.connect(peak);
+        peak.connect(lp);
+        lp.connect(ctx.destination);
+
+        // Pop output chain: aggressive lowpass to keep the noise burst
+        // sounding like a deep "thud" rather than a hiss. Notably no
+        // highpass — we *want* all the low body to come through.
+        var popLp = ctx.createBiquadFilter();
+        popLp.type = 'lowpass';
+        popLp.frequency.value = 280;
+        popLp.Q.value = 0.707;
+        popOut = ctx.createGain();
+        popOut.gain.value = 0.025;
+        popOut.connect(popLp);
+        popLp.connect(ctx.destination);
+
+        ctx.onstatechange = function() {
+          if (ctx.state === 'interrupted' || ctx.state === 'suspended') {
+            ctx.resume().catch(function(){});
+          }
+        };
+
+        // ── Power-toggle pop ────────────────────────────────────────────
+        // The DMG's internal speaker amp is rail-fed through a small DC-
+        // blocking cap. Power-on charges the cap; power-off discharges it
+        // — both events drive a brief current through the speaker coil
+        // that you hear as a short, deep "thud". We synthesize it once
+        // here as a static buffer and play it on every power edge.
+        //
+        // Character: noise-based, not tonal. A short brown-noise burst
+        // (random walk through a leaky integrator → ~-6 dB/oct rolloff,
+        // i.e. all energy concentrated in the low end) shaped by a fast-
+        // decaying exponential, plus a small DC step underneath for
+        // punch. No sustained sine components — those made the previous
+        // take ring like a tom hit rather than thud like a speaker cap
+        // dumping current. The popOut chain's 500-Hz lowpass strips any
+        // surviving brightness so what's left is purely "deep".
+        var popLen = Math.floor(ctx.sampleRate * 0.05);
+        popBuffer = ctx.createBuffer(1, popLen, ctx.sampleRate);
+        var popData = popBuffer.getChannelData(0);
+        // Four cascaded one-pole lowpasses on the white noise. Each pole
+        // is a `y += a * (x - y)` IIR — cascade rolls off at -24 dB/oct
+        // above the corner, killing audible grain before the noise even
+        // reaches the biquad lowpass.
+        var n1 = 0.0, n2 = 0.0, n3 = 0.0, n4 = 0.0;
+        var a = 0.040;
+        for (var pi = 0; pi < popLen; pi++) {
+          var pt = pi / ctx.sampleRate;
+          var white = Math.random() * 2.0 - 1.0;
+          n1 += a * (white - n1);
+          n2 += a * (n1    - n2);
+          n3 += a * (n2    - n3);
+          n4 += a * (n3    - n4);
+          // Tight envelope (τ≈5 ms): most of the energy lands in the
+          // first ~5 ms, after which it's already at 35 % — concentrates
+          // the perceived punch into the transient.
+          var env  = Math.exp(-pt / 0.005);
+          // DC-step "kick": bigger initial amplitude with a tight decay
+          // (τ≈6 ms) — this is the cone's mechanical snap to the new
+          // position, dominant at t=0, gone by ~15 ms. Higher peak +
+          // shorter duration keeps RMS (perceived loudness) roughly
+          // constant while delivering more punch.
+          var step = 0.55 * Math.exp(-pt / 0.006);
+          // Noise sits *alongside* the kick rather than under it. Scaled
+          // up so it reads as a clear noise wash on top of the transient,
+          // not just a faint tail.
+          popData[pi] = (n4 * 480.0 + step) * env;
+        }
+      }
+
+      function unlockAudio() {
+        ensureCtx();
+        if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+          ctx.resume().catch(function(){});
+        }
+        // Warmup buffer — primes audio hardware before the first real
+        // PCM chunk arrives.
+        try {
+          var b = ctx.createBuffer(1, 1, 22050);
+          var s = ctx.createBufferSource();
+          s.buffer = b;
+          s.connect(ctx.destination);
+          s.start(0);
+        } catch(e) {}
+        // Layer 2: looping silent HTML5 audio.
+        if (!silentAudio) {
+          silentAudio = document.createElement('audio');
+          silentAudio.setAttribute('x-webkit-airplay', 'deny');
+          silentAudio.preload = 'auto';
+          silentAudio.loop = true;
+          silentAudio.src = SILENCE_MP3;
+          silentAudio.load();
+        }
+        silentAudio.play().catch(function(){});
+      }
+
+      ['touchstart','touchend','mousedown','click','keydown'].forEach(function(e) {
+        document.addEventListener(e, unlockAudio, {passive: true, capture: true});
+      });
+
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+          if (silentAudio) silentAudio.play().catch(function(){});
+          if (ctx && ctx.state !== 'running') ctx.resume().catch(function(){});
+          // Re-anchor — if we were paused, the cursor is way in the past.
+          nextStartTime = 0;
+        }
+      });
+
+      // ── Rust → JS API ────────────────────────────────────────────────
+      // Called once from Rust on startup; just makes sure the context
+      // exists. Real sample push is `gbAudioPush`.
+      window.gbAudioInit = function() {
+        ensureCtx();
+      };
+
+      // Set the master gain. Used by the power switch — 0 = silent, 1 =
+      // full. We deliberately don't tear down the AudioContext on power-
+      // off because Safari won't let us re-resume one without another
+      // user gesture; the gain ramp is instantaneous in practice.
+      window.gbAudioSetMasterGain = function(g) {
+        if (!masterGain) return;
+        // Tiny ramp avoids zipper-click on toggle. 5 ms is below the ear's
+        // detection threshold for amplitude steps.
+        var now = ctx.currentTime;
+        masterGain.gain.cancelScheduledValues(now);
+        masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+        masterGain.gain.linearRampToValueAtTime(g, now + 0.005);
+      };
+
+      // Fire a one-shot synthesized "pop" for both the power-on and
+      // power-off edges. Routes through `popOut` (its own gentle-lowpass
+      // chain straight to the destination) — bypasses masterGain so it's
+      // audible with the volume knob at zero, and bypasses the speaker-EQ
+      // highpass that would otherwise strip the pop's low body. The real
+      // DMG pop is the speaker amp's cap charging/discharging, downstream
+      // of the digital mix and not gated by the volume pot.
+      window.gbAudioPop = function() {
+        if (!ctx || ctx.state !== 'running' || !popBuffer || !popOut) return;
+        var src = ctx.createBufferSource();
+        src.buffer = popBuffer;
+        src.connect(popOut);
+        src.start();
+      };
+
+      // Push one chunk of interleaved L/R/L/R f32 samples produced by the
+      // emulator. `samples` is a Float32Array (zero-copy view into wasm
+      // linear memory — the caller must `.slice()` if needed before any
+      // subsequent Rust call that may grow the memory).
+      window.gbAudioPush = function(samples, sampleRate) {
+        if (!ctx || ctx.state !== 'running') return;
+        if (!samples || samples.length === 0) return;
+        var frames = (samples.length / CHANNELS) | 0;
+        if (frames === 0) return;
+
+        var buf = ctx.createBuffer(CHANNELS, frames, sampleRate);
+        var left = buf.getChannelData(0);
+        var right = buf.getChannelData(1);
+        for (var i = 0, j = 0; i < frames; i++, j += 2) {
+          left[i]  = samples[j];
+          right[i] = samples[j + 1];
+        }
+
+        var now = ctx.currentTime;
+        // Drift guard: if the cursor has fallen behind realtime (tab
+        // backgrounded, audio paused, first push), snap it forward.
+        // Causes a tiny silence but avoids piling up scheduled buffers
+        // that would never start in time and eventually get GC'd.
+        if (nextStartTime < now + 0.005) {
+          nextStartTime = now + ANCHOR_LATENCY;
+        }
+
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(masterGain);
+        src.start(nextStartTime);
+        nextStartTime += buf.duration;
+      };
+    })();
+  </script>
+
+  <script type="module">
+    import init, { gbSetTheme, gbLoadCart } from "./pkg/rust_gameboy.js";
+    try {
+      await init();
+      // Expose the wasm-side theme setter so the non-module theme script
+      // above can call it, then push the theme that was picked before init.
+      window.gbSetTheme = gbSetTheme;
+      // Same trick for the file-picker entry — the non-module script in
+      // <body> stashes a click handler that calls window.gbLoadCart, and
+      // it's just a no-op warning until this assignment runs.
+      window.gbLoadCart = gbLoadCart;
+      if (typeof window.gbApplyTheme === 'function') window.gbApplyTheme();
+    } catch (e) {
+      console.error(e);
+      document.body.classList.add('no-webgpu');
+      document.getElementById('fallback').textContent = String(e);
+    }
+  </script>
+</body>
+</html>
