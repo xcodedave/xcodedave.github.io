@@ -1,3 +1,5 @@
+/* @ts-self-types="./rust_gameboy.d.ts" */
+
 /**
  * Load a cartridge from raw bytes (treated as a .gb/.gbc or a .zip that
  * contains one). Same parsing path as drag-and-drop. Logs and ignores on
