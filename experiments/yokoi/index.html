@@ -335,10 +335,27 @@
       var userPicked = false;
       try { userPicked = !!localStorage.getItem('gb-theme'); } catch (e) {}
 
+      // Inline SVGs (instead of unicode glyphs) so the icons are guaranteed
+      // monochrome — Unicode sun/moon code points fall through to color
+      // emoji fonts on some platforms (Chrome/Android, iOS). Both icons
+      // use `currentColor`, so the theme's `--chip-color` flows in.
+      var SUN_SVG  = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none"'
+                   + ' stroke="currentColor" stroke-width="1.8" stroke-linecap="round"'
+                   + ' aria-hidden="true">'
+                   + '<circle cx="12" cy="12" r="4.2" fill="currentColor"/>'
+                   + '<path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.55 1.55'
+                   + 'M17.85 17.85l1.55 1.55M2.5 12h2.2M19.3 12h2.2'
+                   + 'M6.15 17.85l-1.55 1.55M19.4 4.6l-1.55 1.55"/>'
+                   + '</svg>';
+      var MOON_SVG = '<svg viewBox="0 0 24 24" width="16" height="16"'
+                   + ' fill="currentColor" aria-hidden="true">'
+                   + '<path d="M20.5 14.2A8.4 8.4 0 1 1 9.8 3.5'
+                   + 'a6.6 6.6 0 0 0 10.7 10.7z"/>'
+                   + '</svg>';
       function render() {
         var dark = root.getAttribute('data-theme') === 'dark';
         // Show the glyph for the mode you'd switch *to*, not the current.
-        btn.textContent = dark ? '\u263C' : '\u263E'; // sun / crescent moon
+        btn.innerHTML = dark ? SUN_SVG : MOON_SVG;
         btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
       }
       render();
