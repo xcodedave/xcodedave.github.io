@@ -9,10 +9,13 @@
 export function gbLoadCart(bytes: Uint8Array): void;
 
 /**
- * Apply a named theme. Currently `"dark"` swaps the clear color to a
- * mid-dark grey (sRGB #2a2a2a, matching the CSS `--page-bg`); anything
- * else falls back to white. Idempotent — safe to call from arbitrary JS
- * gestures.
+ * Apply a named theme. `"dark"` clears to mid-dark grey (sRGB #2a2a2a);
+ * anything else clears to the light-mode grey (sRGB #ededed). Both match
+ * the matching CSS `--page-bg` token so the wgpu clear seamlessly meets
+ * the body background outside the canvas. Pure white was too high-contrast
+ * against the model and caused eye strain in long sessions, so the light
+ * theme is intentionally a touch off-white. Idempotent — safe to call
+ * from arbitrary JS gestures.
  */
 export function gbSetTheme(name: string): void;
 
