@@ -719,7 +719,7 @@
     // instead of serving the cached 69 MB blob. Sourced from the
     // package version in pkg/package.json when present; falls back to a
     // build-time placeholder if not.
-    const WASM_CACHE_V = 'v0.1.1';
+    const WASM_CACHE_V = 'v0.1.2';
 
     async function fetchWasm() {
       const url = new URL('./pkg/rust_gameboy_bg.wasm', import.meta.url);
