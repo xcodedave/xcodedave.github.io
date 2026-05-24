@@ -193,6 +193,7 @@ async function main() {
   const harmonicSnapCb = document.getElementById("harmonic-snap");
   const svgBtn = document.getElementById("export-svg");
   const pngBtn = document.getElementById("export-png");
+  const dxfBtn = document.getElementById("export-dxf");
 
   const tilePaletteContainer = document.getElementById("tile-palette");
   const starFillInput = document.getElementById("star-fill");
@@ -963,6 +964,12 @@ async function main() {
       triggerDownload(url, `tiling-${configs[state.configIdx].replace(/\//g, "_")}.png`);
       setTimeout(() => URL.revokeObjectURL(url), 0);
     }, "image/png");
+  });
+
+  dxfBtn.addEventListener("click", () => {
+    pushViewport();
+    const dxf = session.exportDxf();
+    download(dxf, `tiling-${configs[state.configIdx].replace(/\//g, "_")}.dxf`, "application/dxf");
   });
 }
 

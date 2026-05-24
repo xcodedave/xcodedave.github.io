@@ -16,6 +16,13 @@ export class TilingSession {
      */
     currentConfig(): string;
     /**
+     * Export the current view as an AutoCAD DXF (AC1015 / R2000) document.
+     * Uses the same draw pipeline as `render`, so the geometry matches the
+     * on-screen view. The output is ASCII DXF text — write it to disk as
+     * `.dxf` and open in AutoCAD, BricsCAD, LibreCAD, FreeCAD, etc.
+     */
+    exportDxf(): string;
+    /**
      * Uses the same draw pipeline as `render`, so the export matches the
      * on-screen view.
      */
@@ -155,6 +162,7 @@ export interface InitOutput {
     readonly __wbg_tilingsession_free: (a: number, b: number) => void;
     readonly tilingsession_buildHash: () => [number, number];
     readonly tilingsession_currentConfig: (a: number) => [number, number];
+    readonly tilingsession_exportDxf: (a: number) => [number, number];
     readonly tilingsession_exportSvg: (a: number) => [number, number];
     readonly tilingsession_listConfigs: () => [number, number];
     readonly tilingsession_new: (a: number) => number;

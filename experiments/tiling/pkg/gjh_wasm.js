@@ -47,6 +47,25 @@ export class TilingSession {
         }
     }
     /**
+     * Export the current view as an AutoCAD DXF (AC1015 / R2000) document.
+     * Uses the same draw pipeline as `render`, so the geometry matches the
+     * on-screen view. The output is ASCII DXF text — write it to disk as
+     * `.dxf` and open in AutoCAD, BricsCAD, LibreCAD, FreeCAD, etc.
+     * @returns {string}
+     */
+    exportDxf() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.tilingsession_exportDxf(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * Uses the same draw pipeline as `render`, so the export matches the
      * on-screen view.
      * @returns {string}
