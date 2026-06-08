@@ -5,8 +5,8 @@
     <title>rust-mmorpg</title>
     
 <script type="module">
-import init, * as bindings from '/experiments/funland/client-27921501dec46bd4.js';
-const wasm = await init({ module_or_path: '/experiments/funland/client-27921501dec46bd4_bg.wasm' });
+import init, * as bindings from '/experiments/funland/client-f009e228303da789.js';
+const wasm = await init({ module_or_path: '/experiments/funland/client-f009e228303da789_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -92,6 +92,43 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         font-size: 13px;
         color: #9aa1ad;
         min-height: 1em;
+      }
+
+      /* --- Lobby overlay ------------------------------------------- */
+      /* Same visual language as the name card; shown after name entry
+         when the server has us in the lobby and hidden once GameStart
+         arrives. pointer-events:auto blocks game input while up. */
+      #lobby-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        color: #eee;
+      }
+      #lobby-card {
+        background: #14161c;
+        padding: 28px 32px;
+        border-radius: 10px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+        min-width: 280px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        text-align: center;
+      }
+      #lobby-card h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      #lobby-status {
+        font-size: 14px;
+        color: #9aa1ad;
       }
 
       /* --- Chat ---------------------------------------------------- */
@@ -205,7 +242,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         background: #87a3ff;
       }
     </style>
-  <link rel="modulepreload" href="/experiments/funland/client-27921501dec46bd4.js" crossorigin="anonymous" integrity="sha384-o8m2MwiiithBApZ6qSnYVzjXGRdVLwajYHgO+jiMYi/l0509QFAAyRNY9K5Vt212"><link rel="preload" href="/experiments/funland/client-27921501dec46bd4_bg.wasm" crossorigin="anonymous" integrity="sha384-BdH9wj4Rr6cdNhsW2XMuLZ96PvlTPsmP1HUR2pmHeTh1geP+cB9DLTigL1AjqAQ+" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/experiments/funland/client-f009e228303da789.js" crossorigin="anonymous" integrity="sha384-357VMgn57uB42bJMWuF117nCdbFAYgXstD1TnOTqeNbZMGJNce92MGB4Z+4wTAtK"><link rel="preload" href="/experiments/funland/client-f009e228303da789_bg.wasm" crossorigin="anonymous" integrity="sha384-gyE8HGywIIRwvfY81oCFFpeAIxEo9shT1mAYTzS02SN+MuWyJ+snw5kAf7dPjv5I" as="fetch" type="application/wasm"></head>
   <body>
     <canvas id="game" tabindex="0"></canvas>
     <div id="nameplates"></div>
@@ -224,6 +261,12 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         />
         <button id="chat-send" type="submit">Send</button>
       </form>
+    </div>
+    <div id="lobby-overlay" style="display: none">
+      <div id="lobby-card">
+        <h1>Waiting for players…</h1>
+        <div id="lobby-status">0 / 2 connected</div>
+      </div>
     </div>
     <div id="name-overlay">
       <div id="name-card">
