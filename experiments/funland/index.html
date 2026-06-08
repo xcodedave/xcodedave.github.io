@@ -5,8 +5,8 @@
     <title>rust-mmorpg</title>
     
 <script type="module">
-import init, * as bindings from '/experiments/funland/client-a9579f94ce90b1f9.js';
-const wasm = await init({ module_or_path: '/experiments/funland/client-a9579f94ce90b1f9_bg.wasm' });
+import init, * as bindings from '/experiments/funland/client-990f4f5003fe104c.js';
+const wasm = await init({ module_or_path: '/experiments/funland/client-990f4f5003fe104c_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -243,7 +243,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         background: #87a3ff;
       }
     </style>
-  <link rel="modulepreload" href="/experiments/funland/client-a9579f94ce90b1f9.js" crossorigin="anonymous" integrity="sha384-bzRw0vvoO0MMkCRtazEQOvRkpwltLMqEn4L+RqLS1UJDirh+gamaDvdNBU14jRVm"><link rel="preload" href="/experiments/funland/client-a9579f94ce90b1f9_bg.wasm" crossorigin="anonymous" integrity="sha384-6EiJ24eoKkj1kuRNENwldqFziGWqNP/aK5KNt8yzSvmfykP3iO3XZMtcDHukC7sf" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/experiments/funland/client-990f4f5003fe104c.js" crossorigin="anonymous" integrity="sha384-bzRw0vvoO0MMkCRtazEQOvRkpwltLMqEn4L+RqLS1UJDirh+gamaDvdNBU14jRVm"><link rel="preload" href="/experiments/funland/client-990f4f5003fe104c_bg.wasm" crossorigin="anonymous" integrity="sha384-F5tKu5HHnHm8nmHOsluhqtOJPQ8eSm3xoMHNhaIJWtzLzmXWTK19NBYP4Qinw2Nq" as="fetch" type="application/wasm"></head>
   <body>
     <canvas id="game" tabindex="0"></canvas>
     <div id="nameplates"></div>
