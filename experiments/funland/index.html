@@ -155,9 +155,13 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
          translateY on the inner container without disturbing the mask
          on the outer one. */
       #chat-messages {
-        max-height: 60vh;
+        /* Fixed height + relative so the absolutely-positioned scroll
+           child can anchor its bottom edge here. Without a definite
+           height, the parent would collapse around its zero in-flow
+           content and the mask + clip would have nothing to bite. */
+        height: 60vh;
         overflow: hidden;
-        padding: 0 16px 6px;
+        position: relative;
         -webkit-mask-image: linear-gradient(
           to top,
           black 0%,
@@ -173,12 +177,20 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         pointer-events: none;
       }
       #chat-scroll {
+        /* Anchor the bottom of the bubble column to the bottom of the
+           chat area. As bubbles are appended the column grows UPWARD;
+           anything above the parent's top is clipped + faded by the
+           mask. With the old `min-height: 100%` approach the column
+           grew DOWNWARD past 60vh and the newest bubbles ended up
+           clipped off the bottom. */
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 6px;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        justify-content: flex-end;
         gap: 6px;
-        min-height: 100%;
         will-change: transform;
       }
       .chat-bubble {
