@@ -16,6 +16,24 @@
       <span class="swipe-hint-finger">👆</span>
     </div>
 
+    <!-- Video export region selection. Shown only while the "Video export"
+         <details> section is open. The dark mask is `pointer-events: none`
+         so the user can still pan/zoom the canvas underneath; the central
+         rect + 8 corner/edge handles catch pointer events to allow move /
+         resize. Handles and rect are positioned in JS in CSS-pixel space. -->
+    <svg id="video-region-overlay" aria-hidden="true">
+      <path id="video-region-mask" fill-rule="evenodd"></path>
+      <rect id="video-region-rect"></rect>
+      <rect class="vr-handle" data-vr-handle="nw"></rect>
+      <rect class="vr-handle" data-vr-handle="n"></rect>
+      <rect class="vr-handle" data-vr-handle="ne"></rect>
+      <rect class="vr-handle" data-vr-handle="e"></rect>
+      <rect class="vr-handle" data-vr-handle="se"></rect>
+      <rect class="vr-handle" data-vr-handle="s"></rect>
+      <rect class="vr-handle" data-vr-handle="sw"></rect>
+      <rect class="vr-handle" data-vr-handle="w"></rect>
+    </svg>
+
     <aside id="panel">
       <div class="row primary">
         <label for="config-select">Tiling</label>
@@ -166,9 +184,51 @@
         <button id="export-dxf">DXF</button>
       </div>
 
+      <details class="palette" id="video-export-section">
+        <summary>Video export</summary>
+
+        <div class="row">
+          <label for="video-start-angle">Start angle <span id="video-start-readout">0°</span></label>
+          <input id="video-start-angle" type="range" min="0" max="90" value="0" step="0.5" />
+        </div>
+
+        <div class="row">
+          <label for="video-end-angle">End angle <span id="video-end-readout">90°</span></label>
+          <input id="video-end-angle" type="range" min="0" max="90" value="90" step="0.5" />
+        </div>
+
+        <div class="row toggles">
+          <label class="inline">
+            <input type="checkbox" id="video-loop" checked />
+            Loop (start → end → start)
+          </label>
+        </div>
+
+        <div class="row">
+          <label for="video-duration">Duration <span id="video-duration-readout">4.0 s</span></label>
+          <input id="video-duration" type="range" min="1" max="60" value="4" step="0.5" />
+        </div>
+
+        <div class="row">
+          <label for="video-fps">FPS <span id="video-fps-readout">24</span></label>
+          <input id="video-fps" type="range" min="10" max="60" value="24" step="1" />
+        </div>
+
+        <div class="row">
+          <label for="video-format">Format</label>
+          <select id="video-format"></select>
+        </div>
+
+        <div class="row buttons">
+          <button id="export-video">Record</button>
+        </div>
+
+        <p class="hint" id="video-status"></p>
+      </details>
+
       <p class="hint">Drag to pan · scroll to zoom</p>
     </aside>
 
-    <script type="module" src="./app.js?v=30"></script>
+    <script type="module" src="./app.js?v=36"></script>
   </body>
 </html>

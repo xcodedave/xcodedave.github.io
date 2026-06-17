@@ -136,6 +136,14 @@ export class TilingSession {
      */
     setViewport(canvas_w: number, canvas_h: number, pan_x: number, pan_y: number, zoom: number): void;
     /**
+     * Star center positions, in CSS-pixel screen coordinates (after pan/zoom).
+     * Returned as a flat `[x0, y0, x1, y1, ...]` `Vec<f64>` (one pair per
+     * stamped star instance). Each cell-polygon centroid is translated by
+     * every lattice/fallback offset and then mapped through `view_transform`
+     * so the consumer can hit-test against pointer positions directly.
+     */
+    starCenters(): Float64Array;
+    /**
      * Sorted unique edge counts present in the current cell polygons. The
      * JS shell uses this to render one colour picker per shape kind.
      */
@@ -185,6 +193,7 @@ export interface InitOutput {
     readonly tilingsession_setTileRibbonFillColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setTileRibbonStrokeColor: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setViewport: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly tilingsession_starCenters: (a: number) => [number, number];
     readonly tilingsession_tileShapeEdgeCounts: (a: number) => [number, number];
     readonly tilingsession_weaveStatsJson: (a: number) => [number, number];
     readonly __wbindgen_exn_store: (a: number) => void;

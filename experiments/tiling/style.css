@@ -396,3 +396,80 @@ label.swatch input[type="color"] {
   82% { transform: translate(0, 64px); }
   94%, 100% { transform: translate(0, 0); }
 }
+
+/* Video export region overlay. Shown while the "Video export" details
+   section is open. Pinned to the viewport so coordinates map 1:1 to CSS
+   pixels — JS draws into this space using window.innerWidth/innerHeight.
+   z-index sits between the canvas (auto) and the panel (10) so the
+   panel can still cover part of the selection on small screens. */
+#video-region-overlay {
+  /* Default to hidden so the overlay only renders when JS adds .visible
+     (when the user opens the Video export section). `display: none` keeps
+     the element out of the render tree entirely — no compositor layer,
+     no paint, no event handling — when not needed. */
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  /* Container is invisible; only the inner mask + rect + handles paint
+     and only those that opt back in via `pointer-events` catch events. */
+  pointer-events: none;
+  z-index: 5;
+}
+
+#video-region-overlay.visible {
+  display: block;
+}
+
+/* When the Video export <details> is open, the Stars + Tiles control
+   groups (and their master-toggle rows above each group) are hidden so
+   the panel doesn't stretch off-screen on small viewports. Existing
+   `.hidden` JS attributes on the fieldsets remain authoritative when
+   the video section closes — this is an additional visual hide layered
+   over them, not a state change to the underlying toggles. */
+#panel.video-active > .group-toggle,
+#panel.video-active > fieldset.group {
+  display: none;
+}
+
+#video-region-mask {
+  fill: #000;
+  fill-opacity: 0.4;
+  pointer-events: none;
+}
+
+#video-region-rect {
+  fill: transparent;
+  stroke: #fff;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  /* `pointer-events: all` lets the (transparent) rect interior receive
+     pointer events for "drag to move the selection". Without this, only
+     the stroke would be hittable. */
+  pointer-events: all;
+  /* `touch-action: none` prevents the browser from claiming a touch
+     drag as a pan/zoom gesture before our pointermove handler sees it
+     — same rationale as the main #stage canvas. */
+  touch-action: none;
+  cursor: move;
+}
+
+#video-region-overlay .vr-handle {
+  width: 14px;
+  height: 14px;
+  fill: #fff;
+  stroke: #333;
+  stroke-width: 1;
+  pointer-events: all;
+  touch-action: none;
+}
+
+#video-region-overlay .vr-handle[data-vr-handle="nw"],
+#video-region-overlay .vr-handle[data-vr-handle="se"] { cursor: nwse-resize; }
+#video-region-overlay .vr-handle[data-vr-handle="ne"],
+#video-region-overlay .vr-handle[data-vr-handle="sw"] { cursor: nesw-resize; }
+#video-region-overlay .vr-handle[data-vr-handle="n"],
+#video-region-overlay .vr-handle[data-vr-handle="s"]  { cursor: ns-resize; }
+#video-region-overlay .vr-handle[data-vr-handle="e"],
+#video-region-overlay .vr-handle[data-vr-handle="w"]  { cursor: ew-resize; }

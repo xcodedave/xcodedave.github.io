@@ -284,6 +284,20 @@ export class TilingSession {
         wasm.tilingsession_setViewport(this.__wbg_ptr, canvas_w, canvas_h, pan_x, pan_y, zoom);
     }
     /**
+     * Star center positions, in CSS-pixel screen coordinates (after pan/zoom).
+     * Returned as a flat `[x0, y0, x1, y1, ...]` `Vec<f64>` (one pair per
+     * stamped star instance). Each cell-polygon centroid is translated by
+     * every lattice/fallback offset and then mapped through `view_transform`
+     * so the consumer can hit-test against pointer positions directly.
+     * @returns {Float64Array}
+     */
+    starCenters() {
+        const ret = wasm.tilingsession_starCenters(this.__wbg_ptr);
+        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+        return v1;
+    }
+    /**
      * Sorted unique edge counts present in the current cell polygons. The
      * JS shell uses this to render one colour picker per shape kind.
      * @returns {Uint32Array}
@@ -433,6 +447,11 @@ function addToExternrefTable0(obj) {
     return idx;
 }
 
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
 function getArrayJsValueFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     const mem = getDataViewMemory0();
@@ -455,6 +474,14 @@ function getDataViewMemory0() {
         cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
     }
     return cachedDataViewMemory0;
+}
+
+let cachedFloat64ArrayMemory0 = null;
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -506,6 +533,7 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;
+    cachedFloat64ArrayMemory0 = null;
     cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();

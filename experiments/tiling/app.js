@@ -239,6 +239,13 @@ async function main() {
 
   const session = new TilingSession(state.configIdx);
 
+  // Bridge so the early `draw()` can re-project the world-space video
+  // export selection rectangle whenever the canvas redraws (pan / zoom /
+  // config switch). The video-region setup block below replaces this
+  // no-op with a real function. Declaring it here keeps `draw()` happy
+  // before that block has run.
+  let drawVideoRegionOverlayIfVisible = () => {};
+
   // Resize canvas to viewport for crisp drawing on HiDPI.
   const sizeCanvas = () => {
     const dpr = window.devicePixelRatio || 1;
@@ -254,6 +261,14 @@ async function main() {
   const draw = () => {
     pushViewport();
     session.render(ctx);
+    // Keep the video-export selection overlay anchored to the tiling:
+    // pan / zoom / config switches all redraw the canvas, and now also
+    // re-project the world-space region into screen coords. The lookup
+    // is by element id so we tolerate the function being called before
+    // the video-region setup runs (early bootstrap paths).
+    if (typeof drawVideoRegionOverlayIfVisible === "function") {
+      drawVideoRegionOverlayIfVisible();
+    }
   };
 
   const onResize = () => {
@@ -970,6 +985,517 @@ async function main() {
     pushViewport();
     const dxf = session.exportDxf();
     download(dxf, `tiling-${configs[state.configIdx].replace(/\//g, "_")}.dxf`, "application/dxf");
+  });
+
+  // --- Video export ------------------------------------------------------
+  //
+  // Renders an angle sweep into a video file via `canvas.captureStream(0)`
+  // + `MediaRecorder`. We feed frames manually with `track.requestFrame()`
+  // so the recorder captures exactly what we render — no risk of the
+  // browser sampling at the wrong moment. Uses the current canvas
+  // size, viewport, and styling settings; only `star_angle` changes
+  // during the sweep. Original angle is restored on completion.
+
+  const videoStartAngle = document.getElementById("video-start-angle");
+  const videoEndAngle = document.getElementById("video-end-angle");
+  const videoStartReadout = document.getElementById("video-start-readout");
+  const videoEndReadout = document.getElementById("video-end-readout");
+  const videoLoopCb = document.getElementById("video-loop");
+  const videoDuration = document.getElementById("video-duration");
+  const videoDurationReadout = document.getElementById("video-duration-readout");
+  const videoFps = document.getElementById("video-fps");
+  const videoFpsReadout = document.getElementById("video-fps-readout");
+  const videoFormat = document.getElementById("video-format");
+  const videoBtn = document.getElementById("export-video");
+  const videoStatus = document.getElementById("video-status");
+  const videoExportSection = document.getElementById("video-export-section");
+
+  // --- Video export region (rectangle selection overlay) -----------------
+  //
+  // Stored in WORLD coordinates (the same space the tiling cell polygons
+  // live in — pre-view-transform). That way the rectangle is locked to the
+  // tiling content: pan / zoom / window resize all move the on-screen
+  // representation together with the tiles, never independently of them.
+  // The on-screen rect is just `worldToScreen` applied to the four corners.
+  // Lazy-initialised on first draw so we can size it to the current
+  // viewport (75% × 75% of the visible area, centered on the view).
+  let videoRegion = null;
+  const DEFAULT_REGION_FRAC = 0.75;
+  // Minimum on-screen size, in CSS pixels. Converted to world units per
+  // drag via `MIN_REGION_SCREEN_PX / zoom` so the rect can shrink with
+  // zoom-out but never collapse to an unusable splinter.
+  const MIN_REGION_SCREEN_PX = 50;
+  const HANDLE_SIZE = 14;
+
+  // World ↔ screen helpers. Matches the `view_transform` in gjh-wasm:
+  //   screen = world * zoom + (W/2 + pan, H/2 + pan)
+  // Read `state` at call time so the helpers stay correct across
+  // pan / zoom changes without needing to be regenerated.
+  const worldToScreen = (wx, wy) => ({
+    sx: wx * state.zoom + window.innerWidth / 2 + state.panX,
+    sy: wy * state.zoom + window.innerHeight / 2 + state.panY,
+  });
+  const screenToWorld = (sx, sy) => ({
+    wx: (sx - window.innerWidth / 2 - state.panX) / state.zoom,
+    wy: (sy - window.innerHeight / 2 - state.panY) / state.zoom,
+  });
+
+  const initVideoRegionIfNeeded = () => {
+    if (videoRegion) return;
+    // Centre of the current view, in world coords. With pan=0 this is
+    // world origin; non-zero pan shifts the view, so the rect should
+    // follow the view's centre point rather than world origin.
+    const cwx = -state.panX / state.zoom;
+    const cwy = -state.panY / state.zoom;
+    const ww = (DEFAULT_REGION_FRAC * window.innerWidth) / state.zoom;
+    const wh = (DEFAULT_REGION_FRAC * window.innerHeight) / state.zoom;
+    videoRegion = { x: cwx - ww / 2, y: cwy - wh / 2, w: ww, h: wh };
+  };
+
+  const videoRegionOverlay = document.getElementById("video-region-overlay");
+  const videoRegionMask = document.getElementById("video-region-mask");
+  const videoRegionRect = document.getElementById("video-region-rect");
+  const videoRegionHandles = Object.fromEntries(
+    Array.from(videoRegionOverlay.querySelectorAll(".vr-handle"))
+      .map((el) => [el.dataset.vrHandle, el]),
+  );
+
+  // Position the overlay's mask + rect + handles for the current viewport
+  // size and `videoRegion`. Cheap to call on every pointer move / resize
+  // / pan / zoom — the overlay redraws cheaply since SVG attribute updates
+  // are batched by the browser.
+  const drawVideoRegionOverlay = () => {
+    initVideoRegionIfNeeded();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    videoRegionOverlay.setAttribute("width", W);
+    videoRegionOverlay.setAttribute("height", H);
+
+    // Convert the stored world rect to on-screen coordinates via the
+    // current view transform. As pan/zoom change the same world rect
+    // appears in different screen positions, matching the tiling.
+    const tl = worldToScreen(videoRegion.x, videoRegion.y);
+    const br = worldToScreen(videoRegion.x + videoRegion.w, videoRegion.y + videoRegion.h);
+    const x = tl.sx;
+    const y = tl.sy;
+    const w = br.sx - tl.sx;
+    const h = br.sy - tl.sy;
+
+    // Even-odd fill: outer rect (full viewport) minus inner rect (the
+    // selection) gives a darkened frame around the selection in one path.
+    videoRegionMask.setAttribute(
+      "d",
+      `M0 0 H${W} V${H} H0 Z M${x} ${y} H${x + w} V${y + h} H${x} Z`,
+    );
+
+    videoRegionRect.setAttribute("x", x);
+    videoRegionRect.setAttribute("y", y);
+    videoRegionRect.setAttribute("width", w);
+    videoRegionRect.setAttribute("height", h);
+
+    const HS = HANDLE_SIZE;
+    const place = (name, cx, cy) => {
+      const el = videoRegionHandles[name];
+      el.setAttribute("x", cx - HS / 2);
+      el.setAttribute("y", cy - HS / 2);
+    };
+    place("nw", x, y);
+    place("n", x + w / 2, y);
+    place("ne", x + w, y);
+    place("e", x + w, y + h / 2);
+    place("se", x + w, y + h);
+    place("s", x + w / 2, y + h);
+    place("sw", x, y + h);
+    place("w", x, y + h / 2);
+  };
+
+  // Visibility is tied to the <details> being open *and* the panel being
+  // expanded — collapsing the panel hides the controls, so the overlay
+  // shouldn't linger. The `toggle` event fires when <details> opens or
+  // closes; the panel-toggle button click handler will also re-evaluate.
+  const updateVideoRegionVisibility = () => {
+    const visible = videoExportSection.open && !panel.classList.contains("collapsed");
+    // Use a CSS class instead of the `hidden` attribute: `HTMLElement.hidden`
+    // is defined on HTMLElement and doesn't reflect to attributes on
+    // SVGElement, so `videoRegionOverlay.hidden = …` silently no-ops on
+    // SVG and the overlay never appears. classList works on both.
+    videoRegionOverlay.classList.toggle("visible", visible);
+    // Also mark the panel so CSS can hide the Stars + Tiles control groups
+    // — they take up most of the panel height and aren't relevant while
+    // configuring a video export.
+    panel.classList.toggle("video-active", videoExportSection.open);
+    if (visible) drawVideoRegionOverlay();
+  };
+  videoExportSection.addEventListener("toggle", updateVideoRegionVisibility);
+  // Re-evaluate when the panel collapses / expands. The existing
+  // panel-toggle click handler (above) doesn't dispatch an event, so we
+  // observe class changes on the panel directly.
+  const panelObserver = new MutationObserver(updateVideoRegionVisibility);
+  panelObserver.observe(panel, { attributes: true, attributeFilter: ["class"] });
+  // Keep the overlay correctly sized on viewport changes. (The world rect
+  // itself doesn't change; only its on-screen projection does.)
+  window.addEventListener("resize", () => {
+    if (videoRegionOverlay.classList.contains("visible")) drawVideoRegionOverlay();
+  });
+  // Install the bridge `draw()` uses to re-project the world rect after
+  // every render. The early no-op stub is replaced now that
+  // `drawVideoRegionOverlay` exists.
+  drawVideoRegionOverlayIfVisible = () => {
+    if (videoRegionOverlay.classList.contains("visible")) drawVideoRegionOverlay();
+  };
+
+  // Drag interaction. `handleKind` is one of:
+  //   "move" → drag the whole rect
+  //   "nw"|"n"|"ne"|"e"|"se"|"s"|"sw"|"w" → resize from that corner/edge
+  // We capture the pointer to the SVG element so events keep firing
+  // even when the cursor strays outside the original target while
+  // dragging (e.g. a corner pulled past a viewport edge).
+  let videoRegionDrag = null;
+
+  // Pixel-radius within which a dragged corner snaps onto the nearest star
+  // center. Sized so the snap feels intentional (kicks in close to the
+  // vertex) without being sticky when the user wants a free position.
+  const CORNER_SNAP_PX = 14;
+  const isCornerKind = (k) => k === "nw" || k === "ne" || k === "se" || k === "sw";
+
+  const startVideoRegionDrag = (e, handleKind) => {
+    if (!videoExportSection.open) return;
+    e.stopPropagation();
+    e.preventDefault();
+    initVideoRegionIfNeeded();
+    // Cache star centers once at drag start, converted to WORLD coords so
+    // the snap test is invariant to any pan/zoom that might happen mid-drag.
+    // Only corner handles snap; edge and "move" drags skip the WASM
+    // round-trip entirely.
+    let starCentersWorld = null;
+    if (isCornerKind(handleKind) && typeof session.starCenters === "function") {
+      try {
+        const arr = session.starCenters();
+        starCentersWorld = new Array(arr.length);
+        for (let i = 0; i < arr.length; i += 2) {
+          const w = screenToWorld(arr[i], arr[i + 1]);
+          starCentersWorld[i] = w.wx;
+          starCentersWorld[i + 1] = w.wy;
+        }
+      } catch (_) { starCentersWorld = null; }
+    }
+    videoRegionDrag = {
+      pointerId: e.pointerId,
+      kind: handleKind,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startRegion: { ...videoRegion },
+      starCentersWorld,
+    };
+    try {
+      videoRegionOverlay.setPointerCapture(e.pointerId);
+    } catch (_) { /* some browsers reject capture on synthetic events */ }
+  };
+
+  videoRegionRect.addEventListener("pointerdown", (e) => startVideoRegionDrag(e, "move"));
+  for (const [name, el] of Object.entries(videoRegionHandles)) {
+    el.addEventListener("pointerdown", (e) => startVideoRegionDrag(e, name));
+  }
+
+  videoRegionOverlay.addEventListener("pointermove", (e) => {
+    if (!videoRegionDrag || e.pointerId !== videoRegionDrag.pointerId) return;
+    const z = state.zoom;
+    // Pointer deltas convert to world units by dividing by zoom — the
+    // rect now lives in world space, so a 100px screen drag at 2× zoom
+    // is only 50 world units.
+    const dxW = (e.clientX - videoRegionDrag.startClientX) / z;
+    const dyW = (e.clientY - videoRegionDrag.startClientY) / z;
+    const r = { ...videoRegionDrag.startRegion };
+    const kind = videoRegionDrag.kind;
+    // Minimum size expressed in world units so the rect can't collapse
+    // visually below `MIN_REGION_SCREEN_PX` at the current zoom.
+    const minW = MIN_REGION_SCREEN_PX / z;
+
+    if (kind === "move") {
+      // Free translation — no clamping to the viewport since the rect
+      // lives in world space and may legitimately sit outside the current
+      // view (the user can pan the tiling to bring it back).
+      videoRegion.x = r.x + dxW;
+      videoRegion.y = r.y + dyW;
+      videoRegion.w = r.w;
+      videoRegion.h = r.h;
+    } else {
+      // Resize from the named corner / edge. Compute new (x1,y1) and
+      // (x2,y2) so each edge moves independently and a single dx
+      // applied to both w+e sides would translate rather than resize.
+      let x1 = r.x, x2 = r.x + r.w;
+      let y1 = r.y, y2 = r.y + r.h;
+      if (kind.includes("w")) x1 = Math.min(x2 - minW, x1 + dxW);
+      if (kind.includes("e")) x2 = Math.max(x1 + minW, x2 + dxW);
+      if (kind.includes("n")) y1 = Math.min(y2 - minW, y1 + dyW);
+      if (kind.includes("s")) y2 = Math.max(y1 + minW, y2 + dyW);
+
+      // Corner-snap: pull the dragged corner onto the nearest star center
+      // within `CORNER_SNAP_PX` of screen distance. Snap targets are
+      // stored in world coords so they don't drift if pan/zoom changes
+      // during the drag. Threshold is `CORNER_SNAP_PX / zoom` in world
+      // units so the visual snap radius stays constant on screen.
+      if (isCornerKind(kind) && videoRegionDrag.starCentersWorld && videoRegionDrag.starCentersWorld.length >= 2) {
+        const cornerWx = kind.includes("w") ? x1 : x2;
+        const cornerWy = kind.includes("n") ? y1 : y2;
+        const threshW = CORNER_SNAP_PX / z;
+        let bestD2 = threshW * threshW;
+        let snapWx = null, snapWy = null;
+        const cs = videoRegionDrag.starCentersWorld;
+        for (let i = 0; i < cs.length; i += 2) {
+          const ddx = cs[i] - cornerWx;
+          const ddy = cs[i + 1] - cornerWy;
+          const d2 = ddx * ddx + ddy * ddy;
+          if (d2 < bestD2) { bestD2 = d2; snapWx = cs[i]; snapWy = cs[i + 1]; }
+        }
+        if (snapWx !== null) {
+          if (kind.includes("w")) x1 = Math.min(x2 - minW, snapWx);
+          if (kind.includes("e")) x2 = Math.max(x1 + minW, snapWx);
+          if (kind.includes("n")) y1 = Math.min(y2 - minW, snapWy);
+          if (kind.includes("s")) y2 = Math.max(y1 + minW, snapWy);
+        }
+      }
+
+      videoRegion.x = x1;
+      videoRegion.w = x2 - x1;
+      videoRegion.y = y1;
+      videoRegion.h = y2 - y1;
+    }
+
+    drawVideoRegionOverlay();
+  });
+
+  const endVideoRegionDrag = (e) => {
+    if (!videoRegionDrag || e.pointerId !== videoRegionDrag.pointerId) return;
+    try {
+      videoRegionOverlay.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    videoRegionDrag = null;
+  };
+  videoRegionOverlay.addEventListener("pointerup", endVideoRegionDrag);
+  videoRegionOverlay.addEventListener("pointercancel", endVideoRegionDrag);
+
+  // Ordered preference list: prefer modern codecs and MP4 containers (better
+  // for editor / NLE compatibility), fall back to WebM where MP4 isn't
+  // supported by the browser's MediaRecorder. HEVC/H.265 is mostly Safari-
+  // only; H.264 lands in newer Chrome/Edge; VP9/VP8 lands everywhere else.
+  // AVI is intentionally absent — no mainstream browser MediaRecorder
+  // produces it without bundling a JS encoder (e.g. ffmpeg.wasm).
+  const VIDEO_FORMATS = [
+    { label: "MP4 (HEVC / H.265)", mime: "video/mp4;codecs=hvc1", ext: "mp4" },
+    { label: "MP4 (H.264)", mime: "video/mp4;codecs=avc1", ext: "mp4" },
+    { label: "WebM (VP9)", mime: "video/webm;codecs=vp9", ext: "webm" },
+    { label: "WebM (VP8)", mime: "video/webm;codecs=vp8", ext: "webm" },
+    { label: "WebM (default)", mime: "video/webm", ext: "webm" },
+  ];
+  const supportedFormats = typeof MediaRecorder !== "undefined"
+    ? VIDEO_FORMATS.filter((f) => MediaRecorder.isTypeSupported(f.mime))
+    : [];
+  if (supportedFormats.length === 0) {
+    const opt = document.createElement("option");
+    opt.textContent = "(no supported codecs)";
+    opt.disabled = true;
+    videoFormat.appendChild(opt);
+    videoBtn.disabled = true;
+    videoStatus.textContent = "This browser can't record video.";
+  } else {
+    for (const f of supportedFormats) {
+      const opt = document.createElement("option");
+      opt.value = f.mime;
+      opt.dataset.ext = f.ext;
+      opt.textContent = f.label;
+      videoFormat.appendChild(opt);
+    }
+  }
+
+  const updateVideoStartReadout = () => {
+    const v = parseFloat(videoStartAngle.value);
+    videoStartReadout.textContent = Number.isInteger(v) ? `${v.toFixed(0)}°` : `${v.toFixed(1)}°`;
+  };
+  const updateVideoEndReadout = () => {
+    const v = parseFloat(videoEndAngle.value);
+    videoEndReadout.textContent = Number.isInteger(v) ? `${v.toFixed(0)}°` : `${v.toFixed(1)}°`;
+  };
+  const updateVideoDurationReadout = () => {
+    videoDurationReadout.textContent = `${parseFloat(videoDuration.value).toFixed(1)} s`;
+  };
+  const updateVideoFpsReadout = () => {
+    videoFpsReadout.textContent = String(parseInt(videoFps.value, 10));
+  };
+  updateVideoStartReadout();
+  updateVideoEndReadout();
+  updateVideoDurationReadout();
+  updateVideoFpsReadout();
+  videoStartAngle.addEventListener("input", updateVideoStartReadout);
+  videoEndAngle.addEventListener("input", updateVideoEndReadout);
+  // Harmonic snap on release — mirrors the main star-angle slider: raw
+  // tracking during the drag, snap to a harmonic (or half-harmonic) once
+  // the user lets go. `snapAngle` honours the same harmonic-snap toggle
+  // the star slider uses, so disabling snap globally also disables it
+  // for the video range inputs.
+  const snapVideoAngle = (input, updateReadout) => {
+    const raw = parseFloat(input.value);
+    const snapped = snapAngle(raw);
+    if (snapped !== raw) {
+      input.value = String(snapped);
+      updateReadout();
+    }
+  };
+  videoStartAngle.addEventListener("change", () =>
+    snapVideoAngle(videoStartAngle, updateVideoStartReadout),
+  );
+  videoEndAngle.addEventListener("change", () =>
+    snapVideoAngle(videoEndAngle, updateVideoEndReadout),
+  );
+  videoDuration.addEventListener("input", updateVideoDurationReadout);
+  videoFps.addEventListener("input", updateVideoFpsReadout);
+
+  let videoRecording = false;
+  videoBtn.addEventListener("click", async () => {
+    if (videoRecording || supportedFormats.length === 0) return;
+    videoRecording = true;
+    videoBtn.disabled = true;
+
+    const startDeg = parseFloat(videoStartAngle.value);
+    const endDeg = parseFloat(videoEndAngle.value);
+    const loop = videoLoopCb.checked;
+    const durationSec = parseFloat(videoDuration.value);
+    const fps = parseInt(videoFps.value, 10);
+    const totalFrames = Math.max(2, Math.round(durationSec * fps));
+    const frameIntervalMs = 1000 / fps;
+    const savedAngleRad = (state.angleDeg * Math.PI) / 180;
+
+    const fmtOpt = videoFormat.selectedOptions[0];
+    const mime = fmtOpt.value;
+    const ext = fmtOpt.dataset.ext;
+
+    // Crop region in canvas-buffer pixels. The rect is stored in world
+    // coords; map it through the current view transform → screen (CSS)
+    // pixels → multiply by `dpr` to land in canvas buffer pixels. Clamp
+    // to the canvas bounds so a partially off-screen rect still captures
+    // the visible portion. We force even output dimensions because some
+    // H.264 / HEVC encoders refuse odd widths/heights ("YUV 4:2:0
+    // requires even dimensions").
+    const evenify = (n) => Math.max(2, n - (n % 2));
+    initVideoRegionIfNeeded();
+    const dpr = window.devicePixelRatio || 1;
+    const tlScr = worldToScreen(videoRegion.x, videoRegion.y);
+    const brScr = worldToScreen(videoRegion.x + videoRegion.w, videoRegion.y + videoRegion.h);
+    const sx0 = Math.max(0, Math.round(tlScr.sx * dpr));
+    const sy0 = Math.max(0, Math.round(tlScr.sy * dpr));
+    const sx1 = Math.min(canvas.width, Math.round(brScr.sx * dpr));
+    const sy1 = Math.min(canvas.height, Math.round(brScr.sy * dpr));
+    const srcX = sx0;
+    const srcY = sy0;
+    const srcW = evenify(Math.max(2, sx1 - sx0));
+    const srcH = evenify(Math.max(2, sy1 - sy0));
+
+    // Offscreen canvas at the crop size — we render the main scene to
+    // the visible canvas as usual, then `drawImage` the cropped region
+    // into this offscreen canvas and capture *that* stream. The
+    // resulting video file therefore contains only the selected region
+    // at its natural pixel size (no scaling, no letterboxing).
+    const videoCanvas = document.createElement("canvas");
+    videoCanvas.width = srcW;
+    videoCanvas.height = srcH;
+    const videoCtx = videoCanvas.getContext("2d");
+
+    // Auto-sample capture at the requested FPS. We *originally* used
+    // `captureStream(0)` + manual `track.requestFrame()` so the recorded
+    // video would be frame-locked to our render loop, but `requestFrame`
+    // is unevenly supported (Safari historically silently no-ops it). In
+    // that case only the implicit first frame is captured and the file
+    // looks like a single static image. `captureStream(fps)` is portable:
+    // the browser samples the canvas at `fps` Hz, and our render loop
+    // simply keeps the canvas up to date at that rate.
+    const stream = videoCanvas.captureStream(fps);
+    const track = stream.getVideoTracks()[0];
+
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: 8_000_000,
+      });
+    } catch (err) {
+      videoStatus.textContent = `Recorder failed: ${err.message}`;
+      videoRecording = false;
+      videoBtn.disabled = false;
+      return;
+    }
+
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+    const stopped = new Promise((resolve) => { recorder.onstop = resolve; });
+
+    recorder.start();
+
+    try {
+      // Pace frame submission against wall-clock time so the resulting
+      // file's playback duration matches the requested duration. We don't
+      // rely on requestAnimationFrame because the browser may throttle it
+      // (background tabs) or run faster than the target FPS.
+      const t0 = performance.now();
+      for (let i = 0; i < totalFrames; i++) {
+        let t = i / (totalFrames - 1);
+        let frameDeg;
+        if (loop) {
+          // Triangle wave: 0..1 traverses start → end → start with the
+          // turn-around at t = 0.5. Means the first and last frame are
+          // identical, so the file loops cleanly when set on repeat.
+          const tri = t < 0.5 ? t * 2 : (1 - t) * 2;
+          frameDeg = startDeg + (endDeg - startDeg) * tri;
+        } else {
+          frameDeg = startDeg + (endDeg - startDeg) * t;
+        }
+        session.setStarAngle((frameDeg * Math.PI) / 180);
+        pushViewport();
+        session.render(ctx);
+        // Copy the cropped region from the main canvas into the video
+        // canvas, then ask the captureStream track to sample one frame.
+        // We blit every frame because the source canvas changes every
+        // frame (new star angle).
+        videoCtx.drawImage(canvas, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+        videoStatus.textContent = `Recording ${i + 1} / ${totalFrames}`;
+
+        // Wait until the next frame's scheduled wall-clock slot. This
+        // both gives MediaRecorder time to ingest the requested frame and
+        // ensures the recorded video plays back at the intended FPS.
+        const targetMs = t0 + (i + 1) * frameIntervalMs;
+        const waitMs = Math.max(0, targetMs - performance.now());
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    } finally {
+      // Give the auto-sampler one extra frame interval to capture the
+      // final rendered state before we tear the track down — otherwise
+      // the last 1–2 frames of motion may be missing from the file.
+      await new Promise((r) => setTimeout(r, frameIntervalMs * 2));
+      recorder.stop();
+      await stopped;
+
+      // Restore the user's original star angle and redraw the canvas so
+      // the on-screen view matches what was there before recording.
+      session.setStarAngle(savedAngleRad);
+      draw();
+    }
+
+    if (chunks.length === 0) {
+      videoStatus.textContent = "Recording produced no data.";
+    } else {
+      const blob = new Blob(chunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      const name = `tiling-${configs[state.configIdx].replace(/\//g, "_")}.${ext}`;
+      triggerDownload(url, name);
+      // 5s grace before revoking — gives the download dialog time to
+      // resolve the blob URL before it's pulled out from under it.
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      videoStatus.textContent = `Saved ${name} (${(blob.size / 1024 / 1024).toFixed(1)} MB)`;
+    }
+
+    videoRecording = false;
+    videoBtn.disabled = false;
   });
 }
 
