@@ -1,8 +1,10 @@
 <!DOCTYPE html>
+<!-- build commit: 213aee792b39 -->
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="build-commit" content="213aee792b39">
 <title>-=F0RL0RN=-</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -39,11 +41,23 @@
     user-select: none;
   }
   #ctx-menu-copy:hover { background: #2a2a2a; }
+  #build-info {
+    position: fixed;
+    bottom: 4px;
+    right: 6px;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 10px;
+    color: #4a5a4a;
+    pointer-events: none;
+    user-select: none;
+    z-index: 999;
+  }
 </style>
 </head>
 <body>
 <pre id="display"></pre>
 <div id="ctx-menu"><div id="ctx-menu-copy">Copy Frame</div></div>
+<div id="build-info">213aee792b39</div>
 
 <!-- Audio manager: Web Audio API wrapper with Mobile Safari / iPhone support -->
 <script>

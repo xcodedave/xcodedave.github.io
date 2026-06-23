@@ -11,13 +11,29 @@
 export class Engine {
     free(): void;
     [Symbol.dispose](): void;
+    /**
+     * Disables surface-id capture. Existing tagged cells stay until the next
+     * `clear_with` (start of next frame).
+     */
+    disable_surface_id_capture(): void;
+    /**
+     * Test/debug: turns on per-cell surface-id capture. Each depth-winning
+     * triangle fill writes the global triangle index into a parallel buffer,
+     * so tests can identify exactly which triangle painted any cell.
+     * Cleared automatically by `clear_with` at the start of each frame; the
+     * `surface_id_base` toggle persists until disabled.
+     */
+    enable_surface_id_capture(): void;
     get_far_bias(): number;
     get_near_bias(): number;
     /**
      * Returns a compact state string encoding player position, camera, weather, and viewport.
      * Format: "px,pz,yaw,cyaw,cpitch,torch,rain,cols,rows" as comma-separated values.
+     * Viewport dims (cols/rows) are included for diagnostic/testing purposes — the
+     * loader (`set_state`) does NOT consume them.
      */
     get_state(): string;
+    get_tomb_debug_rooms(): boolean;
     /**
      * Returns true if the figure is currently moving.
      */
@@ -43,6 +59,11 @@ export class Engine {
      * Resizes the character grid without resetting game state.
      */
     resize(width: number, height: number): void;
+    /**
+     * Test/debug toggle: when true, edges always paint regardless of the depth
+     * buffer. Used for the staircase-occlusion exploration test.
+     */
+    set_edges_force_visible(v: boolean): void;
     set_far_bias(val: number): void;
     /**
      * Sets the camera field of view in degrees.
@@ -59,6 +80,23 @@ export class Engine {
      * Restores state from a compact state string.
      */
     set_state(state: string): void;
+    /**
+     * Toggles per-room debug edge rendering inside the tomb. When enabled,
+     * each room's silhouette edges draw as a unique digit ('0'–'9') so it's
+     * visually obvious which polygons belong to which room.
+     */
+    set_tomb_debug_rooms(on: boolean): void;
+    /**
+     * Returns the surface id at the given cell, or `None` if no tagged
+     * triangle painted it. Test/debug only.
+     */
+    surface_id_at(x: number, y: number): number | undefined;
+    /**
+     * Maps a tomb triangle id (as stored in the surface-id buffer) back to
+     * its room index. Returns `None` if the tomb is not loaded or the id is
+     * out of range. Test/debug only.
+     */
+    tomb_tri_room(tri_id: number): number | undefined;
     /**
      * Applies touch camera orbit (top half of screen).
      * `delta_yaw` is in radians.
@@ -88,7 +126,8 @@ export class Engine {
 }
 
 /**
- * Returns a build identifier string (version + timestamp) for cache-busting.
+ * Returns a build identifier string (version + commit + timestamp) for
+ * cache-busting and traceability of deployed builds.
  */
 export function build_id(): string;
 
@@ -102,19 +141,26 @@ export interface InitOutput {
     readonly __wbg_set_engine_far_bias: (a: number, b: number) => void;
     readonly __wbg_set_engine_near_bias: (a: number, b: number) => void;
     readonly build_id: () => [number, number];
+    readonly engine_disable_surface_id_capture: (a: number) => void;
+    readonly engine_enable_surface_id_capture: (a: number) => void;
     readonly engine_get_far_bias: (a: number) => number;
     readonly engine_get_near_bias: (a: number) => number;
     readonly engine_get_state: (a: number) => [number, number];
+    readonly engine_get_tomb_debug_rooms: (a: number) => number;
     readonly engine_is_moving: (a: number) => number;
     readonly engine_key_down: (a: number, b: number, c: number) => void;
     readonly engine_key_up: (a: number, b: number, c: number) => void;
     readonly engine_new: (a: number, b: number) => number;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_set_edges_force_visible: (a: number, b: number) => void;
     readonly engine_set_far_bias: (a: number, b: number) => void;
     readonly engine_set_fov: (a: number, b: number) => void;
     readonly engine_set_near_bias: (a: number, b: number) => void;
     readonly engine_set_spawn: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_set_state: (a: number, b: number, c: number) => void;
+    readonly engine_set_tomb_debug_rooms: (a: number, b: number) => void;
+    readonly engine_surface_id_at: (a: number, b: number, c: number) => number;
+    readonly engine_tomb_tri_room: (a: number, b: number) => number;
     readonly engine_touch_camera: (a: number, b: number) => void;
     readonly engine_touch_input: (a: number, b: number, c: number) => void;
     readonly engine_update: (a: number, b: number) => [number, number];

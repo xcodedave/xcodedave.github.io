@@ -19,6 +19,23 @@ export class Engine {
         wasm.__wbg_engine_free(ptr, 0);
     }
     /**
+     * Disables surface-id capture. Existing tagged cells stay until the next
+     * `clear_with` (start of next frame).
+     */
+    disable_surface_id_capture() {
+        wasm.engine_disable_surface_id_capture(this.__wbg_ptr);
+    }
+    /**
+     * Test/debug: turns on per-cell surface-id capture. Each depth-winning
+     * triangle fill writes the global triangle index into a parallel buffer,
+     * so tests can identify exactly which triangle painted any cell.
+     * Cleared automatically by `clear_with` at the start of each frame; the
+     * `surface_id_base` toggle persists until disabled.
+     */
+    enable_surface_id_capture() {
+        wasm.engine_enable_surface_id_capture(this.__wbg_ptr);
+    }
+    /**
      * @returns {number}
      */
     get_far_bias() {
@@ -35,6 +52,8 @@ export class Engine {
     /**
      * Returns a compact state string encoding player position, camera, weather, and viewport.
      * Format: "px,pz,yaw,cyaw,cpitch,torch,rain,cols,rows" as comma-separated values.
+     * Viewport dims (cols/rows) are included for diagnostic/testing purposes — the
+     * loader (`set_state`) does NOT consume them.
      * @returns {string}
      */
     get_state() {
@@ -48,6 +67,13 @@ export class Engine {
         } finally {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
+    }
+    /**
+     * @returns {boolean}
+     */
+    get_tomb_debug_rooms() {
+        const ret = wasm.engine_get_tomb_debug_rooms(this.__wbg_ptr);
+        return ret !== 0;
     }
     /**
      * Returns true if the figure is currently moving.
@@ -100,6 +126,14 @@ export class Engine {
         wasm.engine_resize(this.__wbg_ptr, width, height);
     }
     /**
+     * Test/debug toggle: when true, edges always paint regardless of the depth
+     * buffer. Used for the staircase-occlusion exploration test.
+     * @param {boolean} v
+     */
+    set_edges_force_visible(v) {
+        wasm.engine_set_edges_force_visible(this.__wbg_ptr, v);
+    }
+    /**
      * @param {number} val
      */
     set_far_bias(val) {
@@ -138,6 +172,37 @@ export class Engine {
         const ptr0 = passStringToWasm0(state, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         wasm.engine_set_state(this.__wbg_ptr, ptr0, len0);
+    }
+    /**
+     * Toggles per-room debug edge rendering inside the tomb. When enabled,
+     * each room's silhouette edges draw as a unique digit ('0'–'9') so it's
+     * visually obvious which polygons belong to which room.
+     * @param {boolean} on
+     */
+    set_tomb_debug_rooms(on) {
+        wasm.engine_set_tomb_debug_rooms(this.__wbg_ptr, on);
+    }
+    /**
+     * Returns the surface id at the given cell, or `None` if no tagged
+     * triangle painted it. Test/debug only.
+     * @param {number} x
+     * @param {number} y
+     * @returns {number | undefined}
+     */
+    surface_id_at(x, y) {
+        const ret = wasm.engine_surface_id_at(this.__wbg_ptr, x, y);
+        return ret === 0x100000001 ? undefined : ret;
+    }
+    /**
+     * Maps a tomb triangle id (as stored in the surface-id buffer) back to
+     * its room index. Returns `None` if the tomb is not loaded or the id is
+     * out of range. Test/debug only.
+     * @param {number} tri_id
+     * @returns {number | undefined}
+     */
+    tomb_tri_room(tri_id) {
+        const ret = wasm.engine_tomb_tri_room(this.__wbg_ptr, tri_id);
+        return ret === 0x100000001 ? undefined : ret;
     }
     /**
      * Applies touch camera orbit (top half of screen).
@@ -211,7 +276,8 @@ export class Engine {
 if (Symbol.dispose) Engine.prototype[Symbol.dispose] = Engine.prototype.free;
 
 /**
- * Returns a build identifier string (version + timestamp) for cache-busting.
+ * Returns a build identifier string (version + commit + timestamp) for
+ * cache-busting and traceability of deployed builds.
  * @returns {string}
  */
 export function build_id() {
