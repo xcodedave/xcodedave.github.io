@@ -1000,7 +1000,7 @@ async function main() {
   const videoEndAngle = document.getElementById("video-end-angle");
   const videoStartReadout = document.getElementById("video-start-readout");
   const videoEndReadout = document.getElementById("video-end-readout");
-  const videoLoopCb = document.getElementById("video-loop");
+  const videoReverses = document.getElementById("video-reverses");
   const videoDuration = document.getElementById("video-duration");
   const videoDurationReadout = document.getElementById("video-duration-readout");
   const videoFps = document.getElementById("video-fps");
@@ -1358,7 +1358,12 @@ async function main() {
 
     const startDeg = parseFloat(videoStartAngle.value);
     const endDeg = parseFloat(videoEndAngle.value);
-    const loop = videoLoopCb.checked;
+    // Number of times the animation reverses direction. 0 = play linearly
+    // from start → end. n ≥ 1 = ping-pong with n reverse legs, producing
+    // 2n segments alternating forward / reverse (so n=1 → start→end→start,
+    // n=2 → start→end→start→end→start, etc.).
+    const reverseCount = Math.max(0, Math.floor(parseFloat(videoReverses.value) || 0));
+    const segments = reverseCount === 0 ? 1 : 2 * reverseCount;
     const durationSec = parseFloat(videoDuration.value);
     const fps = parseInt(videoFps.value, 10);
     const totalFrames = Math.max(2, Math.round(durationSec * fps));
@@ -1441,14 +1446,19 @@ async function main() {
       for (let i = 0; i < totalFrames; i++) {
         let t = i / (totalFrames - 1);
         let frameDeg;
-        if (loop) {
-          // Triangle wave: 0..1 traverses start → end → start with the
-          // turn-around at t = 0.5. Means the first and last frame are
-          // identical, so the file loops cleanly when set on repeat.
-          const tri = t < 0.5 ? t * 2 : (1 - t) * 2;
-          frameDeg = startDeg + (endDeg - startDeg) * tri;
-        } else {
+        if (segments === 1) {
           frameDeg = startDeg + (endDeg - startDeg) * t;
+        } else {
+          // Split [0,1] into `segments` equal pieces. Even-indexed pieces
+          // play forward (start → end), odd-indexed pieces play in reverse
+          // (end → start). For n ≥ 1 the final segment is a reverse, so
+          // the file ends back at the start angle and loops cleanly.
+          const scaled = t * segments;
+          let seg = Math.floor(scaled);
+          if (seg >= segments) seg = segments - 1;
+          const local = scaled - seg;
+          const u = (seg % 2 === 0) ? local : (1 - local);
+          frameDeg = startDeg + (endDeg - startDeg) * u;
         }
         session.setStarAngle((frameDeg * Math.PI) / 180);
         pushViewport();
