@@ -1,0 +1,33 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD><TITLE>Shiggsy's Lair - Screenshot</TITLE></HEAD>
+<BODY BGCOLOR="#000000" TEXT="#FFFFFF" LINK="#0000FF" VLINK="#800080" ALINK="#FF0000">
+<CENTER>
+<FONT COLOR="#FF0000" FACE="Comic Sans MS" SIZE="5"><B>Shiggsy's Lair</B></FONT><BR>
+<FONT COLOR="#FFFF00" SIZE="2">my screenshots!!</FONT>
+<P>
+<FONT SIZE="3" id="count">1 of 10</FONT><BR>
+<FONT SIZE="2" COLOR="#00FF00" id="cap"></FONT>
+<P>
+<TABLE BORDER="2" CELLPADDING="4"><TR><TD><A id="piclink" HREF="#"><IMG id="pic" SRC="shots/castle-grounds.jpg" WIDTH="320" HEIGHT="240" BORDER="0" ALT="screenshot"></A></TD></TR></TABLE>
+<P>
+<FONT SIZE="3"><A id="back" HREF="#">&lt;&lt; Back</A> | <A id="next" HREF="#">Next &gt;&gt;</A></FONT>
+<P>
+<A HREF="index.html#gallery">back to gallery</A> | <A HREF="index.html">back to Shiggsy's Lair</A>
+<P><FONT SIZE="1" COLOR="#808080">(c) 1998 Shiggsy</FONT>
+</CENTER>
+<SCRIPT TYPE="text/javascript">
+var P=[['castle-grounds','castle grounds, the front yard'],['castle-front','the castle walls and the moat'],['bob-omb-battlefield','Bob-omb Battlefield, course 1!!'],['king-bob-omb','king bob-omb on top of the mountain'],['bob-omb','BOOM a bob-omb'],['title','Title Screen'],['chain-chomp','chain chomp is mad at me'],['mario-jumping','mario jumping around'],['castle-lobby','inside the castle'],['star-dance','i got a star!!!']];
+var m=location.search.match(/n=(\d+)/), n=m?parseInt(m[1],10):1;
+if(!(n>=1&&n<=P.length)) n=1;
+var p=P[n-1];
+document.getElementById('count').innerHTML=n+' of '+P.length;
+document.getElementById('cap').innerHTML=p[1];
+document.getElementById('pic').src='shots/'+p[0]+'.jpg';
+document.getElementById('back').href='viewer.html?n='+(n==1?P.length:n-1);
+document.getElementById('next').href='viewer.html?n='+(n==P.length?1:n+1);
+document.title='Shiggsy\'s Lair - '+n+' of '+P.length;
+if(p[0]=='title') document.getElementById('piclink').href='index.html#t';
+</SCRIPT>
+</BODY>
+</HTML>

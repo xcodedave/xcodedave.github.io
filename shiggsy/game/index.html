@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>sm64-web</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    #sm64-canvas { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; display: block; width: 100vw; height: 100vh; background: #000; }
+    #hud, #status { position: fixed; left: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace;
+      color: #fff; background: rgba(0, 0, 0, 0.55); padding: 4px 6px; white-space: pre; pointer-events: none; }
+    #hud { top: 8px; }
+    #status { bottom: 8px; color: #ffb4b4; }
+    #hud:empty, #status:empty { display: none; }
+    #credits { position: fixed; left: 50%; transform: translateX(-50%); bottom: 2px; white-space: nowrap; z-index: 20; font: 10px/1.6 system-ui, sans-serif;
+      color: #fff; opacity: 0.28; text-decoration: none; padding: 2px 4px; }
+    #credits:hover, #credits:focus-visible { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <canvas id="sm64-canvas"></canvas>
+  <div id="hud"></div>
+  <div id="status"></div>
+  <a id="credits" href="icons/n64/credits.html?v=8156d969" target="_blank" rel="noopener">icons: SSBWiki, CC BY-SA 4.0</a>
+  <script type="module" src="./main.js?v=8156d969"></script>
+</body>
+</html>
