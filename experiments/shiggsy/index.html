@@ -238,8 +238,28 @@ Mario is owned by Nintendo, im just a fan, please dont sue me!!</FONT>
 <SCRIPT TYPE="text/javascript">
 (function(){
  var box=document.getElementById('vbox'), frame=null, usedFs=false;
+ var audioCtx = null;
+function enableAudio() {
+try {
+audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+if (audioCtx.state === 'suspended') {
+     audioCtx.resume();
+}
+// Generate a short tone inline.
+var buffer = audioCtx.createBuffer(1, audioCtx.sampleRate / 2, audioCtx.sampleRate);
+var data = buffer.getChannelData(0);
+for (var i = 0; i < data.length; i++) {
+     data[i] = 0.15 * Math.sin(2 * Math.PI * 440 * i / audioCtx.sampleRate);
+}
+var source = audioCtx.createBufferSource();
+source.buffer = buffer;
+source.connect(audioCtx.destination);
+source.start();
+} catch (e) {}
+}
  function openV(e){
   if(e) e.preventDefault();
+  enableAudio();
   box.style.display='block';
   document.body.style.overflow='hidden';
   frame=document.createElement('iframe');
