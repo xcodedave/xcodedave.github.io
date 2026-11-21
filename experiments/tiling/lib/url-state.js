@@ -32,6 +32,10 @@ export function encodeState(s) {
     tw: s.tileWeave ? 1 : 0,
     sw: s.starWeave ? 1 : 0,
     hs: s.harmonicSnap ? 1 : 0,
+    ro: s.showRosettes ? 1 : 0,
+    rh: s.rosetteH,
+    rp: s.rosettePhiDeg,
+    rs: s.rosetteS,
     pal: s.tilePalette,
     sf: s.starFill,
     bw: s.interstitialFill,
@@ -73,6 +77,12 @@ export function decodeStateInto(s, encoded) {
   // permalinks may still carry it. It is ignored, so they still load.
   if (obj.swl !== undefined) { /* ignored */ }
   if (obj.hs !== undefined) s.harmonicSnap = !!obj.hs;
+  // KS04 rosette: on/off, shoulder h, taper phi (degrees), rings s. Missing
+  // keys leave the defaults; `rs` must be 2 or 3, anything else is ignored.
+  if (obj.ro !== undefined) s.showRosettes = !!obj.ro;
+  if (typeof obj.rh === "number" && Number.isFinite(obj.rh)) s.rosetteH = obj.rh;
+  if (typeof obj.rp === "number" && Number.isFinite(obj.rp)) s.rosettePhiDeg = obj.rp;
+  if (obj.rs === 2 || obj.rs === 3) s.rosetteS = obj.rs;
   if (obj.pal && typeof obj.pal === "object") {
     s.tilePalette = { ...s.tilePalette, ...obj.pal };
   }

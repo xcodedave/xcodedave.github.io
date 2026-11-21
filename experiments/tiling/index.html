@@ -120,6 +120,43 @@
         </details>
       </fieldset>
 
+      <div class="row group-toggle" id="rosettes-toggle-row">
+        <label class="inline" title="Kaplan &amp; Salesin 2004 §4.2.2 rosette (Lee's construction): hexagonal petals around a central star in regular tiles. Tiles where it is invalid at the current angle keep their Hankin star.">
+          <input type="checkbox" id="show-rosettes" />
+          Rosettes
+        </label>
+      </div>
+
+      <fieldset class="group" id="rosettes-group" hidden>
+        <legend>Rosettes</legend>
+
+        <div class="row toggles" role="radiogroup" aria-label="Rosette depth s">
+          <span>Rings (s)</span>
+          <label class="inline"><input type="radio" name="rosette-s" id="rosette-s2" value="2" /> 2</label>
+          <label class="inline"><input type="radio" name="rosette-s" id="rosette-s3" value="3" checked /> 3</label>
+        </div>
+
+        <div class="row">
+          <label for="rosette-h" title="Shoulder position: MG′ = h·MG">Shoulder h <span id="rosette-h-readout">1.00</span></label>
+          <input id="rosette-h" type="range" min="0.2" max="2" value="1" step="0.01" />
+        </div>
+
+        <div class="row">
+          <label for="rosette-phi" title="Petal taper: rotates the flank about the shoulder">Taper φ <span id="rosette-phi-readout">0°</span></label>
+          <input id="rosette-phi" type="range" min="-45" max="45" value="0" step="0.5" />
+        </div>
+
+        <div class="row buttons" id="rosette-ideal-buttons">
+          <!-- filled by app.js from rosetteIdealAngles(): one
+               <button type="button" data-angle="67.5">Lee ideal 8-gon (67.5°)</button>
+               per eligible n present -->
+        </div>
+
+        <div class="row">
+          <span id="rosette-info" class="readout" aria-live="polite"></span>
+        </div>
+      </fieldset>
+
       <div class="row group-toggle">
         <label class="inline">
           <input type="checkbox" id="show-tiles" />
@@ -227,6 +264,6 @@
       <p class="hint">Drag to pan · scroll to zoom</p>
     </aside>
 
-    <script type="module" src="./app.js?v=37"></script>
+    <script type="module" src="./app.js?v=39"></script>
   </body>
 </html>

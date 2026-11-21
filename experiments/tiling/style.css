@@ -227,8 +227,30 @@ fieldset.group > details.palette:last-child {
   flex: 1;
 }
 
+/* `.row { display: flex }` overrides the `hidden` attribute, so the
+   Rosettes toggle row (hidden together with the Stars section) needs its
+   own rule. Deliberately not a global `[hidden]` rule. */
+#rosettes-toggle-row[hidden] {
+  display: none;
+}
+
+#rosette-ideal-buttons {
+  flex-wrap: wrap;
+}
+
+#rosette-ideal-buttons button {
+  flex: 1 1 auto;
+}
+
+#rosette-info {
+  font-size: 0.75rem;
+  color: #666;
+}
+
 #angle-readout,
-#zoom-readout {
+#zoom-readout,
+#rosette-h-readout,
+#rosette-phi-readout {
   font-variant-numeric: tabular-nums;
   color: #888;
   font-weight: 400;

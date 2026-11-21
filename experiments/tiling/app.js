@@ -6,7 +6,7 @@
 // panel in the top-left holds controls.
 
 import init, { TilingSession } from "./pkg/gjh_wasm.js";
-import { hexToRgb, hueShiftHex, saturateHex } from "./lib/color.js";
+import { hexToRgb, minedPaletteFromQuad } from "./lib/color.js";
 import { encodeState, decodeStateInto, urlSafeAtob } from "./lib/url-state.js";
 import { download, triggerDownload } from "./lib/download.js";
 
@@ -31,6 +31,13 @@ const DEFAULT_TILE_PALETTE = {
   12: "#9b7864",
 };
 const FALLBACK_TILE_COLOR = "#dcdcdc";
+// Defaults of the non-star colour roles. A mined dice roll resets to these so
+// a mined palette never mixes with a previously generated one.
+const DEFAULT_TILE_RIBBON_FILL = "#ffffff";
+const DEFAULT_TILE_RIBBON_STROKE = "#202020";
+const DEFAULT_BACKGROUND = "#ffffff";
+// Share of dice rolls that use the seeded generator (the rest use the mined set).
+const GEN_SHARE = 0.5;
 
 const state = {
   panX: 0,
@@ -45,6 +52,12 @@ const state = {
   tileWeave: false,
   starWeave: true,
   harmonicSnap: true,
+  // KS04 rosette design element (see the Rosettes section). Angle is the
+  // shared star angle; these are the rosette-specific controls.
+  showRosettes: false,
+  rosetteH: 1,
+  rosettePhiDeg: 0,
+  rosetteS: 3,
   // Sorted list of "harmonic" star-contact angles (in degrees) for the
   // currently loaded tiling: union of `k * 180/n` for each polygon edge
   // count n. Rebuilt on every config switch.
@@ -58,9 +71,9 @@ const state = {
   // change until they pick a colour.
   starRibbonFill: "#ffffff",
   starRibbonStroke: "#c82020",
-  tileRibbonFill: "#ffffff",
-  tileRibbonStroke: "#202020",
-  background: "#ffffff",
+  tileRibbonFill: DEFAULT_TILE_RIBBON_FILL,
+  tileRibbonStroke: DEFAULT_TILE_RIBBON_STROKE,
+  background: DEFAULT_BACKGROUND,
 };
 
 async function main() {
@@ -88,6 +101,9 @@ async function main() {
   if (hasHash) {
     const encoded = location.hash.slice(1);
     decodeStateInto(state, encoded);
+    // Keep the rosette sliders consistent with the session's clamps.
+    state.rosetteH = Math.min(2, Math.max(0.2, state.rosetteH));
+    state.rosettePhiDeg = Math.min(45, Math.max(-45, state.rosettePhiDeg));
     try {
       const obj = JSON.parse(urlSafeAtob(encoded));
       hashHadStarColors = obj && (
@@ -193,6 +209,17 @@ async function main() {
   const showStarsCb = document.getElementById("show-stars");
   const showTilesCb = document.getElementById("show-tiles");
   const starsGroup = document.getElementById("stars-group");
+  const rosettesToggleRow = document.getElementById("rosettes-toggle-row");
+  const showRosettesCb = document.getElementById("show-rosettes");
+  const rosettesGroup = document.getElementById("rosettes-group");
+  const rosetteS2 = document.getElementById("rosette-s2");
+  const rosetteS3 = document.getElementById("rosette-s3");
+  const rosetteH = document.getElementById("rosette-h");
+  const rosetteHReadout = document.getElementById("rosette-h-readout");
+  const rosettePhi = document.getElementById("rosette-phi");
+  const rosettePhiReadout = document.getElementById("rosette-phi-readout");
+  const rosetteIdealButtons = document.getElementById("rosette-ideal-buttons");
+  const rosetteInfo = document.getElementById("rosette-info");
   const tilesGroup = document.getElementById("tiles-group");
   const tileWeaveCb = document.getElementById("tile-weave");
   const starWeaveCb = document.getElementById("star-weave");
@@ -225,6 +252,10 @@ async function main() {
   // any other arrangement leaves the user-chosen layer colours dominant.
   const applyGroupVisibility = () => {
     starsGroup.hidden = !state.showStars;
+    // Rosettes modify the star layer, so the whole section follows Stars
+    // (the toggle row needs its own CSS rule: `.row { display: flex }`).
+    rosettesToggleRow.hidden = !state.showStars;
+    rosettesGroup.hidden = !(state.showStars && state.showRosettes);
     tilesGroup.hidden = !state.showTiles;
     backgroundRow.hidden = state.showStars || state.showTiles;
   };
@@ -417,6 +448,74 @@ async function main() {
     }
   };
 
+  const formatAngle = (deg) =>
+    Number.isInteger(deg) ? `${deg.toFixed(0)}°` : `${deg.toFixed(1)}°`;
+
+  // Push the four rosette controls to the session. Used at init and in
+  // `switchConfig`; neither calls the toggle handler, so a permalink with
+  // `ro=1` keeps its stored angle (the jump to Lee's ideal happens only in
+  // the `#show-rosettes` change handler).
+  const pushRosette = () => {
+    session.setRosetteS(state.rosetteS);
+    session.setRosetteH(state.rosetteH);
+    session.setRosettePhi((state.rosettePhiDeg * Math.PI) / 180);
+    session.setRosette(state.showRosettes);
+  };
+
+  const POLYGON_NAMES = { 3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 8: "octagon", 12: "dodecagon" };
+  const polygonName = (n, plural) => {
+    const base = POLYGON_NAMES[n] || `${n}-gon`;
+    return plural ? `${base}s` : base;
+  };
+
+  // Rebuild the Lee-ideal buttons (one per eligible n at the current s) and
+  // the fallback readout. Called after every star rebuild trigger: angle,
+  // config, any rosette control, and once at init.
+  const refreshRosetteUi = () => {
+    // The section is collapsed while Rosettes are off; the toggle handler
+    // refreshes when it turns them on, so skip the per-drag DOM work here.
+    if (!state.showRosettes) {
+      rosetteInfo.textContent = "";
+      return;
+    }
+    const flat = Array.from(session.rosetteIdealAngles());
+    rosetteIdealButtons.replaceChildren();
+    for (let i = 0; i + 1 < flat.length; i += 2) {
+      const n = flat[i];
+      const deg = flat[i + 1];
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.angle = String(deg);
+      btn.textContent = `Lee ideal ${n}-gon (${formatAngle(deg)})`;
+      rosetteIdealButtons.appendChild(btn);
+    }
+    let info;
+    try {
+      info = JSON.parse(session.rosetteInfo());
+    } catch (_) {
+      rosetteInfo.textContent = "";
+      return;
+    }
+    const ns = Object.keys(info.eligible).map(Number).sort((a, b) => a - b);
+    const total = ns.reduce((acc, n) => acc + info.eligible[n], 0);
+    if (total === 0) {
+      rosetteInfo.textContent = `No tile in this tiling can hold a rosette at s = ${info.s}.`;
+      return;
+    }
+    const fell = ns.filter((n) => info.fallback[n] > 0);
+    if (fell.length === 0) {
+      const built = ns.reduce((acc, n) => acc + info.built[n], 0);
+      rosetteInfo.textContent = `All ${built} rosette tile${built === 1 ? "" : "s"} built.`;
+      return;
+    }
+    const parts = fell.map((n) => {
+      const fb = info.fallback[n];
+      const el = info.eligible[n];
+      return `${fb} of ${el} ${polygonName(n, el !== 1)} kept ${fb === 1 ? "its" : "their"} star`;
+    });
+    rosetteInfo.textContent = `${parts.join("; ")} (angle outside the rosette range).`;
+  };
+
   // Sync DOM input values from `state`. Called once on init (after the hash
   // has been decoded) and on `switchConfig` (which resets pan/zoom). All
   // input elements with persisted state are updated; their own `input` /
@@ -439,6 +538,14 @@ async function main() {
     tileWeaveCb.checked = state.tileWeave;
     starWeaveCb.checked = state.starWeave;
     harmonicSnapCb.checked = state.harmonicSnap;
+    showRosettesCb.checked = state.showRosettes;
+    rosetteS2.checked = state.rosetteS === 2;
+    rosetteS3.checked = state.rosetteS !== 2;
+    rosetteH.value = String(state.rosetteH);
+    rosetteHReadout.textContent = state.rosetteH.toFixed(2);
+    rosettePhi.value = String(state.rosettePhiDeg);
+    rosettePhiReadout.textContent = formatAngle(state.rosettePhiDeg);
+    applyGroupVisibility();
     starFillInput.value = state.starFill;
     interstitialFillInput.value = state.interstitialFill;
     starRibbonFillInput.value = state.starRibbonFill;
@@ -475,11 +582,13 @@ async function main() {
   session.setShowTiles(state.showTiles);
   session.setShowTileWeave(state.tileWeave);
   session.setShowStarWeave(state.starWeave);
+  pushRosette();
   pushColors();
   rebuildTilePalette();
   rebuildHarmonics();
   updateZoomReadout();
   applyBodyBackground();
+  refreshRosetteUi();
   draw();
 
   // --- Controls ----------------------------------------------------------
@@ -498,10 +607,12 @@ async function main() {
     session.setShowTiles(state.showTiles);
     session.setShowTileWeave(state.tileWeave);
     session.setShowStarWeave(state.starWeave);
+    pushRosette();
     pushColors();
     rebuildTilePalette();
     rebuildHarmonics();
     updateZoomReadout();
+    refreshRosetteUi();
     draw();
     scheduleHashUpdate();
   };
@@ -587,8 +698,19 @@ async function main() {
     scheduleHashUpdate();
   });
 
-  const formatAngle = (deg) =>
-    Number.isInteger(deg) ? `${deg.toFixed(0)}°` : `${deg.toFixed(1)}°`;
+  // The single path for every star-angle change. Snaps to a harmonic only
+  // when `snap` is true and harmonic snap is on. There is no rAF loop, so it
+  // draws itself.
+  const setAngleDeg = (deg, { snap = true } = {}) => {
+    const v = snap ? snapAngle(deg) : deg;
+    state.angleDeg = v;
+    angle.value = String(v);
+    angleReadout.textContent = formatAngle(v);
+    session.setStarAngle((v * Math.PI) / 180);
+    refreshRosetteUi();
+    draw();
+    scheduleHashUpdate();
+  };
 
   // Live slider drag: track the raw value, no snapping. Same rationale as
   // the collapsed-mobile horizontal touch-drag — pulling the angle onto a
@@ -596,43 +718,83 @@ async function main() {
   // points and then jumping past them. The `change` handler below
   // applies snap once the user lets go.
   angle.addEventListener("input", () => {
-    const raw = parseFloat(angle.value);
-    state.angleDeg = raw;
-    angleReadout.textContent = formatAngle(state.angleDeg);
-    session.setStarAngle((state.angleDeg * Math.PI) / 180);
-    draw();
-    scheduleHashUpdate();
+    setAngleDeg(parseFloat(angle.value), { snap: false });
   });
 
   // `change` fires once interaction ends (mouseup / touchend / blur after
   // keyboard nudge) — apply the harmonic snap then so the final resting
   // angle settles on a harmonic when one is in range.
   angle.addEventListener("change", () => {
-    const snapped = snapAngle(state.angleDeg);
-    if (snapped !== state.angleDeg) {
-      state.angleDeg = snapped;
-      angle.value = String(snapped);
-      angleReadout.textContent = formatAngle(state.angleDeg);
-      session.setStarAngle((state.angleDeg * Math.PI) / 180);
-      draw();
-      scheduleHashUpdate();
-    }
+    setAngleDeg(state.angleDeg, { snap: true });
   });
 
   harmonicSnapCb.addEventListener("change", () => {
     state.harmonicSnap = harmonicSnapCb.checked;
     // Snap the current value immediately if turning the toggle on.
     if (state.harmonicSnap) {
-      const snapped = snapAngle(state.angleDeg);
-      if (snapped !== state.angleDeg) {
-        state.angleDeg = snapped;
-        angle.value = String(snapped);
-        angleReadout.textContent = formatAngle(state.angleDeg);
-        session.setStarAngle((state.angleDeg * Math.PI) / 180);
-        draw();
-      }
+      setAngleDeg(state.angleDeg, { snap: true });
     }
     scheduleHashUpdate();
+  });
+
+  // --- Rosettes ------------------------------------------------------------
+
+  // Turning Rosettes ON jumps the star angle to Lee's ideal for the largest
+  // eligible n at the current s (4.8.8 -> 67.5, 3.12.12 -> 75). Only this
+  // user event does that: permalink restore, an s change and a tiling change
+  // never move the angle. With no eligible tile the angle stays and the
+  // readout says so.
+  showRosettesCb.addEventListener("change", () => {
+    state.showRosettes = showRosettesCb.checked;
+    session.setRosette(state.showRosettes);
+    if (state.showRosettes) {
+      const flat = Array.from(session.rosetteIdealAngles());
+      if (flat.length >= 2) {
+        setAngleDeg(flat[flat.length - 1], { snap: true });
+      }
+    }
+    applyGroupVisibility();
+    refreshRosetteUi();
+    draw();
+    scheduleHashUpdate();
+  });
+
+  const onRosetteS = (s) => {
+    state.rosetteS = s;
+    session.setRosetteS(s);
+    refreshRosetteUi();
+    draw();
+    scheduleHashUpdate();
+  };
+  rosetteS2.addEventListener("change", () => {
+    if (rosetteS2.checked) onRosetteS(2);
+  });
+  rosetteS3.addEventListener("change", () => {
+    if (rosetteS3.checked) onRosetteS(3);
+  });
+
+  rosetteH.addEventListener("input", () => {
+    state.rosetteH = parseFloat(rosetteH.value);
+    rosetteHReadout.textContent = state.rosetteH.toFixed(2);
+    session.setRosetteH(state.rosetteH);
+    refreshRosetteUi();
+    draw();
+    scheduleHashUpdate();
+  });
+
+  rosettePhi.addEventListener("input", () => {
+    state.rosettePhiDeg = parseFloat(rosettePhi.value);
+    rosettePhiReadout.textContent = formatAngle(state.rosettePhiDeg);
+    session.setRosettePhi((state.rosettePhiDeg * Math.PI) / 180);
+    refreshRosetteUi();
+    draw();
+    scheduleHashUpdate();
+  });
+
+  rosetteIdealButtons.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-angle]");
+    if (!btn) return;
+    setAngleDeg(parseFloat(btn.dataset.angle), { snap: true });
   });
 
   const updateTileBandReadout = () => {
@@ -730,46 +892,27 @@ async function main() {
   // synchronous call with no fetch, no parsing, no failure mode. The launch
   // randomiser fires immediately unless the user followed a permalink that
   // carried explicit star colours — those must not be clobbered.
-  const applyRandomPalette = () => {
-    // 50% of the time, rotate the whole palette in HSL hue space by a
-    // uniform random amount. All four colours shift by the same angle so
-    // the relative palette structure is preserved — only the colour key
-    // changes (e.g. an ochre/terracotta palette becomes teal/violet).
-    let quad = Array.from(TilingSession.randomPalette());
-    if (Math.random() < 0.5) {
-      const delta = Math.random() * 360;
-      quad = quad.map((c) => hueShiftHex(c, delta));
+  // Mined roll: a palette from the baked set plus random hue / saturation /
+  // shuffle / darken tweaks (see `minedPaletteFromQuad`). It only sets the
+  // four star-layer colours, so it first resets every other role to its
+  // default (unless `keepNonStar`, used for the launch roll of a permalink
+  // that carries its own tile and background colours).
+  const applyMinedPalette = ({ keepNonStar }) => {
+    if (!keepNonStar) {
+      state.tilePalette = { ...DEFAULT_TILE_PALETTE };
+      tileRibbonFillInput.value = DEFAULT_TILE_RIBBON_FILL;
+      tileRibbonStrokeInput.value = DEFAULT_TILE_RIBBON_STROKE;
+      backgroundInput.value = DEFAULT_BACKGROUND;
+      tileRibbonFillInput.dispatchEvent(new Event("input"));
+      tileRibbonStrokeInput.dispatchEvent(new Event("input"));
+      backgroundInput.dispatchEvent(new Event("input"));
+      pushColors();
+      rebuildTilePalette();
     }
-    // Always nudge saturation up by a uniform random factor in [0, 0.35].
-    // Mined palettes lean muted (real-world tile photography); a small
-    // multiplicative boost pops them on the canvas without over-cooking
-    // the already-vivid ones (clamped at 1.0).
-    const satBoost = Math.random() * 0.35;
-    if (satBoost > 0) {
-      quad = quad.map((c) => saturateHex(c, satBoost));
-    }
-    // 50% of the time, shuffle the four colours within the palette so they
-    // map differently onto (star, polygon, ribbon-fill, ribbon-stroke) —
-    // gives the dice button more variety without enlarging the palette set.
-    // Fisher–Yates over a 4-element array is fine; no Set needed.
-    if (Math.random() < 0.5) {
-      for (let i = quad.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [quad[i], quad[j]] = [quad[j], quad[i]];
-      }
-    }
-    let [sf, intf, rf, rs] = quad;
-    // 50% of the time, override the ribbon-stroke (edge) colour with a
-    // darkened version of the ribbon fill (between 65% and 95% darker,
-    // uniform) — gives the weave a tonal-on-tonal feel rather than always
-    // pulling a fourth distinct hue, and the random magnitude keeps it
-    // from settling into one "look".
-    if (Math.random() < 0.5) {
-      const [r, g, b] = hexToRgb(rf);
-      const keep = 0.05 + Math.random() * 0.30; // 5–35% of original brightness
-      const darken = (c) => Math.round(c * keep).toString(16).padStart(2, "0");
-      rs = `#${darken(r)}${darken(g)}${darken(b)}`;
-    }
+    const [sf, intf, rf, rs] = minedPaletteFromQuad(
+      Array.from(TilingSession.randomPalette()),
+      Math.random,
+    );
     starFillInput.value = sf;
     interstitialFillInput.value = intf;
     starRibbonFillInput.value = rf;
@@ -781,7 +924,47 @@ async function main() {
     starRibbonFillInput.dispatchEvent(new Event("input"));
     starRibbonStrokeInput.dispatchEvent(new Event("input"));
   };
-  paletteRandomizeBtn.addEventListener("click", applyRandomPalette);
+
+  // Generated roll: all twelve colours from the seeded generator, in the
+  // order background, tile3/4/6/8/12, star fill, interstitial, star ribbon
+  // fill, star ribbon stroke, tile ribbon fill, tile ribbon stroke. The
+  // colours already satisfy the generator's contrast constraints, so no
+  // hue shift / saturation / shuffle / darken steps are applied. With
+  // `keepNonStar` only the four star-layer roles (indices 6-9) are applied.
+  const applyGeneratedPalette = ({ keepNonStar }) => {
+    const seed = Math.floor(Math.random() * 2 ** 32) >>> 0;
+    const c = Array.from(TilingSession.generatePalette(seed));
+    state.starFill = c[6];
+    state.interstitialFill = c[7];
+    state.starRibbonFill = c[8];
+    state.starRibbonStroke = c[9];
+    starFillInput.value = c[6];
+    interstitialFillInput.value = c[7];
+    starRibbonFillInput.value = c[8];
+    starRibbonStrokeInput.value = c[9];
+    if (!keepNonStar) {
+      state.background = c[0];
+      state.tilePalette = { 3: c[1], 4: c[2], 6: c[3], 8: c[4], 12: c[5] };
+      state.tileRibbonFill = c[10];
+      state.tileRibbonStroke = c[11];
+      backgroundInput.value = c[0];
+      tileRibbonFillInput.value = c[10];
+      tileRibbonStrokeInput.value = c[11];
+    }
+    pushColors();
+    rebuildTilePalette();
+    applyBodyBackground();
+    draw();
+    scheduleHashUpdate();
+  };
+
+  // Dice: half of the rolls use the generator, half the mined set. The
+  // options object is destructured so a click Event can never be read as one.
+  const applyRandomPalette = ({ keepNonStar = false } = {}) => {
+    if (Math.random() < GEN_SHARE) applyGeneratedPalette({ keepNonStar });
+    else applyMinedPalette({ keepNonStar });
+  };
+  paletteRandomizeBtn.addEventListener("click", () => applyRandomPalette());
   paletteRandomizeBtn.disabled = false;
   // Launch behaviour:
   //   - No hash at all: roll a fully random tiling + star settings, exactly
@@ -792,7 +975,8 @@ async function main() {
   if (!hasHash) {
     randomBtn.click();
   } else if (!hashHadStarColors) {
-    applyRandomPalette();
+    // Keep the permalink's tile and background colours; roll only the star layer.
+    applyRandomPalette({ keepNonStar: true });
   }
 
   // Pointer-based pan + pinch zoom. Pointer Events unify mouse, pen, and
@@ -870,10 +1054,7 @@ async function main() {
         // stall and then jump. The slider still snaps when grabbed.
         if (dx !== 0) {
           const next = Math.max(0, Math.min(90, state.angleDeg + dx * (90 / 360) * 1.25));
-          state.angleDeg = next;
-          angle.value = String(next);
-          angleReadout.textContent = formatAngle(state.angleDeg);
-          session.setStarAngle((state.angleDeg * Math.PI) / 180);
+          setAngleDeg(next, { snap: false });
         }
         // Drag up = thicker ribbon (matches the up-arrow-as-"more" idiom).
         // ~180px of vertical travel = full 0–40px sweep (2× the original
@@ -927,15 +1108,7 @@ async function main() {
     // the live drag (see the pointermove notes) to keep motion smooth, but
     // the *final* angle should still settle onto a harmonic when snap is on.
     if (wasTouch && wasCollapsed && pointers.size === 0) {
-      const snapped = snapAngle(state.angleDeg);
-      if (snapped !== state.angleDeg) {
-        state.angleDeg = snapped;
-        angle.value = String(snapped);
-        angleReadout.textContent = formatAngle(state.angleDeg);
-        session.setStarAngle((state.angleDeg * Math.PI) / 180);
-        draw();
-        scheduleHashUpdate();
-      }
+      setAngleDeg(state.angleDeg, { snap: true });
     }
     resampleGesture();
   };

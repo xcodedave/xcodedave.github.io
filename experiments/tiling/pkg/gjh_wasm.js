@@ -85,6 +85,20 @@ export class TilingSession {
         }
     }
     /**
+     * Generate a tilework palette from a seed: 12 "#rrggbb" strings in the
+     * order background, tile3, tile4, tile6, tile8, tile12, star_fill,
+     * interstitial, star_ribbon_fill, star_ribbon_stroke, tile_ribbon_fill,
+     * tile_ribbon_stroke. A pure function of `seed`.
+     * @param {number} seed
+     * @returns {any[]}
+     */
+    static generatePalette(seed) {
+        const ret = wasm.tilingsession_generatePalette(seed);
+        var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
      * Returns the 91 library configs as a JS array of strings, one per
      * notation. Used to populate the dropdown.
      * @returns {any[]}
@@ -131,6 +145,40 @@ export class TilingSession {
         wasm.tilingsession_render(this.__wbg_ptr, ctx);
     }
     /**
+     * Lee's ideal code angles for the rosette-eligible tiles of the current
+     * tiling at the current s, as a flat `[n, degrees, n, degrees, …]`
+     * sorted by ascending n, with degrees = 90 − 180/n. Computed straight
+     * from the cell polygons: independent of whether rosettes are on and of
+     * the dirty flags.
+     * @returns {Float64Array}
+     */
+    rosetteIdealAngles() {
+        const ret = wasm.tilingsession_rosetteIdealAngles(this.__wbg_ptr);
+        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+        return v1;
+    }
+    /**
+     * Rosette readout as JSON, e.g.
+     * `{"on":true,"s":3,"eligible":{"6":1},"built":{"6":0},"fallback":{"6":1},"reasons":{"InnerDegenerate":1}}`.
+     * Rebuilds the star layer first when it is dirty, so the readout is
+     * never stale (for instance straight after a setter). With rosettes
+     * off the count maps are empty.
+     * @returns {string}
+     */
+    rosetteInfo() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.tilingsession_rosetteInfo(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * Set the canvas background colour.
      * @param {number} r
      * @param {number} g
@@ -157,6 +205,38 @@ export class TilingSession {
      */
     setInterstitialFillColor(r, g, b) {
         wasm.tilingsession_setInterstitialFillColor(this.__wbg_ptr, r, g, b);
+    }
+    /**
+     * Turn the KS04 rosette design element on or off. Tiles where the
+     * rosette is invalid at the current angle keep their Hankin star.
+     * @param {boolean} on
+     */
+    setRosette(on) {
+        wasm.tilingsession_setRosette(this.__wbg_ptr, on);
+    }
+    /**
+     * Rosette shoulder position h (MG' = h MG). Clamped to [0.2, 2];
+     * non-finite values are ignored.
+     * @param {number} h
+     */
+    setRosetteH(h) {
+        wasm.tilingsession_setRosetteH(this.__wbg_ptr, h);
+    }
+    /**
+     * Rosette taper φ in radians. Clamped to ±45 degrees; non-finite values
+     * are ignored.
+     * @param {number} radians
+     */
+    setRosettePhi(radians) {
+        wasm.tilingsession_setRosettePhi(this.__wbg_ptr, radians);
+    }
+    /**
+     * Rosette ring count s: 2 or 3 (anything else is clamped to the
+     * nearest).
+     * @param {number} s
+     */
+    setRosetteS(s) {
+        wasm.tilingsession_setRosetteS(this.__wbg_ptr, s);
     }
     /**
      * Toggle the star-layer Cromwell weave.
@@ -313,7 +393,9 @@ export class TilingSession {
     /**
      * Render the current state to an SVG document and return it as a string.
      * Diagnostic counters for the most recent weave build, as a JSON string.
-     * Shape: `{"tile_motif": {...} | null, "star_motif": {...} | null}`.
+     * Shape: `{"tile_motif": {...} | null, "star_motif": {...} | null,
+     * "rosette_weave_fallbacks": N}`, where N counts rosette tiles that fell
+     * back to Hankin in the clamped-angle star weave (0 when not clamped).
      * `null` for a layer means its weave has not been built yet (it was
      * disabled, or no rebuild happened since session creation) or the
      * non-lattice fallback geometry is active (no weave is drawn there).

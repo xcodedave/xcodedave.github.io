@@ -68,3 +68,51 @@ export function saturateHex(hex, factor) {
   const [r2, g2, b2] = hslToRgb(h, s2, l);
   return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
 }
+
+// The mined-palette dice roll, extracted from app.js so it can be tested
+// without a DOM. `quad` is [star fill, interstitial, ribbon fill, ribbon
+// stroke] as hex strings; `rand` is a Math.random-like source. The operations
+// and the order of `rand()` calls are exactly those of the original
+// applyRandomPalette body (after the quad was drawn from the baked set).
+export function minedPaletteFromQuad(quad, rand) {
+  quad = quad.slice();
+  // 50% of the time, rotate the whole palette in HSL hue space by a
+  // uniform random amount. All four colours shift by the same angle so
+  // the relative palette structure is preserved — only the colour key
+  // changes (e.g. an ochre/terracotta palette becomes teal/violet).
+  if (rand() < 0.5) {
+    const delta = rand() * 360;
+    quad = quad.map((c) => hueShiftHex(c, delta));
+  }
+  // Always nudge saturation up by a uniform random factor in [0, 0.35].
+  // Mined palettes lean muted (real-world tile photography); a small
+  // multiplicative boost pops them on the canvas without over-cooking
+  // the already-vivid ones (clamped at 1.0).
+  const satBoost = rand() * 0.35;
+  if (satBoost > 0) {
+    quad = quad.map((c) => saturateHex(c, satBoost));
+  }
+  // 50% of the time, shuffle the four colours within the palette so they
+  // map differently onto (star, polygon, ribbon-fill, ribbon-stroke) —
+  // gives the dice button more variety without enlarging the palette set.
+  // Fisher–Yates over a 4-element array is fine; no Set needed.
+  if (rand() < 0.5) {
+    for (let i = quad.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [quad[i], quad[j]] = [quad[j], quad[i]];
+    }
+  }
+  let [sf, intf, rf, rs] = quad;
+  // 50% of the time, override the ribbon-stroke (edge) colour with a
+  // darkened version of the ribbon fill (between 65% and 95% darker,
+  // uniform) — gives the weave a tonal-on-tonal feel rather than always
+  // pulling a fourth distinct hue, and the random magnitude keeps it
+  // from settling into one "look".
+  if (rand() < 0.5) {
+    const [r, g, b] = hexToRgb(rf);
+    const keep = 0.05 + rand() * 0.30; // 5–35% of original brightness
+    const darken = (c) => Math.round(c * keep).toString(16).padStart(2, "0");
+    rs = `#${darken(r)}${darken(g)}${darken(b)}`;
+  }
+  return [sf, intf, rf, rs];
+}

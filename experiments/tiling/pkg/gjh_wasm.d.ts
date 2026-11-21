@@ -30,6 +30,13 @@ export class TilingSession {
      */
     exportSvg(): string;
     /**
+     * Generate a tilework palette from a seed: 12 "#rrggbb" strings in the
+     * order background, tile3, tile4, tile6, tile8, tile12, star_fill,
+     * interstitial, star_ribbon_fill, star_ribbon_stroke, tile_ribbon_fill,
+     * tile_ribbon_stroke. A pure function of `seed`.
+     */
+    static generatePalette(seed: number): any[];
+    /**
      * Returns the 91 library configs as a JS array of strings, one per
      * notation. Used to populate the dropdown.
      */
@@ -55,6 +62,22 @@ export class TilingSession {
      */
     render(ctx: CanvasRenderingContext2D): void;
     /**
+     * Lee's ideal code angles for the rosette-eligible tiles of the current
+     * tiling at the current s, as a flat `[n, degrees, n, degrees, …]`
+     * sorted by ascending n, with degrees = 90 − 180/n. Computed straight
+     * from the cell polygons: independent of whether rosettes are on and of
+     * the dirty flags.
+     */
+    rosetteIdealAngles(): Float64Array;
+    /**
+     * Rosette readout as JSON, e.g.
+     * `{"on":true,"s":3,"eligible":{"6":1},"built":{"6":0},"fallback":{"6":1},"reasons":{"InnerDegenerate":1}}`.
+     * Rebuilds the star layer first when it is dirty, so the readout is
+     * never stale (for instance straight after a setter). With rosettes
+     * off the count maps are empty.
+     */
+    rosetteInfo(): string;
+    /**
      * Set the canvas background colour.
      */
     setBackground(r: number, g: number, b: number): void;
@@ -69,6 +92,26 @@ export class TilingSession {
      * within each parent tile. Only visible when `show_stars` is on.
      */
     setInterstitialFillColor(r: number, g: number, b: number): void;
+    /**
+     * Turn the KS04 rosette design element on or off. Tiles where the
+     * rosette is invalid at the current angle keep their Hankin star.
+     */
+    setRosette(on: boolean): void;
+    /**
+     * Rosette shoulder position h (MG' = h MG). Clamped to [0.2, 2];
+     * non-finite values are ignored.
+     */
+    setRosetteH(h: number): void;
+    /**
+     * Rosette taper φ in radians. Clamped to ±45 degrees; non-finite values
+     * are ignored.
+     */
+    setRosettePhi(radians: number): void;
+    /**
+     * Rosette ring count s: 2 or 3 (anything else is clamped to the
+     * nearest).
+     */
+    setRosetteS(s: number): void;
     /**
      * Toggle the star-layer Cromwell weave.
      */
@@ -153,7 +196,9 @@ export class TilingSession {
     /**
      * Render the current state to an SVG document and return it as a string.
      * Diagnostic counters for the most recent weave build, as a JSON string.
-     * Shape: `{"tile_motif": {...} | null, "star_motif": {...} | null}`.
+     * Shape: `{"tile_motif": {...} | null, "star_motif": {...} | null,
+     * "rosette_weave_fallbacks": N}`, where N counts rosette tiles that fell
+     * back to Hankin in the clamped-angle star weave (0 when not clamped).
      * `null` for a layer means its weave has not been built yet (it was
      * disabled, or no rebuild happened since session creation) or the
      * non-lattice fallback geometry is active (no weave is drawn there).
@@ -170,13 +215,20 @@ export interface InitOutput {
     readonly tilingsession_currentConfig: (a: number) => [number, number];
     readonly tilingsession_exportDxf: (a: number) => [number, number];
     readonly tilingsession_exportSvg: (a: number) => [number, number];
+    readonly tilingsession_generatePalette: (a: number) => [number, number];
     readonly tilingsession_listConfigs: () => [number, number];
     readonly tilingsession_new: (a: number) => number;
     readonly tilingsession_randomPalette: () => [number, number];
     readonly tilingsession_render: (a: number, b: any) => void;
+    readonly tilingsession_rosetteIdealAngles: (a: number) => [number, number];
+    readonly tilingsession_rosetteInfo: (a: number) => [number, number];
     readonly tilingsession_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly tilingsession_setConfig: (a: number, b: number) => void;
     readonly tilingsession_setInterstitialFillColor: (a: number, b: number, c: number, d: number) => void;
+    readonly tilingsession_setRosette: (a: number, b: number) => void;
+    readonly tilingsession_setRosetteH: (a: number, b: number) => void;
+    readonly tilingsession_setRosettePhi: (a: number, b: number) => void;
+    readonly tilingsession_setRosetteS: (a: number, b: number) => void;
     readonly tilingsession_setShowStarWeave: (a: number, b: number) => void;
     readonly tilingsession_setShowStars: (a: number, b: number) => void;
     readonly tilingsession_setShowTileWeave: (a: number, b: number) => void;
