@@ -13,7 +13,7 @@ function urlSafeBtoa(s) {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function urlSafeAtob(s) {
+export function urlSafeAtob(s) {
   const padLen = (4 - (s.length % 4)) % 4;
   return atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(padLen));
 }
@@ -54,6 +54,8 @@ export function decodeStateInto(s, encoded) {
   if (typeof obj !== "object" || obj === null) return false;
   if (Number.isInteger(obj.c)) s.configIdx = obj.c;
   if (typeof obj.a === "number") s.angleDeg = obj.a;
+  // Legacy permalinks may carry keys for two removed controls (rosette
+  // depth, odd-sided fork offset); they are ignored like any unknown key.
   // Per-layer band widths (new). Fall back to legacy `b` (one slider for
   // both layers) so old URL hashes keep working.
   if (typeof obj.tb === "number") s.tileBandWidth = obj.tb;
@@ -67,6 +69,9 @@ export function decodeStateInto(s, encoded) {
   if (obj.ss !== undefined) s.showStars = !!obj.ss;
   if (obj.tw !== undefined) s.tileWeave = !!obj.tw;
   if (obj.sw !== undefined) s.starWeave = !!obj.sw;
+  // `swl` (legacy star weave) was removed with the legacy engine; old
+  // permalinks may still carry it. It is ignored, so they still load.
+  if (obj.swl !== undefined) { /* ignored */ }
   if (obj.hs !== undefined) s.harmonicSnap = !!obj.hs;
   if (obj.pal && typeof obj.pal === "object") {
     s.tilePalette = { ...s.tilePalette, ...obj.pal };

@@ -23,8 +23,10 @@ export class TilingSession {
      */
     exportDxf(): string;
     /**
-     * Uses the same draw pipeline as `render`, so the export matches the
-     * on-screen view.
+     * Exports exactly the current on-screen view (canvas size, pan and
+     * zoom): the viewBox is the canvas centred on the origin and the root
+     * transform is `translate(pan) scale(zoom)`. Uses the same draw pipeline
+     * as `render`, with offsets stamped for the exported frame itself.
      */
     exportSvg(): string;
     /**
@@ -151,14 +153,10 @@ export class TilingSession {
     /**
      * Render the current state to an SVG document and return it as a string.
      * Diagnostic counters for the most recent weave build, as a JSON string.
-     * Shape:
-     *   {"tile":{"strands":N, "components":C, "crossings":T,
-     *            "violations_zero":Z, "violations_many":M, ...} | null,
-     *    "star":{...} | null}
-     * `null` for a layer means that layer's weave has not been built yet
-     * (either it was disabled or no rebuild happened since session creation),
-     * or it was built via the non-lattice fallback path which does not emit
-     * stats.
+     * Shape: `{"tile_motif": {...} | null, "star_motif": {...} | null}`.
+     * `null` for a layer means its weave has not been built yet (it was
+     * disabled, or no rebuild happened since session creation) or the
+     * non-lattice fallback geometry is active (no weave is drawn there).
      */
     weaveStatsJson(): string;
 }

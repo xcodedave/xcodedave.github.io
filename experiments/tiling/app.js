@@ -7,8 +7,14 @@
 
 import init, { TilingSession } from "./pkg/gjh_wasm.js";
 import { hexToRgb, hueShiftHex, saturateHex } from "./lib/color.js";
-import { encodeState, decodeStateInto } from "./lib/url-state.js";
+import { encodeState, decodeStateInto, urlSafeAtob } from "./lib/url-state.js";
 import { download, triggerDownload } from "./lib/download.js";
+
+// Backing-store pixel ratio, capped at 2: a 3x phone screen would otherwise
+// raster 2.25x the pixels of 2x for no visible gain. PNG and video export
+// read the backing store, so they drop to 2x on such devices; SVG and DXF
+// exports are unaffected. Pointer/world mapping is in CSS px and unchanged.
+const canvasDpr = () => Math.min(window.devicePixelRatio || 1, 2);
 
 const RESET_ZOOM = 1.0;
 const MIN_ZOOM = 0.2;
@@ -248,7 +254,7 @@ async function main() {
 
   // Resize canvas to viewport for crisp drawing on HiDPI.
   const sizeCanvas = () => {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = canvasDpr();
     canvas.width = Math.max(1, Math.floor(window.innerWidth * dpr));
     canvas.height = Math.max(1, Math.floor(window.innerHeight * dpr));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1383,7 +1389,7 @@ async function main() {
     // requires even dimensions").
     const evenify = (n) => Math.max(2, n - (n % 2));
     initVideoRegionIfNeeded();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = canvasDpr();
     const tlScr = worldToScreen(videoRegion.x, videoRegion.y);
     const brScr = worldToScreen(videoRegion.x + videoRegion.w, videoRegion.y + videoRegion.h);
     const sx0 = Math.max(0, Math.round(tlScr.sx * dpr));
@@ -1507,6 +1513,87 @@ async function main() {
     videoRecording = false;
     videoBtn.disabled = false;
   });
+
+  // --- ?bench=1 timing harness -------------------------------------------
+  // Loads config 56 at zoom 0.5 with the star weave on (plus tiles + stars,
+  // matching the native counting test), runs 120 scripted pan renders, times
+  // each `session.render` call with performance.now() and shows the mean and
+  // p95 in an overlay and in the console. A 1x1 `getImageData` after each
+  // render forces the browser to flush queued canvas work, so "flushed" also
+  // covers rasterisation; "render" is the wasm call alone.
+  if (new URLSearchParams(location.search).get("bench") === "1") {
+    const BENCH_CFG = 56;
+    const BENCH_FRAMES = 120;
+    const BENCH_WARMUP = 5;
+    const overlay = document.createElement("pre");
+    overlay.style.cssText =
+      "position:fixed;right:8px;bottom:8px;margin:0;padding:8px 10px;" +
+      "background:rgba(0,0,0,.8);color:#fff;font:12px/1.4 monospace;" +
+      "z-index:9999;pointer-events:none;white-space:pre";
+    overlay.textContent = "bench: running...";
+    document.body.appendChild(overlay);
+
+    const pct = (sorted, p) =>
+      sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+    const stats = (xs) => {
+      const sorted = xs.slice().sort((a, b) => a - b);
+      const mean = xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+      return { mean, p95: pct(sorted, 0.95), max: sorted[sorted.length - 1] };
+    };
+    const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+    const runBench = async () => {
+      // Config 56, zoom 0.5, tiles + stars + star weave, no tile weave.
+      switchConfig(BENCH_CFG);
+      state.zoom = 0.5;
+      state.panX = 0;
+      state.panY = 0;
+      state.showTiles = true;
+      state.showStars = true;
+      state.starWeave = true;
+      state.tileWeave = false;
+      session.setShowTiles(true);
+      session.setShowStars(true);
+      session.setShowStarWeave(true);
+      session.setShowTileWeave(false);
+      applyStateToDom();
+      updateZoomReadout();
+
+      const renderMs = [];
+      const flushedMs = [];
+      for (let i = 0; i < BENCH_WARMUP + BENCH_FRAMES; i++) {
+        await nextFrame();
+        // Scripted pan: a circle of radius 150 css px, one lap over the run.
+        const a = (i / BENCH_FRAMES) * 2 * Math.PI;
+        state.panX = 150 * Math.cos(a) - 150;
+        state.panY = 150 * Math.sin(a);
+        pushViewport();
+        const t0 = performance.now();
+        session.render(ctx);
+        const t1 = performance.now();
+        ctx.getImageData(0, 0, 1, 1);
+        const t2 = performance.now();
+        if (i >= BENCH_WARMUP) {
+          renderMs.push(t1 - t0);
+          flushedMs.push(t2 - t0);
+        }
+      }
+      draw();
+      const r = stats(renderMs);
+      const f = stats(flushedMs);
+      const text =
+        `bench cfg ${BENCH_CFG} zoom 0.5 star weave, ${BENCH_FRAMES} frames, ` +
+        `${window.innerWidth}x${window.innerHeight} @${canvasDpr()}x\n` +
+        `render   mean ${r.mean.toFixed(2)} ms  p95 ${r.p95.toFixed(2)} ms  max ${r.max.toFixed(2)} ms\n` +
+        `flushed  mean ${f.mean.toFixed(2)} ms  p95 ${f.p95.toFixed(2)} ms  max ${f.max.toFixed(2)} ms`;
+      overlay.textContent = text;
+      console.log(text);
+    };
+    runBench().catch((e) => {
+      overlay.textContent = "bench failed: " + String(e);
+      console.error(e);
+    });
+  }
 }
 
 main().catch((err) => {

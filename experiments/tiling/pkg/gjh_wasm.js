@@ -66,8 +66,10 @@ export class TilingSession {
         }
     }
     /**
-     * Uses the same draw pipeline as `render`, so the export matches the
-     * on-screen view.
+     * Exports exactly the current on-screen view (canvas size, pan and
+     * zoom): the viewBox is the canvas centred on the origin and the root
+     * transform is `translate(pan) scale(zoom)`. Uses the same draw pipeline
+     * as `render`, with offsets stamped for the exported frame itself.
      * @returns {string}
      */
     exportSvg() {
@@ -311,14 +313,10 @@ export class TilingSession {
     /**
      * Render the current state to an SVG document and return it as a string.
      * Diagnostic counters for the most recent weave build, as a JSON string.
-     * Shape:
-     *   {"tile":{"strands":N, "components":C, "crossings":T,
-     *            "violations_zero":Z, "violations_many":M, ...} | null,
-     *    "star":{...} | null}
-     * `null` for a layer means that layer's weave has not been built yet
-     * (either it was disabled or no rebuild happened since session creation),
-     * or it was built via the non-lattice fallback path which does not emit
-     * stats.
+     * Shape: `{"tile_motif": {...} | null, "star_motif": {...} | null}`.
+     * `null` for a layer means its weave has not been built yet (it was
+     * disabled, or no rebuild happened since session creation) or the
+     * non-lattice fallback geometry is active (no weave is drawn there).
      * @returns {string}
      */
     weaveStatsJson() {
@@ -341,17 +339,8 @@ function __wbg_get_imports() {
         __wbg___wbindgen_throw_9c31b086c2b26051: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_beginPath_0362b3134ed67152: function(arg0) {
-            arg0.beginPath();
-        },
         __wbg_clearRect_1ea64f387215d3b8: function(arg0, arg1, arg2, arg3, arg4) {
             arg0.clearRect(arg1, arg2, arg3, arg4);
-        },
-        __wbg_closePath_404039b8951c60c5: function(arg0) {
-            arg0.closePath();
-        },
-        __wbg_closePath_ab8775c8f9ce941f: function(arg0) {
-            arg0.closePath();
         },
         __wbg_fillRect_4f7134801b257e68: function(arg0, arg1, arg2, arg3, arg4) {
             arg0.fillRect(arg1, arg2, arg3, arg4);
@@ -362,20 +351,8 @@ function __wbg_get_imports() {
         __wbg_fill_4468eb64d6ad19e2: function(arg0, arg1, arg2) {
             arg0.fill(arg1, __wbindgen_enum_CanvasWindingRule[arg2]);
         },
-        __wbg_lineTo_72d6b123d28ab168: function(arg0, arg1, arg2) {
-            arg0.lineTo(arg1, arg2);
-        },
-        __wbg_lineTo_f83e8a14258ea4ae: function(arg0, arg1, arg2) {
-            arg0.lineTo(arg1, arg2);
-        },
-        __wbg_moveTo_11bf5a977e6b8610: function(arg0, arg1, arg2) {
-            arg0.moveTo(arg1, arg2);
-        },
-        __wbg_moveTo_930aede484e3c1bc: function(arg0, arg1, arg2) {
-            arg0.moveTo(arg1, arg2);
-        },
-        __wbg_new_cc42efbe5a7cd793: function() { return handleError(function () {
-            const ret = new Path2D();
+        __wbg_new_with_path_string_2da4d10f4ce12609: function() { return handleError(function (arg0, arg1) {
+            const ret = new Path2D(getStringFromWasm0(arg0, arg1));
             return ret;
         }, arguments); },
         __wbg_random_a8dfe52b70cb65a5: function() {
@@ -408,9 +385,6 @@ function __wbg_get_imports() {
         },
         __wbg_stroke_1e9a53ffb709ce84: function(arg0, arg1) {
             arg0.stroke(arg1);
-        },
-        __wbg_stroke_82139a335b371e81: function(arg0) {
-            arg0.stroke();
         },
         __wbg_translate_60b6d2cb9b18fba1: function() { return handleError(function (arg0, arg1, arg2) {
             arg0.translate(arg1, arg2);
